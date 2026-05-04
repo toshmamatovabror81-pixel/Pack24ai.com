@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import {
     Bot, Users, ShoppingCart, Save, RefreshCcw,
     Smartphone, Globe, Loader2, Package, Wallet,
-    CheckCircle2, Clock3, TrendingUp, AlertCircle,
+    CheckCircle2, Clock3,
     Copy, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -34,7 +34,7 @@ export default function TelegramBotPage() {
     const [mainButtonText, setMainButtonText] = useState("Do'kon 🏪");
     const [salesChatId, setSalesChatId] = useState('');
     const [botUsername, setBotUsername] = useState('@...');
-    const [botName, setBotName] = useState('Pack24 Bot');
+    const [botName] = useState('Pack24 Bot');
     const [isActive, setIsActive] = useState(false);
     const [webhookInfo, setWebhookInfo] = useState<any>(null);
     const [stats, setStats] = useState<Stats>({
@@ -98,9 +98,11 @@ export default function TelegramBotPage() {
             const data = await res.json();
             if (res.ok) {
                 const ok = data.results?.filter((r: any) => r.status === 'success').length || 0;
-                ok > 0
-                    ? toast.success(`${ok} ta manzilga test xabari yuborildi!`)
-                    : toast.warning('Bot ishlayapti, lekin Chat ID kiritilmagan yoki noto\'g\'ri.');
+                if (ok > 0) {
+                    toast.success(`${ok} ta manzilga test xabari yuborildi!`);
+                } else {
+                    toast.warning('Bot ishlayapti, lekin Chat ID kiritilmagan yoki noto\'g\'ri.');
+                }
             } else {
                 toast.error(data.error || 'Testda xatolik');
             }

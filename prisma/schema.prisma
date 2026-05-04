@@ -51,6 +51,13 @@ model User {
   pushSubscriptions PushSubscription[]
   recycleRequests   RecycleRequest[]
 
+  // Ichki vazifalar (jamoaviy topshiriqlar)
+  tasksCreated         Task[]                 @relation("TaskCreatedBy")
+  taskAssignments      TaskAssignee[]
+  taskCommentsAuthored TaskComment[]
+  performanceReceived  TaskPerformanceEntry[] @relation("PerformanceSubject")
+  performanceRecorded  TaskPerformanceEntry[] @relation("PerformanceAuthor")
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -93,6 +100,91 @@ model TelegramConfig {
   isActive       Boolean  @default(false)
   salesChatId    String   @default("")
   updatedAt      DateTime @updatedAt
+}
+
+model TelegramHqAdmin {
+  id               Int       @id @default(autoincrement())
+  name             String
+  phone            String    @unique
+  telegramId       String?   @unique
+  telegramName     String?
+  registrationCode String?   @unique
+  isActive         Boolean   @default(true)
+  registeredAt     DateTime?
+  lastSeenAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  approvedAccessRequests BotAccessRequest[] @relation("HqAdminApprovedAccessRequests")
+  reviewedJournalCorrections JournalCorrectionRequest[]
+}
+
+model BotAccessRequest {
+  id                     Int       @id @default(autoincrement())
+  role                   String
+  status                 String    @default("pending")
+  name                   String
+  phone                  String
+  telegramId             String?
+  telegramName           String?
+  vehicleInfo            String?
+  requestedPointId       Int?
+  requestedPoint         RecyclePoint? @relation(fields: [requestedPointId], references: [id], onDelete: SetNull)
+  requestedSupervisorId  Int?
+  requestedSupervisor    Supervisor? @relation("RequestedSupervisorAccessRequests", fields: [requestedSupervisorId], references: [id], onDelete: SetNull)
+  approvedByHqAdminId    Int?
+  approvedByHqAdmin      TelegramHqAdmin? @relation("HqAdminApprovedAccessRequests", fields: [approvedByHqAdminId], references: [id], onDelete: SetNull)
+  approvedBySupervisorId Int?
+  approvedBySupervisor   Supervisor? @relation("SupervisorApprovedAccessRequests", fields: [approvedBySupervisorId], references: [id], onDelete: SetNull)
+  approvedAt             DateTime?
+  rejectedAt             DateTime?
+  rejectReason           String?
+  createdSupervisorId    Int?
+  createdSupervisor      Supervisor? @relation("CreatedSupervisorAccessRequests", fields: [createdSupervisorId], references: [id], onDelete: SetNull)
+  createdDriverId        Int?
+  createdDriver          Driver? @relation("CreatedDriverAccessRequests", fields: [createdDriverId], references: [id], onDelete: SetNull)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([role, status, createdAt])
+  @@index([phone, role])
+  @@index([telegramId, role])
+  @@index([requestedSupervisorId, status])
+  @@index([requestedPointId, status])
+  @@index([approvedByHqAdminId, createdAt])
+  @@index([approvedBySupervisorId, createdAt])
+}
+
+model BotEvent {
+  id           Int       @id @default(autoincrement())
+  sourceBot    String
+  eventType    String
+  entityType   String?
+  entityId     Int?
+  severity     String    @default("info")
+  title        String
+  message      String
+  status       String    @default("new")
+  dedupeKey    String?   @unique
+  payload      Json?
+  requestId    Int?
+  collectionId Int?
+  supervisorId Int?
+  driverId     Int?
+  pointId      Int?
+  userId       Int?
+  processedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([sourceBot, createdAt])
+  @@index([severity, createdAt])
+  @@index([status, createdAt])
+  @@index([eventType, createdAt])
+  @@index([requestId, createdAt])
+  @@index([collectionId, createdAt])
+  @@index([supervisorId, createdAt])
+  @@index([driverId, createdAt])
 }
 
 model Product {
@@ -165,6 +257,8 @@ model Order {
   cancelledAt     DateTime?   // Bekor qilingan
   
   items           OrderItem[]
+
+  staffTasks      Task[]
   
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -308,11 +402,13 @@ model RecyclePoint {
   requests    RecycleRequest[]
   supervisors Supervisor[]
   drivers     Driver[]
+  botAccessRequests BotAccessRequest[]
   intakeLogs  RecycleManualIntake[]
   pressLogs   RecyclePressLog[]
   expenseLogs RecycleExpenseLog[]
   cashLogs    RecycleDailyCash[]
   salesLogs   RecycleSalesLog[]
+  journalCorrectionRequests JournalCorrectionRequest[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -333,6 +429,9 @@ model Supervisor {
   registeredAt     DateTime?             // Botda ro'yxatdan o'tgan vaqti
 
   drivers      Driver[]
+  requestedAccessRequests BotAccessRequest[] @relation("RequestedSupervisorAccessRequests")
+  approvedAccessRequests  BotAccessRequest[] @relation("SupervisorApprovedAccessRequests")
+  createdAccessRequests   BotAccessRequest[] @relation("CreatedSupervisorAccessRequests")
   requests     RecycleRequest[]          // Yo'naltirilgan arizalar
   intakeLogs   RecycleManualIntake[]
   pressLogs    RecyclePressLog[]
@@ -340,8 +439,37 @@ model Supervisor {
   cashLogs     RecycleDailyCash[]
   salesLogs    RecycleSalesLog[]
 
+  journalCorrectionRequests JournalCorrectionRequest[]
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Mas'ul jurnal yozuvlarini tahrirlash — HQ admin tasdig'i bilan
+model JournalCorrectionRequest {
+  id                  Int       @id @default(autoincrement())
+  status              String    @default("pending") // pending | approved | rejected
+  entityType          String    // manual_intake | press_log | expense_log | daily_cash | sales_log
+  entityId            Int
+  supervisorId        Int
+  supervisor          Supervisor @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+  pointId             Int?
+  point               RecyclePoint? @relation(fields: [pointId], references: [id], onDelete: SetNull)
+
+  previousPayload     Json
+  proposedPayload     Json
+  summaryLine         String
+
+  reviewedByHqAdminId Int?
+  reviewedByHqAdmin   TelegramHqAdmin? @relation(fields: [reviewedByHqAdminId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  rejectReason        String?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([supervisorId, status])
 }
 
 // Haydovchi
@@ -365,6 +493,7 @@ model Driver {
 
   collections    RecycleCollection[]
   assignedRequests RecycleRequest[]
+  createdAccessRequests BotAccessRequest[] @relation("CreatedDriverAccessRequests")
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -587,5 +716,112 @@ model RecycleComplaint {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Ichki vazifalar / jamoa topshiriqlari (admin CRM ichki modul) ────────────
+// assignmentType: individual | group
+// status: pending | in_progress | review | completed | cancelled
+
+model Task {
+  id             Int     @id @default(autoincrement())
+  publicCode     String? @unique
+
+  title          String
+  description    String  @default("")
+  department     String  @default("general")
+
+  assignmentType String  @default("individual")
+  status         String  @default("pending")
+  priority       String  @default("normal")
+
+  dueAt            DateTime?
+  estimatedMinutes Int?
+  progress         Int     @default(0)
+
+  orderId   Int?
+  order     Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdById Int?
+  createdBy   User?   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  qualityScore   Int?
+  evaluationNote String?
+
+  completedAt DateTime?
+
+  assignees   TaskAssignee[]
+  subtasks    TaskSubtask[]
+  comments    TaskComment[]
+  performanceEntries TaskPerformanceEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, dueAt])
+  @@index([department, status])
+  @@index([orderId])
+}
+
+model TaskAssignee {
+  id     Int  @id @default(autoincrement())
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role   String  @default("assignee")
+  status String  @default("assigned")
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+model TaskSubtask {
+  id        Int     @id @default(autoincrement())
+  taskId    Int
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title     String
+  done      Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaskComment {
+  id       Int  @id @default(autoincrement())
+  taskId   Int
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body     String
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+model TaskPerformanceEntry {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation("PerformanceSubject", fields: [userId], references: [id], onDelete: Cascade)
+  taskId Int?
+  task   Task?  @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  kind    String
+  points  Int?
+  label   String
+  details String?
+
+  createdById Int?
+  createdBy   User?   @relation("PerformanceAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([taskId])
 }
 

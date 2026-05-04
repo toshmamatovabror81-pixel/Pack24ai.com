@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Download, FileSpreadsheet } from 'lucide-react';
+import { buildPathWithRecyclingTab } from '@/lib/platform/botEventFeedUrl';
 
 type Option = { id: number; name: string };
 
@@ -131,13 +133,30 @@ function TableCard({ title, children }: { title: string; children: React.ReactNo
 export default function MonthlyJournalTab({
     points,
     supervisors,
+    urlPointId = null,
+    urlSupervisorId = null,
+    onFilterUrlChange,
 }: {
     points: Option[];
     supervisors: Option[];
+    /** /admin/recycling?tab=journal&pointId=... — bot event yoki qo'lda yorliq orqali */
+    urlPointId?: number | null;
+    urlSupervisorId?: number | null;
+    /** Jurnal filtri URLga yozilganda parentdagi umumiy point/masul state */
+    onFilterUrlChange?: (pointId: number | null, supervisorId: number | null) => void;
 }) {
     const [month, setMonth] = useState(currentMonthValue());
-    const [pointId, setPointId] = useState('');
-    const [supervisorId, setSupervisorId] = useState('');
+    const [pointId, setPointId] = useState(() =>
+        urlPointId != null && urlPointId > 0 ? String(urlPointId) : '',
+    );
+    const [supervisorId, setSupervisorId] = useState(() =>
+        urlSupervisorId != null && urlSupervisorId > 0 ? String(urlSupervisorId) : '',
+    );
+    const router = useRouter();
+    const pathname = usePathname();
+    const onFilterUrlChangeRef = useRef(onFilterUrlChange);
+    onFilterUrlChangeRef.current = onFilterUrlChange;
+
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<JournalData | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -169,6 +188,22 @@ export default function MonthlyJournalTab({
     useEffect(() => {
         fetchJournal();
     }, [fetchJournal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const nextPath = buildPathWithRecyclingTab(pathname, window.location.search, {
+            tab: 'journal',
+            pointId,
+            supervisorId,
+        });
+        const current = `${window.location.pathname}${window.location.search}`;
+        if (nextPath === current) return;
+        router.replace(nextPath, { scroll: false });
+        onFilterUrlChangeRef.current?.(
+            pointId ? parseInt(pointId, 10) : null,
+            supervisorId ? parseInt(supervisorId, 10) : null,
+        );
+    }, [pointId, supervisorId, pathname, router]);
 
     const selectedPoint = useMemo(
         () => points.find(point => String(point.id) === pointId)?.name ?? 'Barcha bazalar',

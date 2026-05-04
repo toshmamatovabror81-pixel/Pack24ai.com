@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ArrowLeft, Send, Save } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import Link from 'next/link';
 
 export default function NewCampaignPage() {

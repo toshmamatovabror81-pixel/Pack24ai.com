@@ -1,1 +1,0 @@
-﻿src/components/Footer.tsx(191,38): error TS2322: Type '{ size: never; className: never; }' is not assignable to type 'never'.

@@ -72,7 +72,7 @@ export function useAI() {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         let nextStep = conversation.step;
-        let nextData = { ...conversation.data };
+        const nextData = { ...conversation.data };
         let responseTemplate = "";
         const intent = matchIntent(text, context.language);
         const lang = context.language;
@@ -180,7 +180,7 @@ export function useAI() {
         setConversation({ step: nextStep, data: nextData });
 
         // Variable Substitution (Generic)
-        let finalResponse = responseTemplate
+        const finalResponse = responseTemplate
             .replace(/{{totalPrice}}/g, new Intl.NumberFormat(context.language === 'uz' ? 'uz-UZ' : 'ru-RU', { style: 'currency', currency: 'UZS', maximumFractionDigits: 0 }).format(context.totalPrice || 0))
             .replace(/{{unitPrice}}/g, new Intl.NumberFormat(context.language === 'uz' ? 'uz-UZ' : 'ru-RU', { style: 'currency', currency: 'UZS', maximumFractionDigits: 0 }).format(context.unitPrice || 0))
             .replace(/{{length}}/g, (context.dims?.l || 0).toString())

@@ -8,6 +8,8 @@ import {
     parseJournalDate,
     startOfDay,
 } from '@/lib/domain/recycling/journal';
+import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
+import { createTelegramSessionStore } from './sessionStore';
 
 export type JournalFlow = 'intake' | 'press' | 'expense' | 'cash' | 'sale';
 
@@ -31,7 +33,7 @@ export interface AdminSession {
     plateNumber?: string | null;
 }
 
-export const adminSessions = new Map<string, AdminSession>();
+export const adminSessions = createTelegramSessionStore<AdminSession>('admin-bot-sessions');
 export const fmtN = (n: number) => n.toLocaleString('ru-RU');
 
 export const statusLabels: Record<string, string> = {
@@ -46,14 +48,7 @@ export const statusLabels: Record<string, string> = {
 };
 
 export async function generateUniqueSupCode(): Promise<string> {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-        const code = String(Math.floor(10000 + Math.random() * 90000));
-        const exists = await prisma.supervisor.findFirst({ where: { registrationCode: code } })
-            || await prisma.driver.findFirst({ where: { registrationCode: code } });
-        if (!exists) return code;
-    }
-
-    return String(Date.now()).slice(-5);
+    return generateUniqueTelegramRegistrationCode();
 }
 
 export async function getSupervisor(tgId: string) {

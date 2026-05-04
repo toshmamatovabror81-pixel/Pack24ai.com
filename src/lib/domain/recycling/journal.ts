@@ -72,6 +72,13 @@ export function startOfDay(date: Date): Date {
     return d;
 }
 
+/** Kirish nuqtasi kuni (mahalliy server vaqti) — "kecha" tanlovi uchun */
+export function startOfYesterday(reference: Date = new Date()): Date {
+    const d = startOfDay(reference);
+    d.setDate(d.getDate() - 1);
+    return d;
+}
+
 export function endOfDay(date: Date): Date {
     const d = startOfDay(date);
     d.setDate(d.getDate() + 1);

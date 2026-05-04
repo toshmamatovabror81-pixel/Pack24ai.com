@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     X, Phone, Building2, MapPin, Calendar, ShoppingCart,
-    Crown, Users, Package, Handshake, Loader2,
-    Save, FileText, Printer, Download,
-    DollarSign, AlertTriangle, CheckCircle,
-    ArrowDownLeft, ArrowUpRight
+    Loader2,
+    Save, FileText, Printer,
+    DollarSign,
+    ArrowDownLeft, ArrowUpRight, MessageSquare, Headphones, Bot, UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -38,8 +38,69 @@ const ORDER_STATUS: Record<string, { bg: string; text: string; label: string }> 
 interface CustomerDrawerProps {
     isOpen: boolean;
     onClose: () => void;
-    customer: any;
+    customer: CustomerSummary | null;
     onSaved?: () => void;
+}
+
+interface CustomerSummary {
+    id: number | string;
+    source: 'registered' | 'guest';
+    name: string;
+    phone: string;
+}
+
+interface CustomerOrderItem {
+    product?: {
+        name?: string | null;
+    } | null;
+}
+
+interface CustomerOrder {
+    id: number;
+    status: string;
+    paymentStatus: string;
+    paymentMethod?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    totalAmount?: number | null;
+    items?: CustomerOrderItem[];
+}
+
+interface CustomerFinancials {
+    totalOrders: number;
+    totalRevenue: number;
+    totalPaid: number;
+    totalDebit: number;
+    deliveredCount: number;
+    activeCount: number;
+}
+
+interface CustomerLedgerEntry {
+    date: string;
+    orderId: number;
+    description: string;
+    debit: number;
+    credit: number;
+    balance: number;
+    status: string;
+    paymentStatus: string;
+}
+
+interface CustomerDetail {
+    id: number | string;
+    name: string;
+    phone: string;
+    telegramId?: string | null;
+    isActive: boolean;
+    customerType?: string | null;
+    customerGroup?: string | null;
+    companyName?: string | null;
+    address?: string | null;
+    notes?: string | null;
+    orders?: CustomerOrder[];
+    financials?: CustomerFinancials;
+    ledger?: CustomerLedgerEntry[];
+    currentBalance?: number;
 }
 
 function formatMoney(amount: number): string {
@@ -47,10 +108,10 @@ function formatMoney(amount: number): string {
 }
 
 export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: CustomerDrawerProps) {
-    const [detail, setDetail] = useState<any>(null);
+    const [detail, setDetail] = useState<CustomerDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [tab, setTab] = useState<'info' | 'orders' | 'finance'>('info');
+    const [tab, setTab] = useState<'info' | 'orders' | 'finance' | 'communication'>('info');
     const printRef = useRef<HTMLDivElement>(null);
 
     // Editable fields
@@ -150,7 +211,7 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                     <tr><th>Sana</th><th>Tavsif</th><th>Debit (so'm)</th><th>Kredit (so'm)</th><th>Qoldiq (so'm)</th></tr>
                 </thead>
                 <tbody>
-                    ${(detail?.ledger || []).map((l: any) => `
+                    ${(detail?.ledger || []).map((l: CustomerLedgerEntry) => `
                         <tr>
                             <td>${new Date(l.date).toLocaleDateString('uz-UZ')}</td>
                             <td>${l.description}</td>
@@ -208,6 +269,7 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                                     <h2 className="text-lg font-extrabold text-gray-900">{detail?.name || customer.name}</h2>
                                     {isGuest && <span className="text-[9px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full font-bold">Mehmon</span>}
                                 </div>
+                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mt-0.5">Customer 360</p>
                                 <p className="text-xs text-gray-500 flex items-center gap-1"><Phone size={11} />{customer.phone}</p>
                             </div>
                         </div>
@@ -242,9 +304,10 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                 {/* Tabs */}
                 <div className="flex border-b border-gray-100">
                     {([
-                        { key: 'info' as const, label: '📋 Tahrirlash' },
+                        { key: 'info' as const, label: '📋 Profil' },
                         { key: 'orders' as const, label: `🛒 Buyurtmalar (${detail?.orders?.length ?? 0})` },
-                        { key: 'finance' as const, label: '💰 Hisob-kitob' },
+                        { key: 'finance' as const, label: '💰 Moliya' },
+                        { key: 'communication' as const, label: '🤝 Aloqa' },
                     ]).map(t => (
                         <button
                             key={t.key}
@@ -261,8 +324,22 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                     {loading ? (
                         <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-blue-500" /></div>
                     ) : tab === 'info' ? (
-                        /* ─── Tahrirlash tab ──────────────────────────────────── */
+                        /* ─── Profil tab ──────────────────────────────────────── */
                         <>
+                            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                                <h3 className="text-sm font-extrabold text-gray-900">Customer 360 profili</h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Identitet, segment, kompaniya, manzil, status va xodim eslatmalari shu profil orqali boshqariladi.
+                                </p>
+                            </div>
+                            {isGuest && (
+                                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                                    <p className="text-sm font-bold text-amber-800">Mehmon mijoz</p>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        Tahrirlash yopiq: mehmonni ro&apos;yxatdan o&apos;tkazish yoki buyurtmalarni user bilan link qilish keyingi CRM bosqichiga qoldirilgan.
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">Ism</label>
                                 <input value={editName} onChange={e => setEditName(e.target.value)} disabled={isGuest}
@@ -327,8 +404,9 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                         <div className="space-y-3">
                             {!detail?.orders?.length ? (
                                 <div className="text-center py-12"><ShoppingCart size={36} className="mx-auto text-gray-200 mb-3" /><p className="text-sm text-gray-400">Buyurtmalar yo&apos;q</p></div>
-                            ) : detail.orders.map((o: any) => {
+                            ) : detail.orders.map((o: CustomerOrder) => {
                                 const s = ORDER_STATUS[o.status] ?? ORDER_STATUS.new;
+                                const items = o.items ?? [];
                                 return (
                                     <div key={o.id} className="bg-white rounded-xl border border-gray-100 p-3.5 hover:border-blue-200 transition-all">
                                         <div className="flex items-center justify-between mb-2">
@@ -344,14 +422,14 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                                             <span className="flex items-center gap-1"><Calendar size={10} />{new Date(o.createdAt).toLocaleDateString('uz-UZ')}</span>
                                             <span className="font-bold text-gray-900">{formatMoney(o.totalAmount ?? 0)}</span>
                                         </div>
-                                        {o.items?.length > 0 && (
-                                            <p className="text-[10px] text-gray-400 truncate">{o.items.map((i: any) => i.product?.name).filter(Boolean).join(', ')}</p>
+                                        {items.length > 0 && (
+                                            <p className="text-[10px] text-gray-400 truncate">{items.map((i: CustomerOrderItem) => i.product?.name).filter(Boolean).join(', ')}</p>
                                         )}
                                     </div>
                                 );
                             })}
                         </div>
-                    ) : (
+                    ) : tab === 'finance' ? (
                         /* ─── Hisob-kitob (Debitor/Kreditor + Akt Sverka) ─────── */
                         <div className="space-y-4" ref={printRef}>
                             {/* Balance card */}
@@ -409,7 +487,7 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                             <div>
                                 <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">📒 Operatsiyalar jurnali</h3>
                                 <div className="space-y-2">
-                                    {(detail?.ledger || []).map((entry: any, idx: number) => (
+                                    {(detail?.ledger || []).map((entry: CustomerLedgerEntry, idx: number) => (
                                         <div key={idx} className={`rounded-xl border p-3 text-xs ${
                                             entry.debit > 0 ? 'border-red-100 bg-red-50/30' :
                                             entry.credit > 0 ? 'border-emerald-100 bg-emerald-50/30' :
@@ -437,6 +515,65 @@ export default function CustomerDrawer({ isOpen, onClose, customer, onSaved }: C
                                         <div className="text-center py-8"><DollarSign size={32} className="mx-auto text-gray-200 mb-2" /><p className="text-gray-400 text-sm">Operatsiyalar yo&apos;q</p></div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    ) : (
+                        /* ─── Aloqa tab ───────────────────────────────────────── */
+                        <div className="space-y-4">
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                                <h3 className="text-sm font-extrabold text-gray-900">Hamkorlik CRM aloqa markazi</h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Bu MVPda aloqa kanallari mavjud admin bo&apos;limlariga ulanadi. Real timeline va xodim izohlari keyingi bosqichda DB modeli bilan qo&apos;shiladi.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-white rounded-xl border border-gray-100 p-3">
+                                    <Phone size={16} className="text-blue-500 mb-2" />
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Telefon</p>
+                                    <p className="text-sm font-extrabold text-gray-900">{customer.phone}</p>
+                                </div>
+                                <div className="bg-white rounded-xl border border-gray-100 p-3">
+                                    <Bot size={16} className={detail?.telegramId ? 'text-emerald-500 mb-2' : 'text-gray-300 mb-2'} />
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Telegram</p>
+                                    <p className="text-sm font-extrabold text-gray-900">{detail?.telegramId ? 'Ulangan' : 'Aniqlanmagan'}</p>
+                                </div>
+                                <div className="bg-white rounded-xl border border-gray-100 p-3">
+                                    <UserCheck size={16} className={detail?.isActive ? 'text-emerald-500 mb-2' : 'text-red-500 mb-2'} />
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">CRM status</p>
+                                    <p className="text-sm font-extrabold text-gray-900">{detail?.isActive ? 'Faol' : 'Bloklangan'}</p>
+                                </div>
+                                <div className="bg-white rounded-xl border border-gray-100 p-3">
+                                    <ShoppingCart size={16} className="text-purple-500 mb-2" />
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Faol buyurtma</p>
+                                    <p className="text-sm font-extrabold text-gray-900">{fin?.activeCount ?? 0}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Link href="/admin/customers/calls" className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 p-3 hover:border-emerald-200 transition-colors">
+                                    <Headphones size={17} className="text-emerald-600" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-gray-900">Call Center</p>
+                                        <p className="text-xs text-gray-400">Telefon muloqotlarini ko&apos;rish</p>
+                                    </div>
+                                    <span className="text-xs text-gray-300">→</span>
+                                </Link>
+                                <Link href={`/admin/chat?customer=${encodeURIComponent(customer.phone)}`} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 p-3 hover:border-emerald-200 transition-colors">
+                                    <MessageSquare size={17} className="text-blue-600" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-gray-900">Chat</p>
+                                        <p className="text-xs text-gray-400">Mijoz aloqa kanaliga o&apos;tish</p>
+                                    </div>
+                                    <span className="text-xs text-gray-300">→</span>
+                                </Link>
+                            </div>
+
+                            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-4">
+                                <p className="text-xs font-bold text-gray-500 uppercase">Keyingi aloqa eslatmasi</p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Doimiy timeline hali yo&apos;q. Hozircha muhim qaydlar `Profil` tabidagi eslatmalar maydonida saqlanadi.
+                                </p>
                             </div>
                         </div>
                     )}

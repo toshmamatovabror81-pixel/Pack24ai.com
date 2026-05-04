@@ -1,17 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getBot } from '@/lib/telegram/bot';
+import { getCustomerBot } from '@/lib/telegram/botManager';
+import { isAuthorizedTelegramOpsRequest } from '@/lib/telegram/security';
 
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const config = await prisma.telegramConfig.findFirst();
 
         if (!config || !config.botToken) {
             return NextResponse.json({ error: 'Bot token topilmadi' }, { status: 400 });
         }
 
-        const bot = await getBot();
+        const bot = await getCustomerBot();
         if (!bot) {
             return NextResponse.json({ error: 'Botni ishga tushirib bo\'lmadi' }, { status: 500 });
         }

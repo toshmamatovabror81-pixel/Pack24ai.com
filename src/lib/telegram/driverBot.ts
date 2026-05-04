@@ -2,6 +2,10 @@ import { Telegraf, Context } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { Lang, getText, formatText } from './i18n';
 import { notifyCustomer, notifyAdmin } from './notifier';
+import { createBotEvent } from './botEvents';
+import { createOrReuseBotAccessRequest } from './botAccessRequests';
+import { applyBotDefaults } from './botInit';
+import { getDriverBotToken } from './botTokens';
 import {
     btn,
     driverMainKeyboard,
@@ -10,6 +14,8 @@ import {
     calcConfirmKeyboard,
     customerConfirmKeyboard,
 } from './keyboards';
+import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
+import { createTelegramSessionStore } from './sessionStore';
 
 // ─── Session types ────────────────────────────────────────────────────────────
 interface DriverSession {
@@ -21,19 +27,12 @@ interface DriverSession {
     discount?: number;
 }
 
-const sessions = new Map<string, DriverSession>();
+const sessions = createTelegramSessionStore<DriverSession>('driver-bot-sessions');
 const fmtN = (n: number) => n.toLocaleString('ru-RU');
 
 // ─── Yagona 5 raqamli kod generatsiya ────────────────────────────────────────
 async function generateUniqueDriverCode(): Promise<string> {
-    for (let attempt = 0; attempt < 20; attempt++) {
-        const code = String(Math.floor(10000 + Math.random() * 90000));
-        const exists = await prisma.driver.findFirst({ where: { registrationCode: code } })
-            || await prisma.supervisor.findFirst({ where: { registrationCode: code } });
-        if (!exists) return code;
-    }
-    // Fallback: timestamp bazali
-    return String(Date.now()).slice(-5);
+    return generateUniqueTelegramRegistrationCode();
 }
 
 // ─── Haydovchini bazadan olish ────────────────────────────────────────────────
@@ -48,26 +47,14 @@ let driverBotInstance: Telegraf | null = null;
 export async function initDriverBot(): Promise<Telegraf | null> {
     if (driverBotInstance) return driverBotInstance;
 
-    const token = process.env.DRIVER_BOT_TOKEN;
+    const token = getDriverBotToken();
     if (!token) {
         console.warn('[DriverBot] DRIVER_BOT_TOKEN topilmadi');
         return null;
     }
 
     const bot = new Telegraf(token);
-
-    // Commands menu
-    await bot.telegram.setMyCommands([
-        { command: 'start', description: '🏠 Bosh menyu / Главное меню / Main menu' },
-        { command: 'help', description: '❓ Yordam / Помощь / Help' },
-    ]).catch(() => {});
-
-    // Middleware — log
-    bot.use(async (ctx, next) => {
-        const start = Date.now();
-        await next();
-        console.log(`[DriverBot] ${ctx.updateType} in ${Date.now() - start}ms`);
-    });
+    await applyBotDefaults(bot, 'DriverBot');
 
     // ══════════════════════════════════════════════════════════════════════
     // /start — Telefon orqali ro'yxatdan o'tish yoki bosh menyu
@@ -148,6 +135,19 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                     data: { status: 'busy' },
                 });
 
+                await createBotEvent({
+                    sourceBot: 'driver',
+                    eventType: 'request.accepted',
+                    entityType: 'recycle_request',
+                    entityId: reqId,
+                    severity: 'success',
+                    title: 'Haydovchi topshiriqni qabul qildi',
+                    message: `${driver.name} ariza #${reqId} ni qabul qildi.`,
+                    requestId: reqId,
+                    driverId: driver.id,
+                    pointId: request.point?.id ?? request.regionId,
+                });
+
                 await ctx.answerCbQuery('✅');
                 await ctx.editMessageText(
                     formatText('drv_accepted', 'uz', { id: String(reqId) }),
@@ -190,6 +190,19 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                     data: { status: 'active' },
                 });
 
+                await createBotEvent({
+                    sourceBot: 'driver',
+                    eventType: 'request.rejected',
+                    entityType: 'recycle_request',
+                    entityId: reqId,
+                    severity: 'warning',
+                    title: 'Haydovchi topshiriqni rad etdi',
+                    message: `${driver.name} ariza #${reqId} ni rad etdi.`,
+                    requestId: reqId,
+                    driverId: driver.id,
+                    pointId: request.point?.id ?? request.regionId,
+                });
+
                 await ctx.answerCbQuery('❌');
                 await ctx.editMessageText(
                     formatText('drv_rejected', 'uz', { id: String(reqId) }),
@@ -219,6 +232,18 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                 await prisma.recycleRequest.update({
                     where: { id: reqId },
                     data: { status: 'en_route', driverEnRouteAt: new Date() },
+                });
+
+                await createBotEvent({
+                    sourceBot: 'driver',
+                    eventType: 'request.en_route',
+                    entityType: 'recycle_request',
+                    entityId: reqId,
+                    title: 'Haydovchi yo\'lga chiqdi',
+                    message: `${driver.name} ariza #${reqId} uchun yo'lga chiqdi.`,
+                    requestId: reqId,
+                    driverId: driver.id,
+                    pointId: request.regionId,
                 });
 
                 await ctx.answerCbQuery('🚚');
@@ -254,6 +279,18 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                 await prisma.recycleRequest.update({
                     where: { id: reqId },
                     data: { status: 'arrived', driverArrivedAt: new Date() },
+                });
+
+                await createBotEvent({
+                    sourceBot: 'driver',
+                    eventType: 'request.arrived',
+                    entityType: 'recycle_request',
+                    entityId: reqId,
+                    title: 'Haydovchi manzilga yetib keldi',
+                    message: `${driver.name} ariza #${reqId} joyiga yetib keldi.`,
+                    requestId: reqId,
+                    driverId: driver.id,
+                    pointId: request.regionId,
                 });
 
                 await ctx.answerCbQuery('📍');
@@ -328,6 +365,28 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                     data: { status: 'collecting', collectedAt: new Date() },
                 });
 
+                await createBotEvent({
+                    sourceBot: 'driver',
+                    eventType: 'collection.created',
+                    entityType: 'recycle_collection',
+                    entityId: collection.id,
+                    severity: 'success',
+                    title: 'Haydovchi hisob-kitobni saqladi',
+                    message:
+                        `${driver.name} ariza #${reqId} uchun yig'ish hisob-kitobini saqladi: ` +
+                        `${Math.round(totalAmount).toLocaleString('ru-RU')} so'm.`,
+                    requestId: reqId,
+                    collectionId: collection.id,
+                    driverId: driver.id,
+                    pointId: request.point?.id ?? request.regionId,
+                    payload: {
+                        actualWeight: ses.weight,
+                        discountPercent: discount,
+                        effectiveWeight: Math.round(effectiveWeight * 100) / 100,
+                        totalAmount: Math.round(totalAmount),
+                    },
+                });
+
                 await ctx.answerCbQuery('✅');
                 await ctx.editMessageText(getText('drv_collection_saved', 'uz'), { parse_mode: 'HTML' });
 
@@ -395,14 +454,30 @@ export async function initDriverBot(): Promise<Telegraf | null> {
             });
 
             if (!driver) {
+                const result = await createOrReuseBotAccessRequest({
+                    role: 'driver',
+                    name: ctx.from.first_name || ctx.from.username || 'Driver nomzod',
+                    phone,
+                    telegramId: tgId,
+                    telegramName: ctx.from.username || ctx.from.first_name || null,
+                    sourceBot: 'driver',
+                });
+
+                if (result.kind === 'pending') {
+                    await ctx.reply(
+                        `⏳ <b>Arizangiz allaqachon ko'rib chiqilmoqda.</b>\n\n` +
+                        `📱 Telefon: <code>${phone}</code>\n` +
+                        `Admin tasdiqlagandan keyin sizga xabar beriladi.`,
+                        { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } },
+                    );
+                    sessions.delete(tgId);
+                    return;
+                }
+
                 await ctx.reply(
-                    `❌ <b>Raqamingiz tizimda topilmadi!</b>\n\n` +
+                    `✅ <b>Driver bo'lish uchun ariza qabul qilindi.</b>\n\n` +
                     `📱 Telefon: <code>${phone}</code>\n\n` +
-                    `Bu bot faqat <b>ro'yxatdan o'tgan haydovchilar</b> uchun.\n\n` +
-                    `📋 Haydovchi bo'lish uchun:\n` +
-                    `1️⃣ Masul xodim sizni tizimga qo'shishi kerak\n` +
-                    `2️⃣ Keyin qaytib kelib /start bosing\n\n` +
-                    `📞 Bog'lanish: <a href="tel:+998880557888">+998 88 055-78-88</a>`,
+                    `Admin arizangizni tasdiqlagandan keyin ushbu bot orqali ishlashingiz mumkin bo'ladi.`,
                     { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } }
                 );
                 sessions.delete(tgId);
@@ -432,6 +507,23 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                     isOnline: true,
                     lastSeenAt: new Date(),
                     status: 'active',
+                },
+            });
+
+            await createBotEvent({
+                sourceBot: 'driver',
+                eventType: 'driver.registered',
+                entityType: 'driver',
+                entityId: driver.id,
+                severity: 'success',
+                title: 'Haydovchi botga ro\'yxatdan o\'tdi',
+                message: `${driver.name} driver botga ulandi.`,
+                driverId: driver.id,
+                supervisorId: driver.supervisorId ?? undefined,
+                pointId: driver.pointId ?? undefined,
+                payload: {
+                    phone: driver.phone,
+                    registrationCode: code,
                 },
             });
 
@@ -603,6 +695,17 @@ export async function initDriverBot(): Promise<Telegraf | null> {
                 where: { id: driver.id },
                 data: { isOnline: true, lastSeenAt: new Date(), status: 'active' },
             });
+            await createBotEvent({
+                sourceBot: 'driver',
+                eventType: 'driver.online',
+                entityType: 'driver',
+                entityId: driver.id,
+                title: 'Haydovchi online holatga o\'tdi',
+                message: `${driver.name} online holatga o'tdi.`,
+                driverId: driver.id,
+                supervisorId: driver.supervisorId ?? undefined,
+                pointId: driver.pointId ?? undefined,
+            });
             await ctx.reply('🟢 Siz endi <b>online</b>siz!', {
                 parse_mode: 'HTML',
                 reply_markup: driverMainKeyboard(true, lang),
@@ -614,6 +717,18 @@ export async function initDriverBot(): Promise<Telegraf | null> {
             await prisma.driver.update({
                 where: { id: driver.id },
                 data: { isOnline: false, lastSeenAt: new Date(), status: 'inactive' },
+            });
+            await createBotEvent({
+                sourceBot: 'driver',
+                eventType: 'driver.offline',
+                entityType: 'driver',
+                entityId: driver.id,
+                severity: 'warning',
+                title: 'Haydovchi offline holatga o\'tdi',
+                message: `${driver.name} offline holatga o'tdi.`,
+                driverId: driver.id,
+                supervisorId: driver.supervisorId ?? undefined,
+                pointId: driver.pointId ?? undefined,
             });
             await ctx.reply('🔴 Siz endi <b>offline</b>siz.', {
                 parse_mode: 'HTML',

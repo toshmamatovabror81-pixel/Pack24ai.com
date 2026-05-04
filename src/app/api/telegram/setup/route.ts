@@ -1,135 +1,132 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+    readOptionalEnum,
+    readJsonObject,
+    readUrlString,
+    RequestValidationError,
+} from '@/lib/requestValidation';
 import { initCustomerBot } from '@/lib/telegram/customerBot';
 import { initDriverBot } from '@/lib/telegram/driverBot';
 import { initAdminBot } from '@/lib/telegram/adminBot';
+import { initPack24AdminBot } from '@/lib/telegram/pack24AdminBot';
 import { getBotStatuses } from '@/lib/telegram/botManager';
+import {
+    getTelegramWebhookSecret,
+    hasTelegramWebhookSecret,
+    isAuthorizedTelegramOpsRequest,
+} from '@/lib/telegram/security';
+import {
+    configureTelegramBots,
+    deleteTelegramWebhooks,
+    type TelegramRuntimeBot,
+} from '@/lib/telegram/runtime';
 
 export const dynamic = 'force-dynamic';
 
+const TELEGRAM_BOTS: TelegramRuntimeBot[] = [
+    {
+        name: 'Customer (@Pack24AI_bot)',
+        webhookPath: '/api/telegram/webhook',
+        init: initCustomerBot,
+    },
+    {
+        name: 'Driver (@pack24MX_bot)',
+        webhookPath: '/api/telegram/webhook/driver',
+        init: initDriverBot,
+    },
+    {
+        name: 'Admin (@pack24AUP_bot)',
+        webhookPath: '/api/telegram/webhook/admin',
+        init: initAdminBot,
+    },
+    {
+        name: 'Pack24 Admin (@pack24admin_bot)',
+        webhookPath: '/api/telegram/webhook/pack24admin',
+        init: initPack24AdminBot,
+    },
+];
+
 // ─── GET — Botlar holati ─────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const authorized = await isAuthorizedTelegramOpsRequest(request);
+    if (!authorized) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const statuses = await getBotStatuses();
     return NextResponse.json({ ok: true, bots: statuses });
 }
 
 // ─── POST — Webhooklarni o'rnatish / polling boshlash ────────────────────────
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const body = await request.json().catch(() => ({}));
-        const { mode = 'webhook', baseUrl } = body as { mode?: string; baseUrl?: string };
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        const results: { bot: string; status: string; url?: string }[] = [];
-
-        // ── 1. Customer Bot ──────────────────────────────────────────────
-        try {
-            const customerBot = await initCustomerBot();
-            if (customerBot) {
-                if (mode === 'webhook' && baseUrl) {
-                    const webhookUrl = `${baseUrl}/api/telegram/webhook`;
-                    await customerBot.telegram.setWebhook(webhookUrl);
-                    results.push({ bot: 'Customer (@Pack24AI_bot)', status: '✅ Webhook o\'rnatildi', url: webhookUrl });
-                } else if (mode === 'polling') {
-                    await customerBot.launch({ dropPendingUpdates: true });
-                    results.push({ bot: 'Customer (@Pack24AI_bot)', status: '✅ Polling boshlandi' });
-                }
-            } else {
-                results.push({ bot: 'Customer (@Pack24AI_bot)', status: '⚠️ Token topilmadi' });
+        const body: Record<string, unknown> = await readJsonObject(request).catch((error: unknown) => {
+            if (error instanceof RequestValidationError) {
+                return {};
             }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            results.push({ bot: 'Customer (@Pack24AI_bot)', status: `❌ ${msg}` });
+            throw error;
+        });
+        const mode = readOptionalEnum(body.mode, 'mode', ['webhook', 'polling'] as const) || 'webhook';
+        const baseUrl = readUrlString(body.baseUrl, 'baseUrl');
+        const webhookSecret = getTelegramWebhookSecret();
+
+        if (mode === 'webhook' && !baseUrl) {
+            return NextResponse.json(
+                { ok: false, error: 'Webhook rejimi uchun baseUrl majburiy' },
+                { status: 400 },
+            );
         }
 
-        // ── 2. Driver Bot ────────────────────────────────────────────────
-        try {
-            const driverBot = await initDriverBot();
-            if (driverBot) {
-                if (mode === 'webhook' && baseUrl) {
-                    const webhookUrl = `${baseUrl}/api/telegram/webhook/driver`;
-                    await driverBot.telegram.setWebhook(webhookUrl);
-                    results.push({ bot: 'Driver (@pack24MX_bot)', status: '✅ Webhook o\'rnatildi', url: webhookUrl });
-                } else if (mode === 'polling') {
-                    await driverBot.launch({ dropPendingUpdates: true });
-                    results.push({ bot: 'Driver (@pack24MX_bot)', status: '✅ Polling boshlandi' });
-                }
-            } else {
-                results.push({ bot: 'Driver (@pack24MX_bot)', status: '⚠️ Token topilmadi' });
-            }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            results.push({ bot: 'Driver (@pack24MX_bot)', status: `❌ ${msg}` });
+        if (mode === 'webhook' && !hasTelegramWebhookSecret()) {
+            return NextResponse.json(
+                { ok: false, error: 'Webhook rejimi uchun TELEGRAM_WEBHOOK_SECRET majburiy' },
+                { status: 400 },
+            );
         }
 
-        // ── 3. Admin Bot ─────────────────────────────────────────────────
-        try {
-            const adminBot = await initAdminBot();
-            if (adminBot) {
-                if (mode === 'webhook' && baseUrl) {
-                    const webhookUrl = `${baseUrl}/api/telegram/webhook/admin`;
-                    await adminBot.telegram.setWebhook(webhookUrl);
-                    results.push({ bot: 'Admin (@pack24AUP_bot)', status: '✅ Webhook o\'rnatildi', url: webhookUrl });
-                } else if (mode === 'polling') {
-                    await adminBot.launch({ dropPendingUpdates: true });
-                    results.push({ bot: 'Admin (@pack24AUP_bot)', status: '✅ Polling boshlandi' });
-                }
-            } else {
-                results.push({ bot: 'Admin (@pack24AUP_bot)', status: '⚠️ Token topilmadi' });
-            }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            results.push({ bot: 'Admin (@pack24AUP_bot)', status: `❌ ${msg}` });
-        }
-
-        // Graceful shutdown (polling rejimda)
-        if (mode === 'polling') {
-            const shutdown = () => {
-                console.log('[Bot Setup] Shutting down bots...');
-            };
-            process.once('SIGINT', shutdown);
-            process.once('SIGTERM', shutdown);
-        }
+        const results = await configureTelegramBots({
+            bots: TELEGRAM_BOTS,
+            mode,
+            baseUrl,
+            webhookSecret: webhookSecret ?? undefined,
+        });
+        const hasSuccessfulResult = results.some((entry) => entry.status.startsWith('✅') || entry.status.startsWith('ℹ️'));
 
         return NextResponse.json({
-            ok: true,
+            ok: hasSuccessfulResult,
             mode,
             message: mode === 'webhook'
-                ? '🌐 Webhooklar o\'rnatildi!'
-                : '🔄 Polling boshlandi!',
+                ? hasSuccessfulResult
+                    ? '🌐 Webhooklar o\'rnatildi!'
+                    : '⚠️ Webhooklar o\'rnatilmadi.'
+                : hasSuccessfulResult
+                    ? '🔄 Polling boshlandi!'
+                    : '⚠️ Polling ishga tushmadi.',
             bots: results,
-        });
+        }, { status: hasSuccessfulResult ? 200 : 503 });
     } catch (error: unknown) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+        }
+
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ ok: false, error: msg }, { status: 500 });
     }
 }
 
 // ─── DELETE — Webhooklarni o'chirish ─────────────────────────────────────────
-export async function DELETE() {
-    const results: { bot: string; status: string }[] = [];
+export async function DELETE(request: NextRequest) {
+    const authorized = await isAuthorizedTelegramOpsRequest(request);
+    if (!authorized) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    try {
-        const customerBot = await initCustomerBot();
-        if (customerBot) {
-            await customerBot.telegram.deleteWebhook();
-            results.push({ bot: 'Customer', status: '✅ Webhook o\'chirildi' });
-        }
-    } catch { results.push({ bot: 'Customer', status: '❌ Xatolik' }); }
-
-    try {
-        const driverBot = await initDriverBot();
-        if (driverBot) {
-            await driverBot.telegram.deleteWebhook();
-            results.push({ bot: 'Driver', status: '✅ Webhook o\'chirildi' });
-        }
-    } catch { results.push({ bot: 'Driver', status: '❌ Xatolik' }); }
-
-    try {
-        const adminBot = await initAdminBot();
-        if (adminBot) {
-            await adminBot.telegram.deleteWebhook();
-            results.push({ bot: 'Admin', status: '✅ Webhook o\'chirildi' });
-        }
-    } catch { results.push({ bot: 'Admin', status: '❌ Xatolik' }); }
+    const results = await deleteTelegramWebhooks(TELEGRAM_BOTS);
 
     return NextResponse.json({ ok: true, message: 'Webhooklar o\'chirildi', bots: results });
 }

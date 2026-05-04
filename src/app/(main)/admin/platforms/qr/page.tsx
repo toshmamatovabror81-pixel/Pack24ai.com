@@ -16,7 +16,6 @@ import {
     Globe,
     Bot,
     Check,
-    Palette,
     Image as ImageIcon,
     Type
 } from 'lucide-react';

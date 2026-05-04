@@ -36,7 +36,7 @@ export async function downloadAndUploadToSupabase(url: string | null | undefined
 
         if (!response.ok) {
             console.warn(`[media-utils] Rasm yuklab bo'lmadi URL: ${url}. Status: ${response.status}`);
-            return '/placeholder.png'; // 404 bo'lsa darhol placeholder ga aylantiramiz
+            return url;
         }
 
         const contentType = response.headers.get('content-type') ?? '';
@@ -52,7 +52,7 @@ export async function downloadAndUploadToSupabase(url: string | null | undefined
         return await uploadBufferToSupabase(buffer, filename, contentType || 'image/jpeg');
     } catch (error) {
         console.error(`[media-utils] Xato yuz berdi (${url}):`, error);
-        return '/placeholder.png'; // Xatolik bo'lsa rasm qolib ketmasligi ushbu joyda tozalanadi
+        return url;
     }
 }
 

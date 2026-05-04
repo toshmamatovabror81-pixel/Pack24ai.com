@@ -8,7 +8,13 @@ interface Point { id: number; regionUz: string; }
 
 const EMPTY = { name: '', phone: '', telegramId: '', pointId: '' };
 
-export default function SupervisorsTab({ points }: { points: Point[] }) {
+export default function SupervisorsTab({
+    points,
+    selectedSupervisorId,
+}: {
+    points: Point[];
+    selectedSupervisorId?: number | null;
+}) {
     const [items, setItems] = useState<Supervisor[]>([]);
     const [loading, setLoading] = useState(true);
     const [form, setForm] = useState(EMPTY);
@@ -43,10 +49,19 @@ export default function SupervisorsTab({ points }: { points: Point[] }) {
 
     const edit = (s: Supervisor) => { setEditId(s.id); setForm({ name: s.name, phone: s.phone, telegramId: s.telegramId || '', pointId: s.pointId?.toString() || '' }); setShowForm(true); };
 
+    const visibleItems = selectedSupervisorId
+        ? items.filter((supervisor) => supervisor.id === selectedSupervisorId)
+        : items;
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500">{items.length} ta masul shaxs</p>
+                <div className="flex items-center gap-3">
+                    <p className="text-sm text-gray-500">{visibleItems.length} ta masul shaxs</p>
+                    {selectedSupervisorId && (
+                        <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full">Filter: #{selectedSupervisorId}</span>
+                    )}
+                </div>
                 <button onClick={() => { setForm(EMPTY); setEditId(null); setShowForm(!showForm); }} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm"><Plus size={14} /> Yangi masul</button>
             </div>
 
@@ -70,7 +85,7 @@ export default function SupervisorsTab({ points }: { points: Point[] }) {
                 </div>
             )}
 
-            {loading ? <div className="text-center py-10 text-gray-400">Yuklanmoqda...</div> : items.length === 0 ? (
+            {loading ? <div className="text-center py-10 text-gray-400">Yuklanmoqda...</div> : visibleItems.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center"><Users size={40} className="mx-auto text-gray-200 mb-3" /><p className="text-gray-400">Masul shaxslar yo&apos;q</p></div>
             ) : (
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -87,7 +102,7 @@ export default function SupervisorsTab({ points }: { points: Point[] }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {items.map(s => (
+                            {visibleItems.map(s => (
                                 <tr key={s.id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="px-4 py-3"><div className="flex items-center gap-2"><div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${s.isActive ? 'bg-blue-500' : 'bg-gray-400'}`}>{s.name.charAt(0)}</div><div><p className="text-sm font-bold text-gray-800">{s.name}</p>{s.telegramName && <p className="text-[10px] text-gray-400">@{s.telegramName}</p>}</div></div></td>
                                     <td className="px-4 py-3"><span className="text-xs text-gray-600 flex items-center gap-1"><Phone size={11} />{s.phone}</span></td>

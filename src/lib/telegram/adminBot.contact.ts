@@ -6,6 +6,7 @@ import {
     adminSessions,
     generateUniqueSupCode,
 } from './adminBot.shared';
+import { createOrReuseBotAccessRequest } from './botAccessRequests';
 
 export function registerAdminContactHandler(bot: Telegraf) {
     bot.on('contact', async (ctx) => {
@@ -35,16 +36,30 @@ export function registerAdminContactHandler(bot: Telegraf) {
             });
 
             if (!supervisor) {
+                const result = await createOrReuseBotAccessRequest({
+                    role: 'supervisor',
+                    name: ctx.from.first_name || ctx.from.username || 'Admin nomzod',
+                    phone,
+                    telegramId: tgId,
+                    telegramName: ctx.from.username || ctx.from.first_name || null,
+                    sourceBot: 'supervisor',
+                });
+
+                if (result.kind === 'pending') {
+                    await ctx.reply(
+                        `⏳ <b>Arizangiz allaqachon ko'rib chiqilmoqda.</b>\n\n` +
+                        `📱 Telefon: <code>${phone}</code>\n` +
+                        `HQ admin tasdiqlagandan keyin sizga xabar beriladi.`,
+                        { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } },
+                    );
+                    adminSessions.delete(tgId);
+                    return;
+                }
+
                 await ctx.reply(
-                    `❌ <b>Raqamingiz tizimda topilmadi!</b>\n\n` +
+                    `✅ <b>Admin bo'lish uchun ariza qabul qilindi.</b>\n\n` +
                     `📱 Telefon: <code>${phone}</code>\n\n` +
-                    `Bu bot faqat <b>ro'yxatdan o'tgan masul xodimlar</b> uchun.\n\n` +
-                    `📋 Masul xodim bo'lish uchun:\n` +
-                    `1️⃣ Pack24 bosh administratori sizni tizimga qo'shishi kerak\n` +
-                    `2️⃣ Keyin qaytib kelib /start bosing\n\n` +
-                    `👤 Oddiy foydalanuvchi sifatida ro'yxatdan o'tmoqchimisiz?\n` +
-                    `▶️ <a href="https://t.me/Pack24AI_bot">@Pack24AI_bot</a> botiga o'ting\n\n` +
-                    `📞 Bog'lanish: <a href="tel:+998880557888">+998 88 055-78-88</a>`,
+                    `HQ admin arizangizni tasdiqlagandan keyin ushbu bot orqali ishlashingiz mumkin bo'ladi.`,
                     { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } }
                 );
                 adminSessions.delete(tgId);

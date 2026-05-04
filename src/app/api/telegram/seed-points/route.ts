@@ -1,10 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isAuthorizedTelegramOpsRequest } from '@/lib/telegram/security';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not allowed in production' }, { status: 403 });
+    }
+
     try {
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const count = await prisma.recyclePoint.count();
         if (count > 0) {
             // Update the first one to be 'active' just in case

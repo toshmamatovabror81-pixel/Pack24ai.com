@@ -10,7 +10,6 @@ import {
     MapPin,
     Pencil,
     Plus,
-    Package,
     Globe,
     X,
     Check,
@@ -55,7 +54,7 @@ const EXTERNAL_SERVICES = [
 ];
 
 export default function DeliveryPage() {
-    const [internalMethods, setInternalMethods] = useState(INITIAL_METHODS);
+    const [internalMethods] = useState(INITIAL_METHODS);
     const [connectedServices, setConnectedServices] = useState<string[]>([]);
 
     // Modals

@@ -10,7 +10,7 @@ const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_PATHS = ['/admin'];
 const PUBLIC_ADMIN_PATHS = ['/admin/login'];
 // Login API ni himoyadan istisno qilamiz — token hali yo'q bo'lganda ham ishlashi kerak
-const PUBLIC_ADMIN_API_PATHS = ['/api/admin/login'];
+const PUBLIC_ADMIN_API_PATHS = ['/api/admin/login', '/api/admin/logout'];
 
 async function isValidAdminToken(token: string): Promise<boolean> {
     const secret = process.env.ADMIN_SECRET;

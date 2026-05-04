@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import { BottomNav } from '@/components/mobile/BottomNav';
 import '@/app/globals.css';
 import { LanguageProvider } from '@/lib/contexts/LanguageContext';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
     title: 'Pack24 Mobile',
@@ -25,7 +22,7 @@ export default function MobileLayout({
                     strategy="beforeInteractive"
                 />
             </head>
-            <body className={`${inter.className} bg-[#F9FAFB] min-h-screen pb-20`} suppressHydrationWarning>
+            <body className="bg-[#F9FAFB] min-h-screen pb-20" suppressHydrationWarning>
                 <LanguageProvider>
                     <main className="max-w-md mx-auto min-h-screen bg-white shadow-xl overflow-hidden relative">
                         {children}

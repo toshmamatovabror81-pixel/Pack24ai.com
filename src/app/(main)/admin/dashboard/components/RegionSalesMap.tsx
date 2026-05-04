@@ -3,7 +3,7 @@
 // ─── Viloyat bo'yicha Savdo Xaritasi ─────────────────────────────────────────
 // O'zbekiston viloyatlari bo'yicha buyurtma va daromad ko'rsatkich jadvali
 
-import { MapPin, TrendingUp } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 interface RegionData {
     region: string;

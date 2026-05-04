@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import {
-    Search, Users, Building2, Package, Handshake,
-    Crown, UserPlus, UserX, Ban, RefreshCw, Loader2,
+    Search, Users, Building2, Handshake,
+    Crown, UserPlus, RefreshCw, Loader2,
     Phone, ChevronRight, Filter, BarChart3,
-    TrendingUp, ShoppingCart, Calendar, ChevronDown,
-    DollarSign, AlertTriangle, UserCheck
+    ShoppingCart,
+    DollarSign, AlertTriangle, MessageSquare, Headphones, Megaphone
 } from 'lucide-react';
+import Link from 'next/link';
 import CustomerDrawer from './_components/CustomerDrawer';
 import CustomerAnalytics from './_components/CustomerAnalytics';
 
@@ -28,7 +29,8 @@ const CUSTOMER_GROUPS: Record<string, { label: string; dot: string; color: strin
 };
 
 type TypeFilter = 'all' | 'individual' | 'corporate' | 'wholesale' | 'dealer';
-type GroupFilter = 'all' | 'standard' | 'vip' | 'new' | 'inactive' | 'blocked' | 'debtor';
+type GroupFilter = 'all' | 'standard' | 'vip' | 'new' | 'inactive' | 'blocked' | 'debtor' | 'active';
+type CrmView = 'operational' | 'analytical' | 'collaboration';
 
 interface CustomerData {
     id: number | string;
@@ -69,6 +71,7 @@ interface Stats {
     totalDebit: number;
     totalPaid: number;
     debtors: number;
+    activeWithOrders?: number;
 }
 
 function formatMoney(amount: number): string {
@@ -89,7 +92,7 @@ export default function CustomersPage() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
-    const [activeView, setActiveView] = useState<'list' | 'analytics'>('list');
+    const [activeView, setActiveView] = useState<CrmView>('operational');
 
     const fetchCustomers = useCallback(async () => {
         setLoading(true);
@@ -137,10 +140,17 @@ export default function CustomersPage() {
     const GROUP_TABS: { key: GroupFilter; label: string; count?: number }[] = [
         { key: 'all',      label: 'Barchasi' },
         { key: 'debtor',   label: '💰 Qarzdorlar', count: stats?.debtors },
+        { key: 'active',   label: '⚡ Faol buyurtma', count: stats?.activeWithOrders },
         { key: 'vip',      label: '💎 VIP',        count: stats?.vip },
         { key: 'new',      label: '🟢 Yangi',      count: stats?.newThisMonth },
         { key: 'inactive', label: '⚪ Faol emas',   count: stats?.inactive },
         { key: 'blocked',  label: '🔴 Bloklangan',  count: stats?.blocked },
+    ];
+
+    const CRM_VIEWS: { key: CrmView; label: string; description: string; icon: ReactNode }[] = [
+        { key: 'operational', label: 'Operatsion CRM', description: 'Jarayonlar, segmentlar va tezkor Customer 360', icon: <Users size={14} /> },
+        { key: 'analytical', label: 'Analitik CRM', description: 'Segmentatsiya, churn, LTV va daromad tahlili', icon: <BarChart3 size={14} /> },
+        { key: 'collaboration', label: 'Hamkorlik CRM', description: 'Aloqa kanallari va jamoaviy ish markazi', icon: <Handshake size={14} /> },
     ];
 
     return (
@@ -148,27 +158,27 @@ export default function CustomersPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900">Mijozlar Bazasi (CRM)</h1>
+                    <h1 className="text-2xl font-extrabold text-gray-900">Mijozlar CRM</h1>
                     <p className="text-sm text-gray-400 mt-0.5">
+                        Mijozlar + Ma&apos;lumot + Avtomatlashtirish
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
                         {stats ? `${stats.total} ta mijoz` : 'Yuklanmoqda...'}
                         {stats?.guests ? ` (${stats.registered} ro'yxatdan + ${stats.guests} mehmon)` : ''}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* View tabs */}
                     <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-white text-sm">
-                        <button
-                            onClick={() => setActiveView('list')}
-                            className={`px-4 py-2 font-semibold transition-colors flex items-center gap-1.5 ${activeView === 'list' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                        >
-                            <Users size={14} /> Ro&apos;yxat
-                        </button>
-                        <button
-                            onClick={() => setActiveView('analytics')}
-                            className={`px-4 py-2 font-semibold transition-colors flex items-center gap-1.5 ${activeView === 'analytics' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                        >
-                            <BarChart3 size={14} /> Analitika
-                        </button>
+                        {CRM_VIEWS.map(view => (
+                            <button
+                                key={view.key}
+                                onClick={() => setActiveView(view.key)}
+                                title={view.description}
+                                className={`px-4 py-2 font-semibold transition-colors flex items-center gap-1.5 ${activeView === view.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                            >
+                                {view.icon} {view.label}
+                            </button>
+                        ))}
                     </div>
                     <button
                         onClick={() => fetchCustomers()}
@@ -181,12 +191,27 @@ export default function CustomersPage() {
                 </div>
             </div>
 
-            {/* Analytics View */}
-            {activeView === 'analytics' && <CustomerAnalytics />}
+            {/* Analytical CRM */}
+            {activeView === 'analytical' && <CustomerAnalytics />}
 
-            {/* List View */}
-            {activeView === 'list' && (
+            {/* Operational CRM */}
+            {activeView === 'operational' && (
             <>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+                        <Users size={18} className="text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-extrabold text-gray-900">Operatsion CRM</h2>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Turli kanallardan kelgan mijozlarni bitta ro&apos;yxatda ko&apos;rib, segment, qarzdorlik,
+                            faol buyurtma va Customer 360 profiliga tez o&apos;ting.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Stat Cards — Moliyaviy */}
             {stats && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -265,7 +290,7 @@ export default function CustomersPage() {
                             onClick={() => { setGroupFilter(tab.key); setPage(1); }}
                             className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                                 groupFilter === tab.key
-                                    ? tab.key === 'debtor' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+                                    ? tab.key === 'debtor' ? 'bg-red-600 text-white' : tab.key === 'active' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
                                     : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                             }`}
                         >
@@ -312,8 +337,9 @@ export default function CustomersPage() {
                                 <tr>
                                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Mijoz</th>
                                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Turi</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden md:table-cell">Aloqa</th>
+                                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden md:table-cell">Aloqa / oxirgi</th>
                                     <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase hidden sm:table-cell">Jami</th>
+                                    <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase hidden lg:table-cell">Faol</th>
                                     <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase hidden lg:table-cell">To&apos;langan</th>
                                     <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase hidden lg:table-cell">Qarz</th>
                                     <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase w-10"></th>
@@ -368,10 +394,22 @@ export default function CustomersPage() {
                                                 <span className="text-xs text-gray-600 flex items-center gap-1">
                                                     <Phone size={11} className="text-gray-400" />{c.phone}
                                                 </span>
+                                                <p className="text-[10px] text-gray-400 mt-1">
+                                                    {c.lastOrderDate ? `Oxirgi: ${new Date(c.lastOrderDate).toLocaleDateString('uz-UZ')}` : 'Buyurtma yo&apos;q'}
+                                                </p>
                                             </td>
                                             <td className="px-4 py-3 text-right hidden sm:table-cell">
                                                 <span className="font-extrabold text-gray-900 text-sm">{formatMoney(c.totalRevenue)}</span>
                                                 <p className="text-[10px] text-gray-400">{c.totalOrders} buyurtma</p>
+                                            </td>
+                                            <td className="px-4 py-3 text-center hidden lg:table-cell">
+                                                {c.activeOrders > 0 ? (
+                                                    <span className="inline-flex items-center justify-center min-w-7 h-7 rounded-full bg-emerald-50 text-emerald-700 text-xs font-extrabold">
+                                                        {c.activeOrders}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-gray-300">—</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-right hidden lg:table-cell">
                                                 <span className="text-sm font-bold text-emerald-600">{formatMoney(c.totalPaid)}</span>
@@ -417,6 +455,62 @@ export default function CustomersPage() {
                 </div>
             )}
 
+            </>
+            )}
+
+            {/* Collaborative CRM */}
+            {activeView === 'collaboration' && (
+                <div className="space-y-5">
+                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 p-5">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+                                <Handshake size={18} className="text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-extrabold text-gray-900">Hamkorlik CRM</h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Mijoz bilan aloqa nuqtalarini bir joyga yig&apos;ish: call-center, chat, marketing va buyurtmalar.
+                                    MVPda bu panel real mavjud admin bo&apos;limlariga tezkor o&apos;tish markazi sifatida ishlaydi.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {[
+                            { href: '/admin/customers/calls', title: 'Call Center', desc: "Telefon qo'ng'iroqlari va operator ishlari", icon: <Headphones size={18} />, badge: 'Aloqa' },
+                            { href: '/admin/chat', title: 'Chat', desc: 'Telegram, sayt va ijtimoiy kanal suhbatlari', icon: <MessageSquare size={18} />, badge: 'Muloqot' },
+                            { href: '/admin/marketing/newsletter', title: 'Marketing', desc: 'Newsletter, aksiyalar va mijoz auditoriyasi', icon: <Megaphone size={18} />, badge: 'Kampaniya' },
+                            { href: '/admin/orders', title: 'Buyurtmalar', desc: 'Mijoz operatsiyalari va bajarilish jarayoni', icon: <ShoppingCart size={18} />, badge: 'Operatsiya' },
+                        ].map(item => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all group"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center group-hover:bg-emerald-600 transition-colors">
+                                        {item.icon}
+                                    </div>
+                                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">{item.badge}</span>
+                                </div>
+                                <h3 className="text-sm font-extrabold text-gray-900 mt-4">{item.title}</h3>
+                                <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+                                <p className="text-[10px] text-gray-400 mt-4">Mavjud admin bo&apos;limiga o&apos;tish →</p>
+                            </Link>
+                        ))}
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-5">
+                        <h3 className="text-sm font-extrabold text-gray-900">Keyingi integratsiya chegarasi</h3>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Real aloqa timeline, xodim izohlari, task/comment API va kampaniya attribution modeli keyingi bosqichda DB modeli bilan qo&apos;shiladi.
+                            Hozircha Customer 360 profili haqiqat manbasi bo&apos;lib qoladi.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Drawer */}
             <CustomerDrawer
                 isOpen={drawerOpen}
@@ -424,8 +518,6 @@ export default function CustomersPage() {
                 customer={selectedCustomer}
                 onSaved={() => fetchCustomers()}
             />
-            </>
-            )}
         </div>
     );
 }

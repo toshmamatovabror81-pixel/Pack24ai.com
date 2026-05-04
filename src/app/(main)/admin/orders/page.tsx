@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import {
-    Search, Download, User, MapPin, Bot, Globe,
+    Search, Download, MapPin, Bot,
     RefreshCw, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react';
 import OrderDrawer from './_components/OrderDrawer';
@@ -64,10 +64,11 @@ function SkeletonRows() {
 function OrdersContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const initialSearch = searchParams.get('search') || searchParams.get('orderId') || '';
 
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(initialSearch);
     const [status, setStatus] = useState(searchParams.get('status') || 'all');
     const [page, setPage] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState<any>(null);

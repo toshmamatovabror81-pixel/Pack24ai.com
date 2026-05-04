@@ -321,7 +321,15 @@ export default function CatalogIndexPage() {
         setQuantities((prev) => ({ ...prev, [id]: Math.max(1, val) }));
 
     const toggleCat = (id: string) =>
-        setExpandedCats(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+        setExpandedCats(prev => {
+            const s = new Set(prev);
+            if (s.has(id)) {
+                s.delete(id);
+            } else {
+                s.add(id);
+            }
+            return s;
+        });
 
     if (!hasMounted) return null;
 

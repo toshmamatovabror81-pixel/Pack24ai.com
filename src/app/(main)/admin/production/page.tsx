@@ -1,18 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
     Factory,
     Layers,
     Printer,
     Box,
     CheckCircle2,
-    AlertTriangle,
     Clock,
     ChevronRight,
-    Search,
-    Filter,
     Plus,
     Loader2
 } from 'lucide-react';
@@ -58,8 +54,8 @@ export default function ProductionDashboard() {
                 const data = await res.json();
                 setOrders(data);
             }
-        } catch (error) {
-            console.error(error);
+        } catch (_error) {
+            console.error(_error);
         } finally {
             setIsLoading(false);
         }
@@ -94,7 +90,7 @@ export default function ProductionDashboard() {
             } else {
                 toast.error("Xatolik yuz berdi");
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Tizim xatosi");
         } finally {
             setIsSubmitting(false);

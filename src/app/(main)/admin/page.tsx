@@ -8,7 +8,7 @@ import {
 import {
     TrendingUp, ShoppingCart, Package, ArrowUpRight,
     ArrowDownRight, RefreshCw, Users, DollarSign,
-    Clock, CheckCircle, AlertCircle, Loader2
+    Clock, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 

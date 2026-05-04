@@ -1,45 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import {
+    readArray,
+    readBooleanQueryParam,
+    readJsonObject,
+    readOptionalNumber,
+    readOptionalString,
+    readPositiveIntegerQueryParam,
+    RequestValidationError,
+} from '@/lib/requestValidation';
+import { publishPlatformEvent } from '@/lib/platform/events';
+import { sendLowStockAlertToAdminChats } from '@/lib/platform/telegramCommands';
+import { isAuthorizedTelegramOpsRequest } from '@/lib/telegram/security';
 
 const LOW_STOCK_THRESHOLD = parseInt(process.env.LOW_STOCK_THRESHOLD ?? '10');
-const TELEGRAM_BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
 
 // ─── Telegram alert helper ────────────────────────────────────────────────────
-async function sendLowStockAlert(items: { name: string; quantity: number; sku?: string | null }[]) {
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_ADMIN_CHAT_ID || !items.length) return;
-
-    const lines = items.map(i =>
-        `  ⚠️ ${i.name}${i.sku ? ` (${i.sku})` : ''} — qoldi: <b>${i.quantity}</b>`
-    ).join('\n');
-
-    const text = [
-        '📦 <b>Ombor: Kam qolgan mahsulotlar</b>',
-        '',
-        lines,
-        '',
-        `Chegara: ${LOW_STOCK_THRESHOLD} dona`,
-        `🔗 Admin: ${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin/products/warehouse`,
-    ].join('\n');
-
-    try {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: TELEGRAM_ADMIN_CHAT_ID, text, parse_mode: 'HTML' }),
-        });
-    } catch (e) {
-        console.error('[LowStock Telegram]', e);
-    }
+async function sendLowStockAlert(items: { name: string; quantity: number; sku?: string | null }[], threshold: number) {
+    if (!items.length) return false;
+    return sendLowStockAlertToAdminChats(items, threshold);
 }
 
 // ─── GET /api/admin/stock-alert — Kam qolgan mahsulotlarni tekshirish ─────────
 // Bu endpoint cron job yoki qo'lda tekshirish uchun ishlatiladi
 export async function GET(req: NextRequest) {
     try {
+        const authorized = await isAuthorizedTelegramOpsRequest(req);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { searchParams } = new URL(req.url);
-        const notify = searchParams.get('notify') === 'true';
-        const threshold = parseInt(searchParams.get('threshold') ?? String(LOW_STOCK_THRESHOLD));
+        const notify = readBooleanQueryParam(searchParams.get('notify'));
+        const threshold = readPositiveIntegerQueryParam(
+            searchParams.get('threshold'),
+            'threshold',
+            LOW_STOCK_THRESHOLD,
+        );
 
         // Inventory checking — agar Inventory model bo'lsa
         let lowStockItems: { id: number; name: string; sku: string | null; quantity: number }[] = [];
@@ -60,12 +57,6 @@ export async function GET(req: NextRequest) {
                 quantity: i.quantity,
             }));
         } catch {
-            // Fallback: use product stock field if exists
-            const products = await prisma.product.findMany({
-                where: { status: 'active' },
-                select: { id: true, name: true, sku: true },
-                take: 100,
-            });
             // No stock field — return empty with message
             lowStockItems = [];
             return NextResponse.json({
@@ -76,18 +67,39 @@ export async function GET(req: NextRequest) {
         }
 
         // Send Telegram if requested
+        let notified = false;
         if (notify && lowStockItems.length > 0) {
-            await sendLowStockAlert(lowStockItems);
+            notified = await sendLowStockAlert(lowStockItems, threshold);
+            if (notified) {
+                await publishPlatformEvent({
+                    source: 'platform',
+                    type: 'inventory.low_stock_detected',
+                    entityType: 'inventory',
+                    severity: 'warning',
+                    title: 'Kam qolgan mahsulotlar bo\'yicha alert yuborildi',
+                    message: `${lowStockItems.length} ta mahsulot uchun avtomatik low-stock alert yuborildi.`,
+                    payload: {
+                        threshold,
+                        count: lowStockItems.length,
+                        items: lowStockItems,
+                    },
+                    notifyAdmins: false,
+                });
+            }
         }
 
         return NextResponse.json({
             lowStock: lowStockItems,
             count: lowStockItems.length,
             threshold,
-            notified: notify && lowStockItems.length > 0,
+            notified,
             checkedAt: new Date().toISOString(),
         });
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         console.error('[stock-alert]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
@@ -96,16 +108,64 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/admin/stock-alert — Manual alert yuborish ─────────────────────
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        const { items } = body;
+        const authorized = await isAuthorizedTelegramOpsRequest(req);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        if (!Array.isArray(items) || !items.length) {
+        const body = await readJsonObject(req);
+        const items = readArray(body.items, 'items').map((item, index) => {
+            if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+                throw new RequestValidationError(`items[${index}] object bo'lishi kerak`);
+            }
+
+            const itemRecord = item as Record<string, unknown>;
+
+            return {
+                name: readOptionalString(itemRecord.name, `items[${index}].name`) || 'Noma\'lum',
+                sku: readOptionalString(itemRecord.sku, `items[${index}].sku`) ?? null,
+                quantity: readOptionalNumber(itemRecord.quantity, `items[${index}].quantity`) ?? 0,
+            };
+        });
+
+        if (!items.length) {
             return NextResponse.json({ error: 'items majburiy' }, { status: 400 });
         }
 
-        await sendLowStockAlert(items);
-        return NextResponse.json({ success: true, message: `${items.length} ta mahsulot haqida Telegram xabar yuborildi` });
+        for (const [index, item] of items.entries()) {
+            if (item.quantity < 0) {
+                throw new RequestValidationError(`items[${index}].quantity manfiy bo'lmasligi kerak`);
+            }
+        }
+
+        const sent = await sendLowStockAlert(items, LOW_STOCK_THRESHOLD);
+        if (sent) {
+            await publishPlatformEvent({
+                source: 'platform',
+                type: 'inventory.low_stock_alert_sent',
+                entityType: 'inventory',
+                severity: 'warning',
+                title: 'Manual low-stock alert yuborildi',
+                message: `${items.length} ta mahsulot uchun manual low-stock alert yuborildi.`,
+                payload: {
+                    threshold: LOW_STOCK_THRESHOLD,
+                    count: items.length,
+                    items,
+                },
+                notifyAdmins: false,
+            });
+        }
+        return NextResponse.json({
+            success: sent,
+            message: sent
+                ? `${items.length} ta mahsulot haqida Telegram xabar yuborildi`
+                : 'Telegram admin chatlari sozlanmagan',
+        }, { status: sent ? 200 : 503 });
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

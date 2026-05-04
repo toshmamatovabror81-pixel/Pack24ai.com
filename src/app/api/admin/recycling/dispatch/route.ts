@@ -1,16 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTelegramMessage } from '@/lib/telegram/bot';
+import { publishPlatformEvent } from '@/lib/platform/events';
+import {
+    readEnum,
+    readJsonObject,
+    readNumber,
+    readOptionalNumber,
+    readOptionalString,
+    RequestValidationError,
+} from '@/lib/requestValidation';
+import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
+
+const DISPATCH_ACTIONS = [
+    'dispatch_to_supervisor',
+    'assign_driver',
+    'driver_en_route',
+    'driver_arrived',
+    'start_collecting',
+    'mark_completed',
+    'cancel_request',
+] as const;
+
+function buildDispatchEventMeta(action: (typeof DISPATCH_ACTIONS)[number]) {
+    switch (action) {
+        case 'dispatch_to_supervisor':
+            return {
+                type: 'recycling.request.dispatched',
+                severity: 'info' as const,
+                title: 'Ariza masulga yo\'naltirildi',
+            };
+        case 'assign_driver':
+            return {
+                type: 'recycling.driver.assigned',
+                severity: 'info' as const,
+                title: 'Arizaga haydovchi biriktirildi',
+            };
+        case 'driver_en_route':
+            return {
+                type: 'recycling.driver.en_route',
+                severity: 'info' as const,
+                title: 'Haydovchi yo\'lga chiqdi',
+            };
+        case 'driver_arrived':
+            return {
+                type: 'recycling.driver.arrived',
+                severity: 'info' as const,
+                title: 'Haydovchi manzilga yetib keldi',
+            };
+        case 'start_collecting':
+            return {
+                type: 'recycling.collection.started',
+                severity: 'info' as const,
+                title: 'Yig\'ish jarayoni boshlandi',
+            };
+        case 'mark_completed':
+            return {
+                type: 'recycling.request.completed',
+                severity: 'success' as const,
+                title: 'Ariza yakunlandi',
+            };
+        case 'cancel_request':
+            return {
+                type: 'recycling.request.cancelled',
+                severity: 'warning' as const,
+                title: 'Ariza bekor qilindi',
+            };
+    }
+}
+
+async function publishDispatchEvent(params: {
+    action: (typeof DISPATCH_ACTIONS)[number];
+    requestId: number;
+    status: string;
+    supervisorId?: number | null;
+    driverId?: number | null;
+    pointId?: number | null;
+    note?: string | null;
+}) {
+    const meta = buildDispatchEventMeta(params.action);
+    await publishPlatformEvent({
+        source: 'platform',
+        type: meta.type,
+        entityType: 'recycle_request',
+        entityId: params.requestId,
+        severity: meta.severity,
+        title: meta.title,
+        message: `Ariza #${params.requestId} holati ${params.status} ga o'zgardi.`,
+        requestId: params.requestId,
+        supervisorId: params.supervisorId ?? undefined,
+        driverId: params.driverId ?? undefined,
+        pointId: params.pointId ?? undefined,
+        payload: {
+            action: params.action,
+            status: params.status,
+            note: params.note ?? null,
+        },
+        notifyAdmins: false,
+    });
+}
 
 // ─── Yordamchi: Telegram xabar yuborish (shaxsiy chat_id ga) ─────────────────
 async function sendToTelegram(chatId: string, message: string, extra?: Record<string, unknown>) {
     try {
-        const { getBot } = await import('@/lib/telegram/bot');
-        const bot = await getBot();
-        if (bot && chatId) {
-            await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML', ...extra });
-            return true;
-        }
+        if (!chatId) return false;
+        await notifyCustomer(chatId, message, extra as { parse_mode?: 'HTML' | 'Markdown'; reply_markup?: unknown } | undefined);
+        return true;
     } catch (e) {
         console.error('[Dispatch TG]', e);
     }
@@ -20,15 +114,19 @@ async function sendToTelegram(chatId: string, message: string, extra?: Record<st
 // POST /api/admin/recycling/dispatch — Dispetcherlash amallari
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        const { action, requestId, supervisorId, driverId } = body;
+        const body = await readJsonObject(req);
+        const action = readEnum(body.action, 'action', DISPATCH_ACTIONS);
+        const requestId = readNumber(body.requestId, 'requestId');
+        const supervisorId = readOptionalNumber(body.supervisorId, 'supervisorId');
+        const driverId = readOptionalNumber(body.driverId, 'driverId');
+        const note = readOptionalString(body.note, 'note');
 
-        if (!requestId) {
-            return NextResponse.json({ error: 'requestId majburiy' }, { status: 400 });
+        if (!Number.isInteger(requestId) || requestId <= 0) {
+            throw new RequestValidationError('requestId musbat butun son bo\'lishi kerak');
         }
 
         const request = await prisma.recycleRequest.findUnique({
-            where: { id: Number(requestId) },
+            where: { id: requestId },
             include: { point: true },
         });
 
@@ -42,13 +140,13 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'supervisorId majburiy' }, { status: 400 });
             }
 
-            const supervisor = await prisma.supervisor.findUnique({ where: { id: Number(supervisorId) } });
+            const supervisor = await prisma.supervisor.findUnique({ where: { id: supervisorId } });
             if (!supervisor) {
                 return NextResponse.json({ error: 'Masul topilmadi' }, { status: 404 });
             }
 
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     supervisorId: supervisor.id,
                     status: 'dispatched',
@@ -94,9 +192,17 @@ export async function POST(req: NextRequest) {
             }
 
             // Adminga Telegram xabar
-            await sendTelegramMessage(
+            await notifySalesChats(
                 `📤 Ariza #${request.id} → <b>${supervisor.name}</b> ga yo'naltirildi`
             );
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: updated.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
+            });
 
             return NextResponse.json(updated);
         }
@@ -107,13 +213,13 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'driverId majburiy' }, { status: 400 });
             }
 
-            const driver = await prisma.driver.findUnique({ where: { id: Number(driverId) } });
+            const driver = await prisma.driver.findUnique({ where: { id: driverId } });
             if (!driver) {
                 return NextResponse.json({ error: 'Haydovchi topilmadi' }, { status: 404 });
             }
 
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     assignedDriverId: driver.id,
                     status: 'assigned',
@@ -143,13 +249,21 @@ export async function POST(req: NextRequest) {
                 });
             }
 
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: updated.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
+            });
             return NextResponse.json(updated);
         }
 
         // ─── ACTION: Haydovchi yo'lga chiqdi ─────────────────────────────
         if (action === 'driver_en_route') {
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     status: 'en_route',
                     driverEnRouteAt: new Date(),
@@ -178,13 +292,21 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: request.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
+            });
             return NextResponse.json(updated);
         }
 
         // ─── ACTION: Haydovchi yetib keldi ───────────────────────────────
         if (action === 'driver_arrived') {
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     status: 'arrived',
                     driverArrivedAt: new Date(),
@@ -213,14 +335,30 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: request.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: request.regionId,
+            });
             return NextResponse.json(updated);
         }
 
         // ─── ACTION: Yuk yig'ish boshlandi ───────────────────────────────
         if (action === 'start_collecting') {
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: { status: 'collecting' },
+            });
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: updated.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
             });
             return NextResponse.json(updated);
         }
@@ -228,11 +366,11 @@ export async function POST(req: NextRequest) {
         // ─── ACTION: Arizani yakunlash (confirmed → completed) ──────────
         if (action === 'mark_completed') {
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     status: 'completed',
                     completedAt: new Date(),
-                    completedNote: body.note || null,
+                    completedNote: note ?? null,
                 },
                 include: { assignedDriver: true, supervisor: true },
             });
@@ -263,9 +401,18 @@ export async function POST(req: NextRequest) {
             }
 
             // Admin guruhga
-            await sendTelegramMessage(
+            await notifySalesChats(
                 `🟢 Ariza #${request.id} yakunlandi — ${request.name} | ${request.volume ? request.volume + ' kg' : ''}`
             );
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: updated.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
+                note,
+            });
 
             return NextResponse.json(updated);
         }
@@ -273,10 +420,10 @@ export async function POST(req: NextRequest) {
         // ─── ACTION: Arizani bekor qilish ───────────────────────────────
         if (action === 'cancel_request') {
             const updated = await prisma.recycleRequest.update({
-                where: { id: Number(requestId) },
+                where: { id: requestId },
                 data: {
                     status: 'cancelled',
-                    completedNote: body.note || 'Bekor qilindi',
+                    completedNote: note || 'Bekor qilindi',
                 },
             });
 
@@ -293,16 +440,28 @@ export async function POST(req: NextRequest) {
                 await sendToTelegram(
                     request.customerTgId,
                     `🔴 <b>Ariza #${request.id} bekor qilindi.</b>\n\n` +
-                    `${body.note ? `Sabab: ${body.note}\n\n` : ''}` +
+                    `${note ? `Sabab: ${note}\n\n` : ''}` +
                     `Savollar uchun: /help`
                 );
             }
 
+            await publishDispatchEvent({
+                action,
+                requestId: updated.id,
+                status: updated.status,
+                supervisorId: updated.supervisorId,
+                driverId: updated.assignedDriverId,
+                pointId: updated.regionId,
+                note,
+            });
             return NextResponse.json(updated);
         }
 
         return NextResponse.json({ error: 'Noto\'g\'ri action' }, { status: 400 });
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error('[Dispatch POST]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

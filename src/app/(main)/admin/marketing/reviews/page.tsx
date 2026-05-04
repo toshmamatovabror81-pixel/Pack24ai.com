@@ -6,12 +6,9 @@ import {
     CheckCircle2,
     XCircle,
     Search,
-    Filter,
     MoreHorizontal,
     Star,
-    Trash2,
-    ThumbsUp,
-    ThumbsDown
+    Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';

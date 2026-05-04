@@ -3,11 +3,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Send, Image as ImageIcon, Copy } from 'lucide-react';
+import { Image as ImageIcon, Copy } from 'lucide-react';
 
 export default function ChannelPostsPage() {
-    const [selectedProduct, setSelectedProduct] = useState('Polietilen paket (Mayka)');
+    const [selectedProduct] = useState('Polietilen paket (Mayka)');
 
     return (
         <div className="p-6 bg-[#F9FAFB] min-h-screen">

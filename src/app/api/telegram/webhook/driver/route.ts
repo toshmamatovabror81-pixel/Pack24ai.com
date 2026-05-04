@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { initDriverBot } from '@/lib/telegram/driverBot';
+import { isValidTelegramWebhookRequest } from '@/lib/telegram/security';
 
 export const dynamic = 'force-dynamic';
 
 // Handle POST requests from Telegram Webhook (Driver Bot — @pack24MX_bot)
 export async function POST(request: Request) {
     try {
+        if (!isValidTelegramWebhookRequest(request)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const bot = await initDriverBot();
 
         if (!bot) {

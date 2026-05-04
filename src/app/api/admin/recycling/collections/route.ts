@@ -7,17 +7,15 @@ import {
 import {
     canTransitionRecycleRequestStatus,
     isRecycleCollectionPaymentStatus,
+    type RecycleRequestStatus,
 } from '@/lib/domain/recycling/statuses';
-import { sendTelegramMessage } from '@/lib/telegram/bot';
+import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
 
 // Yordamchi
 async function sendToTelegram(chatId: string, message: string) {
     try {
-        const { getBot } = await import('@/lib/telegram/bot');
-        const bot = await getBot();
-        if (bot && chatId) {
-            await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        }
+        if (!chatId) return;
+        await notifyCustomer(chatId, message);
     } catch (e) { console.error('[Collections TG]', e); }
 }
 
@@ -109,7 +107,7 @@ export async function POST(req: NextRequest) {
                 throw new Error('REQUEST_NOT_FOUND');
             }
 
-            if (!canTransitionRecycleRequestStatus(request.status, 'collected')) {
+            if (!canTransitionRecycleRequestStatus(request.status as RecycleRequestStatus, 'collected')) {
                 throw new Error('INVALID_REQUEST_STATUS');
             }
 
@@ -189,7 +187,7 @@ export async function POST(req: NextRequest) {
 
 
         // Adminga xabar
-        await sendTelegramMessage(
+        await notifySalesChats(
             `📦 Yig'ish #${collection.id} yaratildi\n` +
             `Ariza #${request.id} | ${actualWeight} kg | ${fmtMoney(totalAmount)} so'm`
         );

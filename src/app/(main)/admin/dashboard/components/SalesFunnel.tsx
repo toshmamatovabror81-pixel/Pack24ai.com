@@ -71,7 +71,6 @@ export default function SalesFunnel({ data, loading }: { data: FunnelData | null
                                     </span>
                                 </div>
                             )}
-                            {/* eslint-disable-next-line react/forbid-dom-props -- dynamic width from API data */}
                             <div
                                 className="rounded-xl p-3 flex items-center justify-between transition-all hover:scale-[1.01]"
                                 style={{
@@ -83,12 +82,10 @@ export default function SalesFunnel({ data, loading }: { data: FunnelData | null
                                 }}
                             >
                                 <div className="flex items-center gap-2">
-                                    {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime color */}
                                     <div
                                         className="w-2.5 h-2.5 rounded-full"
                                         style={{ backgroundColor: stage.color }}
                                     />
-                                    {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime color */}
                                     <span className="text-xs font-bold" style={{ color: stage.color }}>
                                         {stage.label}
                                     </span>

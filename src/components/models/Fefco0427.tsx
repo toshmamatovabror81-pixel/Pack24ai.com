@@ -21,6 +21,41 @@ const getDielineSpecs = (dims: BoxDimensions) => {
     };
 };
 
+const TexturedMeshMaterial: React.FC<{
+    material: BoxModelProps['material'];
+    textureUrl: string;
+}> = ({ material, textureUrl }) => {
+    const texture = useTexture(textureUrl);
+
+    return (
+        <meshStandardMaterial
+            color={material.color}
+            map={texture}
+            side={2}
+            roughness={0.7}
+            metalness={0.1}
+        />
+    );
+};
+
+const BoxMeshMaterial: React.FC<{
+    material: BoxModelProps['material'];
+    textureUrl?: string;
+}> = ({ material, textureUrl }) => {
+    if (textureUrl) {
+        return <TexturedMeshMaterial material={material} textureUrl={textureUrl} />;
+    }
+
+    return (
+        <meshStandardMaterial
+            color={material.color}
+            side={2}
+            roughness={0.7}
+            metalness={0.1}
+        />
+    );
+};
+
 // ------------------------------------------------------------------
 // 3D MODEL COMPONENT
 // ------------------------------------------------------------------
@@ -31,9 +66,6 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
     const w = W_mm / 1000;
     const h = H_mm / 1000;
     const t = 0.003;
-
-    // Load texture if url exists (This might suspend, parent needs Suspense)
-    const texture = textureUrl ? useTexture(textureUrl) : null;
 
     // ... (animation logic s1...s5) 
     // Need to reconstruct s1-s5 here or keep them. 
@@ -57,13 +89,7 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
     // 5. Qulf (Tuck)
     const s5 = foldProgress > 0.8 ? Math.min((foldProgress - 0.8) / 0.2, 1) * (Math.PI / 2.2) : 0;
 
-    const mat = <meshStandardMaterial
-        color={material.color}
-        map={texture || undefined}
-        side={2}
-        roughness={0.7}
-        metalness={0.1}
-    />;
+    const mat = <BoxMeshMaterial material={material} textureUrl={textureUrl} />;
 
     return (
         <group>

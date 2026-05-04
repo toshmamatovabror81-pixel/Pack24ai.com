@@ -1,59 +1,107 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+    readArray,
+    readJsonObject,
+    readOptionalNumber,
+    readOptionalString,
+    RequestValidationError,
+} from '@/lib/requestValidation';
+import { publishPlatformEvent } from '@/lib/platform/events';
+import { sendManualOrderNotificationToAdminChats } from '@/lib/platform/telegramCommands';
+import { isAuthorizedTelegramOpsRequest } from '@/lib/telegram/security';
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const order = await request.json();
-
-        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_ADMIN_CHAT_ID) {
-            console.error('Telegram keys missing');
-            // We return success to not block the UI, but log error
-            return NextResponse.json({ success: false, error: "Server misconfiguration" });
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        const itemsList = order.items.map((item: any) =>
-            `- ${item.name} (${item.quantity} x ${item.price.toLocaleString()} UZS)`
-        ).join('\n');
+        const body = await readJsonObject(request);
+        const items = readArray(body.items, 'items').map((item, index) => {
+            if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+                throw new RequestValidationError(`items[${index}] object bo'lishi kerak`);
+            }
 
-        const message = `
-📦 <b>Yangi Buyurtma!</b>
+            const itemRecord = item as Record<string, unknown>;
 
-🆔 <b>ID:</b> <code>${order.id || 'N/A'}</code>
-👤 <b>Mijoz:</b> ${order.contactName}
-📞 <b>Tel:</b> ${order.contactPhone}
-📍 <b>Manzil:</b> ${order.address}
-📝 <b>Izoh:</b> ${order.comment || 'Yo\'q'}
-
-🛒 <b>Mahsulotlar:</b>
-${itemsList}
-
-💰 <b>Jami:</b> <b>${order.totalAmount.toLocaleString()} UZS</b>
-        `.trim();
-
-        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                chat_id: TELEGRAM_ADMIN_CHAT_ID,
-                text: message,
-                parse_mode: 'HTML',
-            }),
+            return {
+                name: readOptionalString(itemRecord.name, `items[${index}].name`) || 'Mahsulot',
+                quantity: readOptionalNumber(itemRecord.quantity, `items[${index}].quantity`) ?? 0,
+                price: readOptionalNumber(itemRecord.price, `items[${index}].price`) ?? 0,
+            };
         });
 
-        const data = await response.json();
-
-        if (!data.ok) {
-            console.error('Telegram API Error:', data);
-            return NextResponse.json({ success: false, error: data.description });
+        if (items.length === 0) {
+            return NextResponse.json({ success: false, error: 'Order items required' }, { status: 400 });
         }
+
+        const orderId = readOptionalString(body.id, 'id') || 'N/A';
+        const contactName = readOptionalString(body.contactName, 'contactName') || 'Noma\'lum';
+        const contactPhone = readOptionalString(body.contactPhone, 'contactPhone') || '-';
+        const address = readOptionalString(body.address, 'address') || '-';
+        const comment = readOptionalString(body.comment, 'comment') || 'Yo\'q';
+        const totalAmount = readOptionalNumber(body.totalAmount, 'totalAmount') ?? 0;
+        const numericOrderId = typeof body.id === 'number' && Number.isInteger(body.id) ? body.id : undefined;
+
+        const sent = await sendManualOrderNotificationToAdminChats({
+            id: orderId,
+            contactName,
+            contactPhone,
+            address,
+            comment,
+            totalAmount,
+            items,
+        });
+        if (!sent) {
+            console.error('Telegram admin chats not configured');
+            await publishPlatformEvent({
+                source: 'platform',
+                type: 'order.notification_requested',
+                entityType: 'order',
+                entityId: numericOrderId,
+                severity: 'warning',
+                title: 'Buyurtma xabari yuborilmadi',
+                message: `Buyurtma ${orderId} uchun Telegram admin chat topilmadi.`,
+                payload: {
+                    orderId,
+                    contactName,
+                    contactPhone,
+                    address,
+                    totalAmount,
+                    itemCount: items.length,
+                },
+                notifyAdmins: false,
+            });
+            return NextResponse.json({ success: false, error: 'Telegram admin chat not configured' }, { status: 503 });
+        }
+
+        await publishPlatformEvent({
+            source: 'platform',
+            type: 'order.notification_requested',
+            entityType: 'order',
+            entityId: numericOrderId,
+            severity: 'success',
+            title: 'Buyurtma xabari Telegramga yuborildi',
+            message: `Buyurtma ${orderId} uchun admin chatlarga Telegram xabari yuborildi.`,
+            payload: {
+                orderId,
+                contactName,
+                contactPhone,
+                address,
+                totalAmount,
+                itemCount: items.length,
+            },
+            notifyAdmins: false,
+        });
 
         return NextResponse.json({ success: true });
 
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+        }
+
         console.error('Telegram notification failed:', error);
         return NextResponse.json({ success: false, error: "Internal Server Error" });
     }

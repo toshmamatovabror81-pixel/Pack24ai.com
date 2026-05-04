@@ -44,14 +44,6 @@ const TYPE_LABELS: Record<string, string> = {
     dealer:     '🤝 Diler',
 };
 
-const GROUP_LABELS: Record<string, string> = {
-    standard: 'Standard',
-    vip:      '💎 VIP',
-    new:      '🟢 Yangi',
-    inactive: '⚪ Faol emas',
-    blocked:  '🔴 Bloklangan',
-};
-
 const SEGMENT_CONFIG = [
     { key: 'champions',    label: '🏆 Chempionlar', color: '#10b981', desc: 'Yaqinda, ko`p, yuqori summa' },
     { key: 'loyal',        label: '💚 Sodiq',       color: '#3b82f6', desc: 'Muntazam xaridorlar' },
@@ -130,6 +122,13 @@ export default function CustomerAnalytics() {
 
     return (
         <div className="space-y-5">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 p-5">
+                <h2 className="text-base font-extrabold text-gray-900">Analitik CRM</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                    Segmentatsiya, churn xavfi, o&apos;rtacha LTV, top mijozlar va yangi mijozlar dinamikasi.
+                </p>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow">
@@ -137,7 +136,7 @@ export default function CustomerAnalytics() {
                         <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
                             <Users size={14} className="text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase">Jami</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">Jami mijozlar</span>
                     </div>
                     <p className="text-2xl font-extrabold text-gray-900">{s.totalCustomers}</p>
                 </div>
@@ -146,7 +145,7 @@ export default function CustomerAnalytics() {
                         <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
                             <TrendingUp size={14} className="text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase">Yangi</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">Yangi mijozlar</span>
                     </div>
                     <p className="text-2xl font-extrabold text-emerald-600">+{s.newCustomers}</p>
                     <p className="text-[10px] text-gray-400">90 kunda</p>
@@ -166,7 +165,7 @@ export default function CustomerAnalytics() {
                         <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
                             <Crown size={14} className="text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase">Faol</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">Faol mijozlar</span>
                     </div>
                     <p className="text-2xl font-extrabold text-amber-600">{s.activeCustomers}</p>
                     <p className="text-[10px] text-gray-400">60 kunda buyurtma berganlar</p>
@@ -176,7 +175,7 @@ export default function CustomerAnalytics() {
                         <div className={`w-8 h-8 rounded-lg ${s.churnRate > 30 ? 'bg-red-500' : 'bg-gray-400'} flex items-center justify-center`}>
                             <UserX size={14} className="text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase">Churn</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">Churn xavfi</span>
                     </div>
                     <p className={`text-2xl font-extrabold ${s.churnRate > 30 ? 'text-red-500' : 'text-gray-700'}`}>{s.churnRate}%</p>
                     <p className="text-[10px] text-gray-400">Yo&apos;qolganlar ulushi</p>
@@ -187,7 +186,7 @@ export default function CustomerAnalytics() {
             <div className="grid lg:grid-cols-2 gap-5">
                 {/* RFM Segments */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <p className="font-bold text-gray-800 mb-4">📊 RFM Segmentatsiya</p>
+                    <p className="font-bold text-gray-800 mb-4">📊 Segmentatsiya (RFM)</p>
                     {segmentData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="100%" height={200}>
@@ -223,7 +222,7 @@ export default function CustomerAnalytics() {
 
                 {/* Customer Types */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <p className="font-bold text-gray-800 mb-4">👥 Mijoz turlari</p>
+                    <p className="font-bold text-gray-800 mb-4">👥 Mijoz turlari va portfel tarkibi</p>
                     {typeData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={typeData} layout="vertical">
@@ -248,7 +247,7 @@ export default function CustomerAnalytics() {
             <div className="grid lg:grid-cols-2 gap-5">
                 {/* Daily chart */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <p className="font-bold text-gray-800 mb-4">📈 Kunlik yangi mijozlar (30 kun)</p>
+                    <p className="font-bold text-gray-800 mb-4">📈 Yangi mijozlar dinamikasi (30 kun)</p>
                     {data.dailyNewCustomers.length > 0 ? (
                         <ResponsiveContainer width="100%" height={180}>
                             <AreaChart data={data.dailyNewCustomers}>
@@ -273,7 +272,7 @@ export default function CustomerAnalytics() {
                 {/* Top customers */}
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <div className="p-4 border-b border-gray-50">
-                        <p className="font-bold text-gray-800 text-sm">🏆 Top 10 mijozlar (daromad bo&apos;yicha)</p>
+                        <p className="font-bold text-gray-800 text-sm">🏆 Top mijozlar (daromad bo&apos;yicha)</p>
                     </div>
                     <div className="divide-y divide-gray-50">
                         {data.topCustomers.length === 0 ? (

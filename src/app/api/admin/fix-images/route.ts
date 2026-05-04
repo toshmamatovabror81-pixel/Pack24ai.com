@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { downloadAndUploadToSupabase, processGalleryUrls } from '@/lib/media-utils';
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not allowed in production' }, { status: 403 });
+    }
+
     try {
         const products = await prisma.product.findMany();
         let fixedCount = 0;

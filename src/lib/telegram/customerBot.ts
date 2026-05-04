@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { Lang, getText, formatText } from './i18n';
 import { haversineDistance } from './geo';
 import { notifyAdmin } from './notifier';
+import { createBotEvent } from './botEvents';
+import { applyBotDefaults } from './botInit';
+import { getCustomerBotToken } from './botTokens';
 import {
     btn,
     customerMainKeyboard,
@@ -17,108 +20,46 @@ import {
 } from './keyboards';
 import bcrypt from 'bcryptjs';
 
-// ─── Material narxlari (so'm/kg) ─────────────────────────────────────────────
-const MAT: Record<string, { label: Record<Lang, string>; emoji: string; price: number }> = {
-    qogoz:   { label: { uz: "Qog'oz (rangsiz)", ru: 'Бумага (белая)', en: 'Paper (white)' }, emoji: '📄', price: 600 },
-    karton:  { label: { uz: 'Karton', ru: 'Картон', en: 'Cardboard' }, emoji: '📦', price: 700 },
-    plastik: { label: { uz: 'Plastik', ru: 'Пластик', en: 'Plastic' }, emoji: '🧴', price: 1000 },
-    temir:   { label: { uz: 'Temir/Metallar', ru: 'Металлы', en: 'Metals' }, emoji: '🔩', price: 2000 },
-    shisha:  { label: { uz: 'Shisha', ru: 'Стекло', en: 'Glass' }, emoji: '🫙', price: 300 },
-    gazeta:  { label: { uz: 'Gazeta', ru: 'Газета', en: 'Newspaper' }, emoji: '📰', price: 400 },
-    mix:     { label: { uz: 'Aralash', ru: 'Смешанное', en: 'Mixed' }, emoji: '🗑️', price: 500 },
-};
+// ─── Extracted modules ────────────────────────────────────────────────────────
+import { MAT, fmtN } from './handlers/customer/types';
+import type { CustomerSession } from './handlers/customer/types';
+import {
+    sessions,
+    registrationSessions,
+    generateOtp,
+    getUserLang,
+    getUserByTgId,
+    generateUniqueUserCode,
+    normalizePhone,
+} from './handlers/customer/helpers';
+import { submitTruckRequest, handleRegistrationCode } from './handlers/customer/truckRequest';
 
-const fmtN = (n: number) => n.toLocaleString('ru-RU');
-
-// ─── Session types ────────────────────────────────────────────────────────────
-interface CustomerSession {
-    step: 'lang' | 'reg_phone' | 'reg_otp' | 'reg_name' | 'menu' | 'location' | 'choose_method' | 'volume' | 'photo' | 'done';
-    lang: Lang;
-    name?: string;
-    phone?: string;
-    otpCode?: string;          // Telegramga yuborilgan OTP (session ichida)
-    otpExpiry?: number;        // Unix timestamp (ms)
-    otpAttempts?: number;
-    lat?: number;
-    lng?: number;
-    pickupType?: 'base' | 'pickup';
-    volumeSize?: string;
-}
-
-const sessions = new Map<string, CustomerSession>();
-const registrationSessions = new Set<string>();
-
-// ─── OTP generatsiya (6 raqam) ────────────────────────────────────────────────
-function generateOtp(): string {
-    return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-// ─── Mijoz tilini olish ───────────────────────────────────────────────────────
-async function getUserLang(tgId: string): Promise<Lang> {
-    const user = await prisma.user.findFirst({ where: { telegramId: tgId }, select: { id: true } });
-    if (user) return 'uz'; // registered users default uz
-    const req = await prisma.recycleRequest.findFirst({
-        where: { customerTgId: tgId },
-        orderBy: { createdAt: 'desc' },
-        select: { customerLang: true },
-    });
-    return (req?.customerLang as Lang) || 'uz';
-}
-
-// ─── Foydalanuvchini Telegram ID bilan topish ────────────────────────────────
-async function getUserByTgId(tgId: string) {
-    return prisma.user.findFirst({ where: { telegramId: tgId } });
-}
-
-// ─── Yagona 5 raqamli kod generatsiya (User uchun) ──────────────────────────
-async function generateUniqueUserCode(): Promise<string> {
-    for (let attempt = 0; attempt < 30; attempt++) {
-        const code = String(Math.floor(10000 + Math.random() * 90000));
-        const exists = await prisma.user.findFirst({ where: { telegramCode: code } });
-        if (!exists) return code;
-    }
-    return String(Date.now()).slice(-5);
-}
-
-// ─── Telefon raqamini normallashtirish ──────────────────────────────────────
-function normalizePhone(phone: string): string {
-    let p = phone.replace(/[^\d+]/g, '');
-    if (!p.startsWith('+')) p = '+' + p;
-    return p;
-}
 
 
 // ─── Customer Bot init ────────────────────────────────────────────────────────
 let customerBotInstance: Telegraf | null = null;
 
+export function resetInitializedCustomerBot() {
+    if (customerBotInstance) {
+        try {
+            customerBotInstance.stop('reset');
+        } catch {}
+    }
+
+    customerBotInstance = null;
+}
+
 export async function initCustomerBot(): Promise<Telegraf | null> {
     if (customerBotInstance) return customerBotInstance;
 
-    // Token: avval env dan, keyin bazadan (fallback)
-    let token = process.env.CUSTOMER_BOT_TOKEN;
-    if (!token) {
-        const config = await prisma.telegramConfig.findFirst();
-        token = config?.botToken || '';
-    }
+    const token = await getCustomerBotToken();
     if (!token) {
         console.warn('[CustomerBot] CUSTOMER_BOT_TOKEN topilmadi (.env yoki TelegramConfig)');
         return null;
     }
 
     const bot = new Telegraf(token);
-
-    // ─── Commands menu ────────────────────────────────────────────────────
-    await bot.telegram.setMyCommands([
-        { command: 'start', description: '🏠 Bosh menyu / Главное меню / Main menu' },
-        { command: 'help', description: '❓ Yordam / Помощь / Help' },
-    ]).catch(() => {});
-
-    // Middleware — log
-    bot.use(async (ctx, next) => {
-        const start = Date.now();
-        await next();
-        console.log(`[CustomerBot] ${ctx.updateType} in ${Date.now() - start}ms`);
-    });
+    await applyBotDefaults(bot, 'CustomerBot');
 
     // ══════════════════════════════════════════════════════════════════════
     // /start — Shaxsiy kabinet yoki ro'yxatdan o'tish
@@ -168,10 +109,47 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
             // ── TIL TANLASH → Telefon so'rash ────────────────────────────
             if (data.startsWith('lang_')) {
                 const lang = data.replace('lang_', '') as Lang;
-                const ses: CustomerSession = { step: 'reg_phone', lang };
-                sessions.set(tgId, ses);
+                const existingSession = sessions.get(tgId);
+                const user = await getUserByTgId(tgId);
 
                 await ctx.answerCbQuery('✅');
+
+                if (user || existingSession?.step === 'menu') {
+                    sessions.set(tgId, { step: 'menu', lang, name: user?.name });
+                    await ctx.editMessageText(
+                        lang === 'uz'
+                            ? '✅ Til yangilandi.'
+                            : lang === 'ru'
+                            ? '✅ Язык обновлен.'
+                            : '✅ Language updated.',
+                        { parse_mode: 'HTML' }
+                    );
+                    await ctx.reply(
+                        user
+                            ? formatText('cabinet_menu', lang, {
+                                name: user.name,
+                                phone: user.phone,
+                                points: String(user.ecoPoints),
+                            })
+                            : getText('register_success', lang),
+                        {
+                            parse_mode: 'HTML',
+                            reply_markup: user ? cabinetMenuKeyboard(lang) : undefined,
+                        }
+                    );
+                    await ctx.reply(
+                        lang === 'uz'
+                            ? '⬇️ Yoki quyidagi xizmatlardan foydalaning:'
+                            : lang === 'ru'
+                            ? '⬇️ Или воспользуйтесь услугами:'
+                            : '⬇️ Or use our services below:',
+                        { reply_markup: customerMainKeyboard(lang) }
+                    );
+                    return;
+                }
+
+                const ses: CustomerSession = { step: 'reg_phone', lang };
+                sessions.set(tgId, ses);
                 await ctx.editMessageText(getText('reg_ask_phone', lang), { parse_mode: 'HTML' });
                 await ctx.reply('👇', { reply_markup: sharePhoneKeyboard(lang) });
                 return;
@@ -277,7 +255,7 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
             // ── MAKULATURA XIZMATI: usul tanlash ────────────────────────
             if (data === 'recycle_self') {
                 const ses = sessions.get(tgId);
-                if (!ses?.lat || !ses?.lng) return;
+                if (!ses || ses.lat === undefined || ses.lng === undefined) return;
                 ses.pickupType = 'base';
                 ses.step = 'done';
 
@@ -359,7 +337,7 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
             // ── MASHINA CHAQIRISH: boshlash ─────────────────────────────
             if (data === 'recycle_truck') {
                 const ses = sessions.get(tgId);
-                if (!ses?.lat || !ses?.lng) return;
+                if (!ses || ses.lat === undefined || ses.lng === undefined) return;
                 ses.pickupType = 'pickup';
                 ses.step = 'volume';
 
@@ -431,6 +409,20 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
                     data: { status: 'confirmed', confirmedAt: new Date() },
                 });
 
+                await createBotEvent({
+                    sourceBot: 'customer',
+                    eventType: 'collection.confirmed',
+                    entityType: 'recycle_collection',
+                    entityId: collId,
+                    severity: 'success',
+                    title: 'Mijoz hisob-kitobni tasdiqladi',
+                    message: `${collection.request.name} ariza #${collection.requestId} hisob-kitobini tasdiqladi.`,
+                    requestId: collection.requestId,
+                    collectionId: collection.id,
+                    driverId: collection.driverId,
+                    supervisorId: collection.request.supervisorId ?? undefined,
+                });
+
                 await ctx.answerCbQuery('✅');
                 await ctx.editMessageText(
                     lang === 'uz'
@@ -489,6 +481,20 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
                 await prisma.recycleRequest.update({
                     where: { id: collection.requestId },
                     data: { status: 'disputed' },
+                });
+
+                await createBotEvent({
+                    sourceBot: 'customer',
+                    eventType: 'collection.disputed',
+                    entityType: 'recycle_collection',
+                    entityId: collId,
+                    severity: 'warning',
+                    title: 'Mijoz hisob-kitobni inkor qildi',
+                    message: `${collection.request.name} ariza #${collection.requestId} bo'yicha hisob-kitobni inkor qildi.`,
+                    requestId: collection.requestId,
+                    collectionId: collection.id,
+                    driverId: collection.driverId,
+                    supervisorId: collection.request.supervisorId ?? undefined,
                 });
 
                 await ctx.answerCbQuery('❌');
@@ -561,7 +567,7 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
 
         // ── Ro'yxatdan o'tish: telefon qabul qilish ──────────────────────
         if (ses?.step === 'reg_phone') {
-            let phone = normalizePhone(ctx.message.contact.phone_number);
+            const phone = normalizePhone(ctx.message.contact.phone_number);
             const lang = ses.lang;
 
             // Faqat o'z raqami bo'lishi kerak
@@ -977,9 +983,27 @@ export async function initCustomerBot(): Promise<Telegraf | null> {
                 customerLang: lang,
                 volumeSize: ses.volumeSize || null,
                 photoUrl: photoUrl || null,
-                status: 'new',
+                status: supervisorForPoint ? 'dispatched' : 'new',
                 supervisorId: supervisorForPoint?.id ?? null,
                 dispatchedAt: supervisorForPoint ? new Date() : null,
+            },
+        });
+
+        await createBotEvent({
+            sourceBot: 'customer',
+            eventType: 'request.created',
+            entityType: 'recycle_request',
+            entityId: request.id,
+            severity: 'success',
+            title: 'Yangi recycle request yaratildi',
+            message: `${request.name} tomonidan yangi pickup ariza #${request.id} yaratildi.`,
+            requestId: request.id,
+            supervisorId: supervisorForPoint?.id ?? undefined,
+            pointId: nearestPoint.id,
+            payload: {
+                pickupType: request.pickupType,
+                volumeSize: request.volumeSize,
+                photoAttached: Boolean(photoUrl),
             },
         });
 

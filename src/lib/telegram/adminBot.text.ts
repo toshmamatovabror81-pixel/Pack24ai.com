@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { Lang, getText, formatText } from './i18n';
+import { createBotEvent } from './botEvents';
 import {
     backKeyboard,
     btn,
@@ -24,6 +25,12 @@ import {
     volLabel,
 } from './adminBot.shared';
 import { activeSupervisorRequestStatuses } from '@/lib/domain/recycling/statuses';
+import { journalEntryDateKeyboard, advanceJournalAfterDateChosen } from './adminBot.journalEntry';
+import {
+    handleJournalCorrectionText,
+    journalCorrectionSessions,
+} from './adminBot.journalCorrection';
+import { isSupervisorReplyMenuText } from './adminBot.menuNav';
 
 export function registerAdminTextHandler(bot: Telegraf) {
     bot.on('text', async (ctx) => {
@@ -32,7 +39,6 @@ export function registerAdminTextHandler(bot: Telegraf) {
 
         if (text.startsWith('/')) return;
 
-        const ses = adminSessions.get(tgId);
         const sup = await getSupervisor(tgId);
         if (!sup) {
             await ctx.reply(
@@ -44,6 +50,18 @@ export function registerAdminTextHandler(bot: Telegraf) {
 
         const lang: Lang = 'uz';
 
+        if (isSupervisorReplyMenuText(text)) {
+            journalCorrectionSessions.delete(tgId);
+            const preMenu = adminSessions.get(tgId);
+            if (preMenu?.step === 'journal') {
+                setMenuSession(tgId, lang, sup.id);
+            }
+        }
+
+        const ses = adminSessions.get(tgId);
+
+        if (await handleJournalCorrectionText(ctx, tgId, text, sup, lang)) return;
+
         if (text === '❓ Yordam') {
             await ctx.reply(
                 '👷 <b>Pack24 — Masul boti</b>\n\n' +
@@ -51,11 +69,8 @@ export function registerAdminTextHandler(bot: Telegraf) {
                 '🚚 Haydovchi tayinlash — ariza uchun haydovchi tanlash\n' +
                 '💰 To\'lovlar — hisob-kitob tasdiqlash\n' +
                 '🏭 Punkt holati — ochiq/yopiq almashtirish\n' +
-                '📥 Qabul — sana, kg, narx\n' +
-                '🏭 Press — sana, kg, toylar soni, bajaruvchilar\n' +
-                '💸 Xarajat — sana, xarajat, avans, komment\n' +
-                '💼 Kassa — sana, boshlang\'ich summa\n' +
-                '🚛 Sotuv — sana, mijoz, kg, soni, narx, mashina, davlat raqami\n' +
+                '✏️ Jurnal tahriri (HQ) — eski yozuvni o\'zgartirish uchun so\'rov (HQ tasdig\'i bilan)\n' +
+                '📥 Qabul / 🏭 Press / 💸 … — sana: <b>Bugun</b> / <b>Kecha</b> / qo\'lda\n' +
                 '📊 Hisobotlar — kunlik/haftalik/oylik statistika\n\n' +
                 '/start — Bosh menyu',
                 { parse_mode: 'HTML' }
@@ -80,8 +95,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                         await ctx.reply('❌ Sana noto\'g\'ri. Namuna: `2026-04-01` yoki `bugun`', { parse_mode: 'Markdown' });
                         return;
                     }
-                    setJournalSession(tgId, lang, sup.id, 'intake', 'weight', { journalDate: date.toISOString() });
-                    await ctx.reply(`⚖️ Qabul qilingan makulatura og'irligini kiriting (kg).\n\nMasalan: <code>1500</code>`, { parse_mode: 'HTML' });
+                    await advanceJournalAfterDateChosen(ctx, tgId, lang, sup.id, 'intake', date);
                     return;
                 }
                 if (ses.stage === 'weight') {
@@ -124,6 +138,23 @@ export function registerAdminTextHandler(bot: Telegraf) {
                             note,
                         },
                     });
+                    await createBotEvent({
+                        sourceBot: 'supervisor',
+                        eventType: 'journal.intake.created',
+                        entityType: 'recycle_manual_intake',
+                        severity: 'success',
+                        title: 'Qabul jurnali yozuvi saqlandi',
+                        message: `${sup.name} ${fmtN(Math.round(ses.weightKg))} kg qabul yozuvini saqladi.`,
+                        supervisorId: sup.id,
+                        pointId: sup.pointId ?? undefined,
+                        payload: {
+                            date: date.toISOString(),
+                            weightKg: ses.weightKg,
+                            pricePerKg: ses.pricePerKg,
+                            totalAmount,
+                            note,
+                        },
+                    });
                     setMenuSession(tgId, lang, sup.id);
                     await ctx.reply(
                         `✅ <b>Qabul yozuvi saqlandi</b>\n\n` +
@@ -144,8 +175,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                         await ctx.reply('❌ Sana noto\'g\'ri. Namuna: `2026-04-01` yoki `bugun`', { parse_mode: 'Markdown' });
                         return;
                     }
-                    setJournalSession(tgId, lang, sup.id, 'press', 'weight', { journalDate: date.toISOString() });
-                    await ctx.reply('⚖️ Presslangan og\'irlikni kiriting (kg).');
+                    await advanceJournalAfterDateChosen(ctx, tgId, lang, sup.id, 'press', date);
                     return;
                 }
                 if (ses.stage === 'weight') {
@@ -186,6 +216,22 @@ export function registerAdminTextHandler(bot: Telegraf) {
                             operators,
                         },
                     });
+                    await createBotEvent({
+                        sourceBot: 'supervisor',
+                        eventType: 'journal.press.created',
+                        entityType: 'recycle_press_log',
+                        severity: 'success',
+                        title: 'Press jurnali yozuvi saqlandi',
+                        message: `${sup.name} ${fmtN(Math.round(ses.weightKg))} kg press yozuvini saqladi.`,
+                        supervisorId: sup.id,
+                        pointId: sup.pointId ?? undefined,
+                        payload: {
+                            date: date.toISOString(),
+                            pressedKg: ses.weightKg,
+                            baleCount: ses.baleCount,
+                            operators,
+                        },
+                    });
                     setMenuSession(tgId, lang, sup.id);
                     await ctx.reply(
                         `✅ <b>Press yozuvi saqlandi</b>\n\n` +
@@ -206,8 +252,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                         await ctx.reply('❌ Sana noto\'g\'ri. Namuna: `2026-04-01` yoki `bugun`', { parse_mode: 'Markdown' });
                         return;
                     }
-                    setJournalSession(tgId, lang, sup.id, 'expense', 'expense', { journalDate: date.toISOString() });
-                    await ctx.reply('💸 Xarajat summasini kiriting. Agar bo\'lmasa <code>0</code> yozing.', { parse_mode: 'HTML' });
+                    await advanceJournalAfterDateChosen(ctx, tgId, lang, sup.id, 'expense', date);
                     return;
                 }
                 if (ses.stage === 'expense') {
@@ -252,6 +297,24 @@ export function registerAdminTextHandler(bot: Telegraf) {
                             comment,
                         },
                     });
+                    await createBotEvent({
+                        sourceBot: 'supervisor',
+                        eventType: 'journal.expense.created',
+                        entityType: 'recycle_expense_log',
+                        severity: 'warning',
+                        title: 'Xarajat jurnali yozuvi saqlandi',
+                        message:
+                            `${sup.name} xarajat/avans yozuvini saqladi: ` +
+                            `${fmtN(Math.round((ses.expenseAmount || 0) + (ses.advanceAmount || 0)))} so'm.`,
+                        supervisorId: sup.id,
+                        pointId: sup.pointId ?? undefined,
+                        payload: {
+                            date: date.toISOString(),
+                            expenseAmount: ses.expenseAmount || 0,
+                            advanceAmount: ses.advanceAmount || 0,
+                            comment,
+                        },
+                    });
                     setMenuSession(tgId, lang, sup.id);
                     await ctx.reply(
                         `✅ <b>Xarajat yozuvi saqlandi</b>\n\n` +
@@ -273,8 +336,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                         await ctx.reply('❌ Sana noto\'g\'ri. Namuna: `2026-04-01` yoki `bugun`', { parse_mode: 'Markdown' });
                         return;
                     }
-                    setJournalSession(tgId, lang, sup.id, 'cash', 'openingBalance', { journalDate: date.toISOString() });
-                    await ctx.reply('🏦 Boshlang\'ich kassa summasini kiriting.');
+                    await advanceJournalAfterDateChosen(ctx, tgId, lang, sup.id, 'cash', date);
                     return;
                 }
                 if (ses.stage === 'openingBalance') {
@@ -291,13 +353,28 @@ export function registerAdminTextHandler(bot: Telegraf) {
                     const existingCash = await prisma.recycleDailyCash.findFirst({
                         where: { supervisorId: sup.id, date: { gte: from, lt: to } },
                     });
+                    let cashEventType = 'journal.cash.created';
                     if (existingCash) {
                         await prisma.recycleDailyCash.update({ where: { id: existingCash.id }, data: { openingBalance } });
+                        cashEventType = 'journal.cash.updated';
                     } else {
                         await prisma.recycleDailyCash.create({
                             data: { supervisorId: sup.id, pointId: sup.pointId, date, openingBalance },
                         });
                     }
+                    await createBotEvent({
+                        sourceBot: 'supervisor',
+                        eventType: cashEventType,
+                        entityType: 'recycle_daily_cash',
+                        title: 'Kunlik kassa yozuvi saqlandi',
+                        message: `${sup.name} ${fmtN(Math.round(openingBalance))} so'm boshlang'ich kassani saqladi.`,
+                        supervisorId: sup.id,
+                        pointId: sup.pointId ?? undefined,
+                        payload: {
+                            date: date.toISOString(),
+                            openingBalance,
+                        },
+                    });
                     setMenuSession(tgId, lang, sup.id);
                     await ctx.reply(
                         `✅ <b>Kassa saqlandi</b>\n\n` +
@@ -316,8 +393,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                         await ctx.reply('❌ Sana noto\'g\'ri. Namuna: `2026-04-01` yoki `bugun`', { parse_mode: 'Markdown' });
                         return;
                     }
-                    setJournalSession(tgId, lang, sup.id, 'sale', 'customer', { journalDate: date.toISOString() });
-                    await ctx.reply('🏢 Mijoz nomini kiriting.');
+                    await advanceJournalAfterDateChosen(ctx, tgId, lang, sup.id, 'sale', date);
                     return;
                 }
                 if (ses.stage === 'customer') {
@@ -390,6 +466,28 @@ export function registerAdminTextHandler(bot: Telegraf) {
                             note: null,
                         },
                     });
+                    await createBotEvent({
+                        sourceBot: 'supervisor',
+                        eventType: 'journal.sale.created',
+                        entityType: 'recycle_sales_log',
+                        severity: 'success',
+                        title: 'Sotuv jurnali yozuvi saqlandi',
+                        message:
+                            `${sup.name} ${ses.customerName} uchun ` +
+                            `${fmtN(Math.round(totalAmount))} so'mlik sotuv yozuvini saqladi.`,
+                        supervisorId: sup.id,
+                        pointId: sup.pointId ?? undefined,
+                        payload: {
+                            date: date.toISOString(),
+                            customerName: ses.customerName,
+                            weightKg: ses.weightKg,
+                            baleCount: ses.baleCount || 0,
+                            pricePerKg: ses.pricePerKg,
+                            totalAmount,
+                            vehicleType: ses.vehicleType || null,
+                            plateNumber,
+                        },
+                    });
                     setMenuSession(tgId, lang, sup.id);
                     await ctx.reply(
                         `✅ <b>Sotuv yozuvi saqlandi</b>\n\n` +
@@ -438,7 +536,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                     status: statusLabels[req.status] || req.status,
                 });
 
-                const buttons: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
+                const buttons: Array<Array<{ text: string; callback_data: string } | { text: string; url: string }>> = [];
                 if (req.status === 'new') {
                     buttons.push([btn('🚚 Haydovchi tayinlash', `assign_driver_${req.id}`)]);
                 }
@@ -480,6 +578,41 @@ export function registerAdminTextHandler(bot: Telegraf) {
             }
 
             await ctx.reply(msg, { parse_mode: 'HTML' });
+            return;
+        }
+
+        if (text === '📝 Driver arizalari') {
+            const requests = await prisma.botAccessRequest.findMany({
+                where: {
+                    role: 'driver',
+                    status: 'pending',
+                    OR: [
+                        { requestedSupervisorId: sup.id },
+                        { requestedSupervisorId: null },
+                        ...(sup.pointId ? [{ requestedPointId: sup.pointId }] : []),
+                    ],
+                },
+                orderBy: { createdAt: 'asc' },
+                take: 10,
+            });
+
+            if (requests.length === 0) {
+                await ctx.reply('📝 Pending driver arizalari yo\'q.');
+                return;
+            }
+
+            await ctx.reply('📝 <b>Driver arizalari</b>\nTasdiqlash yoki rad etish uchun tanlang:', {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: requests.flatMap((request) => [
+                        [{ text: `${request.name} • ${request.phone}`, callback_data: `adm_req_drv_${request.id}` }],
+                        [
+                            { text: '✅ Tasdiqlash', callback_data: `adm_req_drv_ok_${request.id}` },
+                            { text: '❌ Rad etish', callback_data: `adm_req_drv_no_${request.id}` },
+                        ],
+                    ]),
+                },
+            });
             return;
         }
 
@@ -543,10 +676,10 @@ export function registerAdminTextHandler(bot: Telegraf) {
             setJournalSession(tgId, lang, sup.id, 'intake', 'date');
             await ctx.reply(
                 `📥 <b>Makulatura qabul jurnaliga yozuv</b>\n\n` +
-                `1-qadam: sanani yuboring.\n` +
-                `<i>Namuna:</i> <code>2026-04-01</code> yoki <code>bugun</code>\n\n` +
-                `<i>Bekor qilish:</i> <code>cancel</code>`,
-                { parse_mode: 'HTML' }
+                `1-qadam: <b>sanani tanlang</b> yoki matn bilan yuboring.\n` +
+                `<i>Masalan:</i> <code>bugun</code>, <code>kecha</code>, <code>2026-05-01</code>\n\n` +
+                `<i>Bekor:</i> <code>cancel</code>`,
+                { parse_mode: 'HTML', reply_markup: journalEntryDateKeyboard('intake') }
             );
             return;
         }
@@ -555,10 +688,9 @@ export function registerAdminTextHandler(bot: Telegraf) {
             setJournalSession(tgId, lang, sup.id, 'press', 'date');
             await ctx.reply(
                 `🏭 <b>Press / toy jurnali</b>\n\n` +
-                `1-qadam: sanani yuboring.\n` +
-                `<i>Namuna:</i> <code>2026-04-01</code> yoki <code>bugun</code>\n\n` +
-                `<i>Bekor qilish:</i> <code>cancel</code>`,
-                { parse_mode: 'HTML' }
+                `1-qadam: <b>sanani tanlang</b> yoki matn bilan yuboring.\n\n` +
+                `<i>Bekor:</i> <code>cancel</code>`,
+                { parse_mode: 'HTML', reply_markup: journalEntryDateKeyboard('press') }
             );
             return;
         }
@@ -567,10 +699,9 @@ export function registerAdminTextHandler(bot: Telegraf) {
             setJournalSession(tgId, lang, sup.id, 'expense', 'date');
             await ctx.reply(
                 `💸 <b>Ish haqi va xarajatlar</b>\n\n` +
-                `1-qadam: sanani yuboring.\n` +
-                `<i>Namuna:</i> <code>2026-04-01</code> yoki <code>bugun</code>\n\n` +
-                `<i>Bekor qilish:</i> <code>cancel</code>`,
-                { parse_mode: 'HTML' }
+                `1-qadam: <b>sanani tanlang</b> yoki matn bilan yuboring.\n\n` +
+                `<i>Bekor:</i> <code>cancel</code>`,
+                { parse_mode: 'HTML', reply_markup: journalEntryDateKeyboard('expense') }
             );
             return;
         }
@@ -579,10 +710,9 @@ export function registerAdminTextHandler(bot: Telegraf) {
             setJournalSession(tgId, lang, sup.id, 'cash', 'date');
             await ctx.reply(
                 `💼 <b>Kunlik kassa ochilishi</b>\n\n` +
-                `1-qadam: sanani yuboring.\n` +
-                `<i>Namuna:</i> <code>2026-04-01</code> yoki <code>bugun</code>\n\n` +
-                `<i>Bekor qilish:</i> <code>cancel</code>`,
-                { parse_mode: 'HTML' }
+                `1-qadam: <b>sanani tanlang</b> yoki matn bilan yuboring.\n\n` +
+                `<i>Bekor:</i> <code>cancel</code>`,
+                { parse_mode: 'HTML', reply_markup: journalEntryDateKeyboard('cash') }
             );
             return;
         }
@@ -591,10 +721,9 @@ export function registerAdminTextHandler(bot: Telegraf) {
             setJournalSession(tgId, lang, sup.id, 'sale', 'date');
             await ctx.reply(
                 `🚛 <b>Preslangan makulatura sotuv jurnali</b>\n\n` +
-                `1-qadam: sanani yuboring.\n` +
-                `<i>Namuna:</i> <code>2026-04-01</code> yoki <code>bugun</code>\n\n` +
-                `<i>Bekor qilish:</i> <code>cancel</code>`,
-                { parse_mode: 'HTML' }
+                `1-qadam: <b>sanani tanlang</b> yoki matn bilan yuboring.\n\n` +
+                `<i>Bekor:</i> <code>cancel</code>`,
+                { parse_mode: 'HTML', reply_markup: journalEntryDateKeyboard('sale') }
             );
             return;
         }

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTelegramMessage, getBot } from '@/lib/telegram/bot';
+import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createBotEvent } from '@/lib/telegram/botEvents';
 
 // Telegraf inline keyboard tipi
 type IKBtn = { text: string; callback_data: string };
@@ -13,12 +14,10 @@ const PHONE_REGEX = /^\+998[0-9]{9}$/;
 // ─── Yordamchi: shaxsiy chatga xabar + inline tugmalar ───────────────────────
 async function sendToChat(chatId: string, message: string, inlineKeyboard?: IKBtn[][]) {
     try {
-        const bot = await getBot();
-        if (!bot || !chatId) return false;
-        await bot.telegram.sendMessage(chatId, message, {
-            parse_mode: 'HTML',
-            ...(inlineKeyboard ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {}),
-        });
+        if (!chatId) return false;
+        await notifyCustomer(chatId, message, inlineKeyboard ? {
+            reply_markup: { inline_keyboard: inlineKeyboard },
+        } : undefined);
         return true;
     } catch (e) {
         console.error('[AutoDispatch TG]', e);
@@ -96,6 +95,26 @@ export async function POST(request: Request) {
             },
         });
 
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: 'request.created',
+            entityType: 'recycle_request',
+            entityId: req.id,
+            severity: 'success',
+            title: 'Platformada yangi recycle request yaratildi',
+            message: `${req.name} tomonidan yangi ariza #${req.id} yaratildi.`,
+            requestId: req.id,
+            supervisorId: supervisor?.id ?? undefined,
+            pointId: regionId,
+            userId: Number.isFinite(userId) ? userId : undefined,
+            payload: {
+                pickupType,
+                material: req.material,
+                volume: req.volume,
+                autoDispatched: Boolean(supervisor),
+            },
+        });
+
         // ─── Telegram bildirish ───────────────────────────────────────────
         const pickupLabel   = pickupType === 'pickup' ? '🚛 Kuryer chiqishi' : '🏭 O\'zi olib keladi';
         const volumeLine    = req.volume   ? `📦 Hajmi: ${req.volume} kg\n`   : '';
@@ -144,7 +163,7 @@ export async function POST(request: Request) {
                 await sendToChat(supervisor.telegramId, supMsg, keyboard);
 
                 // Admin chatiga qisqa log
-                await sendTelegramMessage(
+                await notifySalesChats(
                     `✅ Ariza <b>#${req.id}</b> → <b>${supervisor.name}</b> ga avtomatik yo'naltirildi\n` +
                     `📍 ${point?.regionUz ?? regionId} | ${pickupLabel}`
                 );
@@ -156,7 +175,7 @@ export async function POST(request: Request) {
                     `⚠️ <b>${point?.regionUz ?? regionId}</b> uchun masul shaxs biriktirilmagan!\n` +
                     `Admin paneldan qo'lda yo'naltiring.`;
 
-                await sendTelegramMessage(adminMsg);
+                await notifySalesChats(adminMsg);
             }
         } catch (botErr) {
             console.error('Telegramga yuborib bo\'lmadi:', botErr);

@@ -2,82 +2,75 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import {
+    readArray,
+    readJsonObject,
+    readOptionalEnum,
+    readOptionalNumber,
+    readOptionalString,
+    RequestValidationError,
+} from '@/lib/requestValidation';
+import { publishPlatformEvent } from '@/lib/platform/events';
+import { sendWebsiteOrderCreatedToAdminChats } from '@/lib/platform/telegramCommands';
 
-// ─── Telegram helper ──────────────────────────────────────────────────────────
-async function sendTelegramNotification(order: {
-    id: number;
-    customerName: string | null;
-    contactPhone: string | null;
-    shippingAddress: string | null;
-    shippingLocation?: string | null;
-    totalAmount: number | null;
-    status: string;
-    paymentMethod?: string | null;
-    deliveryMethod?: string | null;
-    items: { quantity: number; price: number; product: { name: string } | null }[];
-}) {
-    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID   = process.env.TELEGRAM_ADMIN_CHAT_ID;
-    if (!BOT_TOKEN || !CHAT_ID) return;
-
-    const paymentLabel: Record<string, string> = { click: '🔵 Click', payme: '🟢 Payme', cash: '💵 Naqd pul' };
-    const deliveryLabel: Record<string, string> = { courier: '🚚 Kuryer', pickup: '📦 Olib ketish' };
-
-    const itemLines = order.items
-        .map(i => `  • ${i.product?.name ?? 'Mahsulot'} × ${i.quantity} = ${(i.price * i.quantity).toLocaleString()} so'm`)
-        .join('\n');
-
-    const text = [
-        `🛒 <b>Yangi Buyurtma #${order.id}</b>`,
-        '',
-        `👤 <b>Mijoz:</b> ${order.customerName ?? 'Noma\'lum'}`,
-        `📞 <b>Tel:</b> ${order.contactPhone ?? '-'}`,
-        `📍 <b>Manzil:</b> ${order.shippingAddress ?? '-'}`,
-        order.shippingLocation ? `🗺️ <b>Xarita:</b> <a href="https://www.google.com/maps?q=${order.shippingLocation}">Lokatsiyani ko'rish</a>` : '',
-        `🚀 <b>Yetkazish:</b> ${deliveryLabel[order.deliveryMethod ?? ''] ?? (order.deliveryMethod ?? '-')}`,
-        `💳 <b>To'lov:</b> ${paymentLabel[order.paymentMethod ?? ''] ?? (order.paymentMethod ?? '-')}`,
-        '',
-        `<b>Mahsulotlar:</b>`,
-        itemLines,
-        '',
-        `💰 <b>Jami: ${(order.totalAmount ?? 0).toLocaleString()} so'm</b>`,
-        `📌 Status: Yangi`,
-        '',
-        `🔗 Admin: ${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin/orders`,
-    ].join('\n');
-
-    try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'HTML' }),
-        });
-    } catch (e) {
-        console.error('[Telegram]', e);
-    }
-}
+const ORDER_STATUSES = ['draft', 'new', 'processing', 'shipping', 'delivered', 'cancelled'] as const;
+const ORDER_DELIVERY_METHODS = ['courier', 'pickup'] as const;
+const ORDER_PAYMENT_METHODS = ['cash', 'click', 'payme'] as const;
 
 // ─── POST /api/orders — Buyurtma yaratish ────────────────────────────────────
 export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         const sessionUserId = Number(session?.user?.id);
-        const body = await req.json();
-        const {
-            telegramUserId,
-            customerName,
-            contactPhone,
-            shippingAddress,
-            shippingLocation,
-            comment,
-            deliveryMethod,
-            paymentMethod,
-            status = 'new',
-            totalAmount,
-            items,
-        } = body;
+        const body = await readJsonObject(req);
+        const telegramUserId = readOptionalString(body.telegramUserId, 'telegramUserId');
+        const customerName = readOptionalString(body.customerName, 'customerName');
+        const contactPhone = readOptionalString(body.contactPhone, 'contactPhone');
+        const shippingAddress = readOptionalString(body.shippingAddress, 'shippingAddress');
+        const shippingLocation = readOptionalString(body.shippingLocation, 'shippingLocation');
+        const comment = readOptionalString(body.comment, 'comment');
+        const deliveryMethod = readOptionalEnum(
+            body.deliveryMethod,
+            'deliveryMethod',
+            ORDER_DELIVERY_METHODS,
+        );
+        const paymentMethod = readOptionalEnum(
+            body.paymentMethod,
+            'paymentMethod',
+            ORDER_PAYMENT_METHODS,
+        );
+        const status = readOptionalEnum(body.status, 'status', ORDER_STATUSES) || 'new';
+        const totalAmount = readOptionalNumber(body.totalAmount, 'totalAmount');
+        const items = readArray(body.items, 'items').map((item, index) => {
+            if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+                throw new RequestValidationError(`items[${index}] object bo'lishi kerak`);
+            }
 
-        if (!items?.length) {
+            const itemRecord = item as Record<string, unknown>;
+            const productId = readOptionalNumber(itemRecord.productId, `items[${index}].productId`);
+            const quantity = readOptionalNumber(itemRecord.quantity, `items[${index}].quantity`);
+            const price = readOptionalNumber(itemRecord.price, `items[${index}].price`);
+
+            if (!productId || !Number.isInteger(productId) || productId <= 0) {
+                throw new RequestValidationError(`items[${index}].productId musbat butun son bo'lishi kerak`);
+            }
+
+            if (!quantity || !Number.isInteger(quantity) || quantity <= 0) {
+                throw new RequestValidationError(`items[${index}].quantity musbat butun son bo'lishi kerak`);
+            }
+
+            if (price !== undefined && price < 0) {
+                throw new RequestValidationError(`items[${index}].price manfiy bo'lmasligi kerak`);
+            }
+
+            return {
+                productId,
+                quantity,
+                price: price ?? 0,
+            };
+        });
+
+        if (!items.length) {
             return NextResponse.json({ error: 'items majburiy' }, { status: 400 });
         }
 
@@ -104,7 +97,7 @@ export async function POST(req: NextRequest) {
 
         // Full checkout order
         let computedTotal = totalAmount ?? 0;
-        const orderItems = (items as { productId: number; quantity: number; price: number }[]).map(i => ({
+        const orderItems = items.map(i => ({
             productId: i.productId,
             quantity: i.quantity,
             price: i.price,
@@ -133,22 +126,59 @@ export async function POST(req: NextRequest) {
             include: { items: { include: { product: { select: { name: true } } } } },
         });
 
-        // Non-blocking Telegram notification
-        sendTelegramNotification({
-            id:              order.id,
-            customerName:    order.customerName,
-            contactPhone:    order.contactPhone,
-            shippingAddress: order.shippingAddress,
-            shippingLocation: order.shippingLocation,
-            totalAmount:     order.totalAmount,
-            status:          order.status,
-            paymentMethod:   order.paymentMethod,
-            deliveryMethod:  order.deliveryMethod,
-            items:           order.items.map((i: { quantity: number; price: number; product: { name: string } | null }) => ({ quantity: i.quantity, price: i.price, product: i.product })),
-        }).catch(console.error);
+        const eventPayload = {
+            orderId: order.id,
+            userId: order.userId,
+            telegramUserId: order.telegramUserId,
+            customerName: order.customerName,
+            contactPhone: order.contactPhone,
+            totalAmount: order.totalAmount,
+            itemCount: order.items.length,
+            paymentMethod: order.paymentMethod,
+            deliveryMethod: order.deliveryMethod,
+        };
+
+        const sideEffects = await Promise.allSettled([
+            publishPlatformEvent({
+                source: 'platform',
+                type: 'order.created',
+                entityType: 'order',
+                entityId: order.id,
+                severity: 'success',
+                title: 'Yangi buyurtma yaratildi',
+                message: `Buyurtma #${order.id} web sahifa orqali yaratildi.`,
+                payload: eventPayload,
+                userId: order.userId ?? undefined,
+            }),
+            sendWebsiteOrderCreatedToAdminChats({
+                id: order.id,
+                customerName: order.customerName,
+                contactPhone: order.contactPhone,
+                shippingAddress: order.shippingAddress,
+                shippingLocation: order.shippingLocation,
+                totalAmount: order.totalAmount,
+                status: order.status,
+                paymentMethod: order.paymentMethod,
+                deliveryMethod: order.deliveryMethod,
+                items: order.items.map((i: { quantity: number; price: number; product: { name: string } | null }) => ({
+                    quantity: i.quantity,
+                    price: i.price,
+                    name: i.product?.name ?? 'Mahsulot',
+                })),
+            }),
+        ]);
+        for (const result of sideEffects) {
+            if (result.status === 'rejected') {
+                console.error('[POST /api/orders] side effect failed', result.reason);
+            }
+        }
 
         return NextResponse.json(order);
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         console.error('[POST /api/orders]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

@@ -2,14 +2,11 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import {
     Search,
     Plus,
-    MoreHorizontal,
-    Link as LinkIcon,
     ToggleLeft,
     ToggleRight,
     MapPin,

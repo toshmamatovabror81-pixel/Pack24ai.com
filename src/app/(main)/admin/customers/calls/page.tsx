@@ -1,6 +1,6 @@
 'use client';
 
-import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause, Search, User, SlidersHorizontal, Mic, Star } from 'lucide-react';
+import { PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Search, SlidersHorizontal, Mic, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 // --- Mock Call Log Data ---

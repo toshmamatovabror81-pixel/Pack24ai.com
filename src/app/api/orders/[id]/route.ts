@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getBot } from '@/lib/telegram/bot';
+import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -75,13 +75,11 @@ export async function PUT(
         // If status changed to 'new', send telegram notification
         if (body.status === 'new' && updatedOrder.status === 'new') {
             try {
-                const bot = await getBot();
-                if (bot) {
-                    if (updatedOrder.telegramUserId) {
-                        await bot.telegram.sendMessage(updatedOrder.telegramUserId,
-                            `✅ Buyurtmangiz qabul qilindi! ID: #${updatedOrder.id}\nTez orada aloqaga chiqamiz.`
-                        );
-                    }
+                if (updatedOrder.telegramUserId) {
+                    await notifyCustomer(
+                        updatedOrder.telegramUserId,
+                        `✅ Buyurtmangiz qabul qilindi! ID: #${updatedOrder.id}\nTez orada aloqaga chiqamiz.`
+                    );
                 }
             } catch (tgError) {
                 console.error('Failed to send telegram notification:', tgError);
@@ -131,16 +129,11 @@ export async function PATCH(
 
             // Telegram xabar
             try {
-                const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-                const CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
-                if (BOT_TOKEN && CHAT_ID) {
-                    const text = `❌ <b>Buyurtma #${cancelled.id} bekor qilindi</b>\n👤 ${cancelled.customerName ?? 'Noma\'lum'}\n📞 ${cancelled.contactPhone ?? '-'}`;
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'HTML' }),
-                    });
-                }
+                await notifySalesChats(
+                    `❌ <b>Buyurtma #${cancelled.id} bekor qilindi</b>\n` +
+                    `👤 ${cancelled.customerName ?? 'Noma\'lum'}\n` +
+                    `📞 ${cancelled.contactPhone ?? '-'}`
+                );
             } catch (e) { console.error('[Telegram cancel]', e); }
 
             return NextResponse.json(cancelled);

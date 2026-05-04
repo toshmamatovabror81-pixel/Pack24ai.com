@@ -1,6 +1,30 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface AdminCustomerDetail {
+    id: number | string;
+    source: 'registered' | 'guest';
+    name: string;
+    phone: string;
+    email: string | null;
+    telegramId?: string | null;
+    isActive: boolean;
+    role?: string;
+    customerType: string | null;
+    customerGroup: string | null;
+    companyName: string | null;
+    address: string | null;
+    notes: string | null;
+    createdAt: Date | null;
+    updatedAt?: Date;
+}
+
+interface OrderItemProductName {
+    product?: {
+        name: string | null;
+    } | null;
+}
+
 // ─── GET /api/admin/customers/[id] — Bir mijoz tafsilotlari + moliya ──────────
 export async function GET(
     request: Request,
@@ -15,7 +39,7 @@ export async function GET(
         const isGuest = id.startsWith('guest-');
         const phone = isGuest ? id.replace('guest-', '') : null;
 
-        let customer: any = null;
+        let customer: AdminCustomerDetail | null = null;
 
         if (isGuest && phone) {
             // Mehmon mijoz — faqat buyurtmalardan ma'lumot
@@ -36,20 +60,21 @@ export async function GET(
                 companyName: null,
                 address: null,
                 notes: null,
-                createdAt: firstOrder?.createdAt,
+                createdAt: firstOrder?.createdAt ?? null,
             };
         } else {
             // Ro'yxatdan o'tgan foydalanuvchi
-            customer = await prisma.user.findUnique({
+            const user = await prisma.user.findUnique({
                 where: { id: parseInt(id) },
                 select: {
                     id: true, name: true, phone: true, email: true,
+                    telegramId: true,
                     isActive: true, role: true, customerType: true,
                     customerGroup: true, companyName: true, address: true,
                     notes: true, createdAt: true, updatedAt: true,
                 },
             });
-            if (customer) customer.source = 'registered';
+            if (user) customer = { ...user, source: 'registered' };
         }
 
         if (!customer) {
@@ -139,7 +164,7 @@ export async function GET(
             ledger.push({
                 date: order.createdAt.toISOString(),
                 orderId: order.id,
-                description: `Buyurtma #${order.id} — ${order.items.map((i: any) => i.product?.name).filter(Boolean).join(', ') || 'Mahsulotlar'}`,
+                description: `Buyurtma #${order.id} — ${order.items.map((i: OrderItemProductName) => i.product?.name).filter(Boolean).join(', ') || 'Mahsulotlar'}`,
                 debit: amount,
                 credit: 0,
                 balance: runningBalance,
@@ -217,24 +242,24 @@ export async function PATCH(
             return NextResponse.json({ error: 'Mehmon mijozni tahrirlash uchun avval ro\'yxatdan o\'tkazish kerak' }, { status: 400 });
         }
 
-        const body = await request.json();
+        const body = await request.json() as Record<string, string | boolean | null | undefined>;
 
         const allowedFields = [
             'name', 'email', 'customerType', 'customerGroup',
             'companyName', 'address', 'notes', 'isActive'
         ];
 
-        const updateData: Record<string, any> = {};
+        const updateData: Record<string, string | boolean | null> = {};
         for (const key of allowedFields) {
             if (body[key] !== undefined) {
                 updateData[key] = body[key];
             }
         }
 
-        if (updateData.customerType && !['individual', 'corporate', 'wholesale', 'dealer'].includes(updateData.customerType)) {
+        if (typeof updateData.customerType === 'string' && !['individual', 'corporate', 'wholesale', 'dealer'].includes(updateData.customerType)) {
             return NextResponse.json({ error: "Noto'g'ri mijoz turi" }, { status: 400 });
         }
-        if (updateData.customerGroup && !['standard', 'vip', 'new', 'inactive', 'blocked'].includes(updateData.customerGroup)) {
+        if (typeof updateData.customerGroup === 'string' && !['standard', 'vip', 'new', 'inactive', 'blocked'].includes(updateData.customerGroup)) {
             return NextResponse.json({ error: "Noto'g'ri mijoz guruhi" }, { status: 400 });
         }
 

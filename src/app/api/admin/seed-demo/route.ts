@@ -170,6 +170,10 @@ const DEMO_PRODUCTS = [
 }>;
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not allowed in production' }, { status: 403 });
+    }
+
     try {
         let added = 0;
         let skipped = 0;

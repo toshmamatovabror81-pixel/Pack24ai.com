@@ -341,8 +341,8 @@ const ADMIN_USER = {
   name: 'Admin',
   phone: '+998900000000',
   email: 'admin@pack24.uz',
-  // bcrypt hash of "admin123" (rounds=10)
-  passwordHash: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  // bcrypt hash of the local admin password from .env (rounds=10)
+  passwordHash: '$2b$10$Zf5aOl8ie1KaxUv5R2faCew8XYIXNUv8MkAoFYtc1PKlZAGRKWD/C',
   role: 'admin',
 };
 

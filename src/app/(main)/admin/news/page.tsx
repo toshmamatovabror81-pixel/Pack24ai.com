@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Newspaper, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Newspaper } from 'lucide-react';
 
 interface NewsItem {
     id: number;

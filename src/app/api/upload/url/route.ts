@@ -20,8 +20,10 @@ const MIME_TO_EXT: Record<string, string> = {
  * Qaytaradi: { success: true, url: "https://supabase.../..." }
  */
 export async function POST(req: NextRequest) {
+    let url = '';
     try {
-        const { url } = await req.json();
+        const body = await req.json();
+        url = body.url;
 
         if (!url || typeof url !== 'string') {
             return NextResponse.json({ error: 'URL kiritilmadi' }, { status: 400 });
@@ -62,6 +64,13 @@ export async function POST(req: NextRequest) {
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server xatosi';
+        if (message === 'fetch failed') {
+            return NextResponse.json({
+                success: true,
+                url,
+                warning: 'Server tashqi URLni yuklab ololmadi, original URL saqlandi',
+            });
+        }
         console.error('[upload/url]', message);
         return NextResponse.json({ error: message }, { status: 500 });
     }

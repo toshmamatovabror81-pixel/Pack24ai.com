@@ -17,6 +17,7 @@ export default function CollectionsTab() {
     const [loading, setLoading] = useState(true);
     const [payingId, setPayingId] = useState<number | null>(null);
     const [payForm, setPayForm] = useState({ paymentStatus: 'paid_to_customer', paymentToDriver: '', paymentToCustomer: '', paidBy: '' });
+    const [collectionFilterId, setCollectionFilterId] = useState<number | null>(null);
 
     const fetch_ = useCallback(async () => {
         setLoading(true);
@@ -28,6 +29,13 @@ export default function CollectionsTab() {
         finally { setLoading(false); }
     }, []);
     useEffect(() => { fetch_(); }, [fetch_]);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const rawCollectionId = params.get('collectionId');
+        const parsed = rawCollectionId ? Number(rawCollectionId) : NaN;
+        setCollectionFilterId(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
+    }, []);
 
     const pay = async (id: number) => {
         const r = await fetch(`/api/admin/recycling/collections/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payForm) });
@@ -38,6 +46,10 @@ export default function CollectionsTab() {
         const r = await fetch(`/api/admin/recycling/collections/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerConfirmed: confirmed }) });
         if (r.ok) { toast.success(confirmed ? 'Tasdiqlandi' : 'Inkor qilindi'); fetch_(); } else toast.error('Xatolik');
     };
+
+    const filteredCollections = collectionFilterId
+        ? collections.filter((collection) => collection.id === collectionFilterId)
+        : collections;
 
     if (loading) return <div className="text-center py-10 text-gray-400">Yuklanmoqda...</div>;
 
@@ -77,9 +89,19 @@ export default function CollectionsTab() {
             {/* Yig'ishlar jadvali */}
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5"><Package size={15} /> Yig&apos;ishlar ({collections.length})</h3>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5"><Package size={15} /> Yig&apos;ishlar ({filteredCollections.length})</h3>
+                        {collectionFilterId && (
+                            <button
+                                onClick={() => setCollectionFilterId(null)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700"
+                            >
+                                Filter: #{collectionFilterId} x
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {collections.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm">Yig&apos;ishlar yo&apos;q</div> : (
+                {filteredCollections.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm">Yig&apos;ishlar yo&apos;q</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50"><tr>
@@ -94,7 +116,7 @@ export default function CollectionsTab() {
                                 <th className="px-3 py-2 w-16"></th>
                             </tr></thead>
                             <tbody className="divide-y divide-gray-50">
-                                {collections.map(c => { const ps = PAY_STATUS[c.paymentStatus] || PAY_STATUS.pending; return (
+                                {filteredCollections.map(c => { const ps = PAY_STATUS[c.paymentStatus] || PAY_STATUS.pending; return (
                                     <tr key={c.id} className="hover:bg-blue-50/30 text-sm">
                                         <td className="px-3 py-2 text-gray-400">#{c.requestId}</td>
                                         <td className="px-3 py-2 font-medium text-gray-800">{c.request.name}</td>

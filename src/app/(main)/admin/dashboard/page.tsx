@@ -360,12 +360,10 @@ export default function AdminDashboard() {
                                 <p className="text-xs text-gray-500 mb-1">{meta.label}</p>
                                 <p className="text-xl font-extrabold text-gray-900">{loading ? '…' : count}</p>
                             </div>
-                            {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime color cannot use static CSS */}
                             <div
                                 className="w-8 h-8 rounded-xl flex items-center justify-center"
                                 style={{ backgroundColor: meta.color + '20' }}
                             >
-                                {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime color */}
                                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: meta.color }} />
                             </div>
                         </Link>

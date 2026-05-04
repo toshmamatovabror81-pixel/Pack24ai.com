@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createBotEvent } from '@/lib/telegram/botEvents';
+import { normalizeStaffPhone } from '@/lib/telegram/botAccessRequests';
 
 // 5-raqamli unikal kod generatsiya
 async function generateSupervisorCode(): Promise<string> {
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
         const supervisor = await prisma.supervisor.create({
             data: {
                 name: body.name.trim(),
-                phone: body.phone.trim(),
+                phone: normalizeStaffPhone(body.phone.trim()),
                 telegramId: body.telegramId || null,
                 telegramName: body.telegramName || null,
                 pointId: body.pointId ? Number(body.pointId) : null,
@@ -52,6 +54,19 @@ export async function POST(req: NextRequest) {
                 registrationCode,
             },
             include: { point: true },
+        });
+
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: 'supervisor.created',
+            entityType: 'supervisor',
+            entityId: supervisor.id,
+            severity: 'success',
+            title: 'Admin/Supervisor qo\'shildi',
+            message: `${supervisor.name} admin panel orqali tizimga qo'shildi.`,
+            supervisorId: supervisor.id,
+            pointId: supervisor.pointId ?? undefined,
+            notifyAdmins: true,
         });
 
         return NextResponse.json(supervisor, { status: 201 });

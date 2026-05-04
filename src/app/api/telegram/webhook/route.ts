@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { initCustomerBot } from '@/lib/telegram/customerBot';
+import { isValidTelegramWebhookRequest } from '@/lib/telegram/security';
 
 export const dynamic = 'force-dynamic';
 
 // Handle POST requests from Telegram Webhook (Customer Bot — @Pack24AI_bot)
 export async function POST(request: Request) {
     try {
+        if (!isValidTelegramWebhookRequest(request)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const bot = await initCustomerBot();
 
         if (!bot) {

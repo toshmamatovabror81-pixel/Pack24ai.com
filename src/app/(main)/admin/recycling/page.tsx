@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
     Recycle, MapPin, Plus, Pencil, Trash2, Phone, Package,
-    CheckCircle, Clock, XCircle, Filter, Search, Truck,
-    ChevronDown, AlertTriangle, Eye, Download, Users, DollarSign, MessageCircle
+    CheckCircle, Clock, XCircle, Search, Truck,
+    ChevronDown, AlertTriangle, Download
 } from 'lucide-react';
 import SupervisorsTab from './_components/SupervisorsTab';
 import DriversTab from './_components/DriversTab';
 import CollectionsTab from './_components/CollectionsTab';
 import ComplaintsTab from './_components/ComplaintsTab';
 import MonthlyJournalTab from './_components/MonthlyJournalTab';
+import BotEventsTab from './_components/BotEventsTab';
+import { removeBotEventFeedParamsFromSearchString, urlHasBotEventFeedParams } from '@/lib/platform/botEventFeedUrl';
 
 // ─── Типлар ──────────────────────────────────────────────────────────────────
 
@@ -103,11 +106,129 @@ const STATUS_LABELS: Record<string, string> = {
 
 const EMPTY_POINT = { regionUz: '', regionRu: '', cityUz: '', cityRu: '', phone: '', address: '', lat: '', lng: '', status: 'planned', color: 'bg-blue-500' };
 
+type AdminRecyclingTab =
+    | 'dashboard'
+    | 'points'
+    | 'requests'
+    | 'supervisors'
+    | 'drivers'
+    | 'collections'
+    | 'complaints'
+    | 'journal'
+    | 'bot-events';
+
+function readPositiveQueryInt(params: URLSearchParams, key: string) {
+    const raw = params.get(key);
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** Arizalar yorog‘i: URL `requestStatus=…` (masalan, `new`, `completed`) */
+const REQUEST_TAB_STATUS_VALUES = new Set([
+    'all',
+    'new',
+    'dispatched',
+    'en_route',
+    'arrived',
+    'collecting',
+    'collected',
+    'confirmed',
+    'completed',
+    'disputed',
+    'cancelled',
+    'processing',
+    'assigned',
+]);
+
+function readRequestStatusFromParams(params: URLSearchParams): string {
+    const raw = params.get('requestStatus')?.trim() ?? '';
+    if (!raw || raw === 'all') return 'all';
+    if (REQUEST_TAB_STATUS_VALUES.has(raw)) return raw;
+    return 'all';
+}
+
+function readInitialRecyclingFilters(): {
+    activeTab: AdminRecyclingTab;
+    requestSearch: string;
+    requestFilter: string;
+    selectedPointId: number | null;
+    selectedSupervisorId: number | null;
+    selectedDriverId: number | null;
+} {
+    if (typeof window === 'undefined') {
+        return {
+            activeTab: 'dashboard',
+            requestSearch: '',
+            requestFilter: 'all',
+            selectedPointId: null,
+            selectedSupervisorId: null,
+            selectedDriverId: null,
+        };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    const requestId = params.get('requestId')?.trim() ?? '';
+    const allowedTabs = new Set<AdminRecyclingTab>([
+        'dashboard',
+        'points',
+        'requests',
+        'supervisors',
+        'drivers',
+        'collections',
+        'complaints',
+        'journal',
+        'bot-events',
+    ]);
+
+    if (urlHasBotEventFeedParams(params)) {
+        return {
+            activeTab: 'bot-events',
+            requestSearch: requestId,
+            requestFilter: readRequestStatusFromParams(params),
+            selectedPointId: readPositiveQueryInt(params, 'pointId'),
+            selectedSupervisorId: readPositiveQueryInt(params, 'supervisorId'),
+            selectedDriverId: readPositiveQueryInt(params, 'driverId'),
+        };
+    }
+
+    const hasExplicitTab = Boolean(tab && allowedTabs.has(tab as AdminRecyclingTab));
+
+    if (!hasExplicitTab) {
+        const stRaw = params.get('requestStatus')?.trim() ?? '';
+        const impliedRequests =
+            (stRaw && stRaw !== 'all' && REQUEST_TAB_STATUS_VALUES.has(stRaw)) || Boolean(requestId);
+        if (impliedRequests) {
+            return {
+                activeTab: 'requests',
+                requestSearch: requestId,
+                requestFilter: readRequestStatusFromParams(params),
+                selectedPointId: readPositiveQueryInt(params, 'pointId'),
+                selectedSupervisorId: readPositiveQueryInt(params, 'supervisorId'),
+                selectedDriverId: readPositiveQueryInt(params, 'driverId'),
+            };
+        }
+    }
+
+    return {
+        activeTab: hasExplicitTab ? (tab as AdminRecyclingTab) : 'dashboard',
+        requestSearch: requestId,
+        requestFilter: readRequestStatusFromParams(params),
+        selectedPointId: readPositiveQueryInt(params, 'pointId'),
+        selectedSupervisorId: readPositiveQueryInt(params, 'supervisorId'),
+        selectedDriverId: readPositiveQueryInt(params, 'driverId'),
+    };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function AdminRecyclingPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const [recyclingUrlReady, setRecyclingUrlReady] = useState(false);
+
     // ─── State ────────────────────────────────────────────────────────────
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'points' | 'requests' | 'supervisors' | 'drivers' | 'collections' | 'complaints' | 'journal'>('dashboard');
+    const [activeTab, setActiveTab] = useState<AdminRecyclingTab>('dashboard');
     const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
 
     // Points
@@ -123,6 +244,27 @@ export default function AdminRecyclingPage() {
     const [loadingRequests, setLoadingRequests] = useState(true);
     const [requestFilter, setRequestFilter] = useState('all');
     const [requestSearch, setRequestSearch] = useState('');
+    const [selectedPointId, setSelectedPointId] = useState<number | null>(null);
+    const [selectedSupervisorId, setSelectedSupervisorId] = useState<number | null>(null);
+    const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
+    const [driverOptions, setDriverOptions] = useState<Array<{ id: number; name: string }>>([]);
+
+    const requestsHasExtraFilters = Boolean(
+        requestSearch.trim() || requestFilter !== 'all' || selectedPointId || selectedSupervisorId || selectedDriverId,
+    );
+
+    const complaintsHighlightRequestId = useMemo(() => {
+        if (activeTab !== 'complaints') return null;
+        const s = requestSearch.trim();
+        if (!/^\d+$/.test(s)) return null;
+        const n = parseInt(s, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    }, [activeTab, requestSearch]);
+
+    const syncJournalFiltersFromChild = useCallback((pointId: number | null, supervisorId: number | null) => {
+        setSelectedPointId(pointId);
+        setSelectedSupervisorId(supervisorId);
+    }, []);
 
     // ─── Fetch Points ─────────────────────────────────────────────────────
     const fetchPoints = useCallback(async () => {
@@ -160,11 +302,91 @@ export default function AdminRecyclingPage() {
         try { const r = await fetch('/api/admin/recycling/supervisors'); if (r.ok) setSupervisors(await r.json()); } catch { /* ignore */ }
     }, []);
 
+    const fetchDriverOptions = useCallback(async () => {
+        try {
+            const r = await fetch('/api/admin/recycling/drivers');
+            if (r.ok) {
+                const data = (await r.json()) as { id: number; name: string }[];
+                setDriverOptions(data.map((d) => ({ id: d.id, name: d.name })));
+            }
+        } catch { /* ignore */ }
+    }, []);
+
     useEffect(() => {
         fetchPoints();
         fetchRequests();
         fetchSupervisors();
-    }, [fetchPoints, fetchRequests, fetchSupervisors]);
+        fetchDriverOptions();
+    }, [fetchPoints, fetchRequests, fetchSupervisors, fetchDriverOptions]);
+
+    useEffect(() => {
+        const initialFilters = readInitialRecyclingFilters();
+        setActiveTab(initialFilters.activeTab);
+        setRequestSearch(initialFilters.requestSearch);
+        setRequestFilter(initialFilters.requestFilter);
+        setSelectedPointId(initialFilters.selectedPointId);
+        setSelectedSupervisorId(initialFilters.selectedSupervisorId);
+        setSelectedDriverId(initialFilters.selectedDriverId);
+        setRecyclingUrlReady(true);
+    }, []);
+
+    // Barcha yorliqlar: URLda `tab=`. `be*` filtrlari faqat Bot Events tabida — boshqa yorliqqa o‘tganingizda olib tashlanadi.
+    // `bot-events` yorlig‘ining query yozuvi — BotEventsTab ichida (jamo bo‘lmasin).
+    // `tab=requests`: `requestId` (qidiruv) va baza / masul / haydovchi filtrlari URLda saqlanadi.
+    useEffect(() => {
+        if (!recyclingUrlReady) return;
+        if (activeTab === 'bot-events') return;
+        if (typeof window === 'undefined') return;
+
+        const raw = window.location.search.replace(/^\?/, '');
+        const cleaned = removeBotEventFeedParamsFromSearchString(raw);
+        const next = new URLSearchParams(cleaned);
+        next.set('tab', activeTab);
+
+        if (activeTab === 'requests') {
+            if (requestSearch.trim()) {
+                next.set('requestId', requestSearch.trim());
+            } else {
+                next.delete('requestId');
+            }
+            if (selectedPointId) {
+                next.set('pointId', String(selectedPointId));
+            } else {
+                next.delete('pointId');
+            }
+            if (selectedSupervisorId) {
+                next.set('supervisorId', String(selectedSupervisorId));
+            } else {
+                next.delete('supervisorId');
+            }
+            if (selectedDriverId) {
+                next.set('driverId', String(selectedDriverId));
+            } else {
+                next.delete('driverId');
+            }
+            if (requestFilter !== 'all') {
+                next.set('requestStatus', requestFilter);
+            } else {
+                next.delete('requestStatus');
+            }
+        }
+
+        const qs = next.toString();
+        const nextFull = qs ? `${pathname}?${qs}` : pathname;
+        const current = `${window.location.pathname}${window.location.search}`;
+        if (nextFull === current) return;
+        router.replace(nextFull, { scroll: false });
+    }, [
+        activeTab,
+        pathname,
+        recyclingUrlReady,
+        router,
+        requestSearch,
+        requestFilter,
+        selectedPointId,
+        selectedSupervisorId,
+        selectedDriverId,
+    ]);
 
     // ─── Point CRUD ───────────────────────────────────────────────────────
     const handlePointSubmit = async () => {
@@ -252,6 +474,9 @@ export default function AdminRecyclingPage() {
     // ─── Filtered Requests ────────────────────────────────────────────────
     const filteredRequests = requests.filter(r => {
         if (requestFilter !== 'all' && r.status !== requestFilter) return false;
+        if (selectedPointId && r.regionId !== selectedPointId) return false;
+        if (selectedSupervisorId && r.supervisorId !== selectedSupervisorId) return false;
+        if (selectedDriverId && r.assignedDriverId !== selectedDriverId) return false;
         if (requestSearch.trim()) {
             const s = requestSearch.toLowerCase();
             return r.name.toLowerCase().includes(s) ||
@@ -260,6 +485,9 @@ export default function AdminRecyclingPage() {
         }
         return true;
     });
+    const filteredPoints = selectedPointId
+        ? points.filter((point) => point.id === selectedPointId)
+        : points;
 
     // ─── Stats ────────────────────────────────────────────────────────────
     const stats = {
@@ -310,6 +538,7 @@ export default function AdminRecyclingPage() {
                     ['drivers', '🚚 Haydovchilar'],
                     ['collections', '💰 Hisob-kitob'],
                     ['journal', '🧾 Oylik jurnal'],
+                    ['bot-events', '🤖 Bot Events'],
                     ['complaints', '⚠️ Shikoyatlar'],
                 ] as const).map(([key, label]) => (
                     <button
@@ -417,12 +646,12 @@ export default function AdminRecyclingPage() {
                     {/* Recent Requests */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-5">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-bold text-gray-500">So'nggi arizalar</h3>
+                            <h3 className="text-sm font-bold text-gray-500">So{`'`}nggi arizalar</h3>
                             <button
                                 onClick={() => setActiveTab('requests')}
                                 className="text-xs font-semibold text-blue-600 hover:underline"
                             >
-                                Barchasini ko'rish →
+                                Barchasini ko{`'`}rish →
                             </button>
                         </div>
                         {requests.slice(0, 5).map(r => (
@@ -446,7 +675,7 @@ export default function AdminRecyclingPage() {
                             </div>
                         ))}
                         {requests.length === 0 && (
-                            <p className="text-center text-sm text-gray-400 py-8">Hali arizalar yo'q</p>
+                            <p className="text-center text-sm text-gray-400 py-8">Hali arizalar yo{`'`}q</p>
                         )}
                     </div>
                 </div>
@@ -537,12 +766,12 @@ export default function AdminRecyclingPage() {
                                 </div>
                                 <div className="sm:col-span-2">
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                        Manzil (to'liq)
+                                        Manzil (to{`'`}liq)
                                     </label>
                                     <input
                                         value={(pointForm as typeof pointForm & { address: string }).address}
                                         onChange={e => setPointForm(f => ({ ...f, address: e.target.value }))}
-                                        placeholder="Toshkent sh., Yunusobod tumani, 5-ko'cha 12-uy"
+                                        placeholder={"Toshkent sh., Yunusobod tumani, 5-ko'cha 12-uy"}
                                         className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400"
                                     />
                                 </div>
@@ -572,7 +801,7 @@ export default function AdminRecyclingPage() {
                                         className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400"
                                     />
                                     <p className="text-[10px] text-gray-400 mt-1">
-                                        Google Maps dan nusxalash: O'ng klik → &quot;Bu joy haqida&quot;
+                                        Google Maps dan nusxalash: O{`'`}ng klik → &quot;Bu joy haqida&quot;
                                     </p>
                                 </div>
                                 <div>
@@ -615,7 +844,7 @@ export default function AdminRecyclingPage() {
                                     disabled={savingPoint}
                                     className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
                                 >
-                                    {savingPoint ? 'Saqlanmoqda...' : editingPoint ? 'Saqlash' : "Qo'shish"}
+                                    {savingPoint ? 'Saqlanmoqda...' : editingPoint ? 'Saqlash' : <>Qo{`'`}shish</>}
                                 </button>
                                 <button
                                     onClick={() => { setShowPointForm(false); setEditingPoint(null); setPointForm(EMPTY_POINT); }}
@@ -632,17 +861,17 @@ export default function AdminRecyclingPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {[1, 2, 3].map(i => <div key={i} className="h-40 bg-gray-100 rounded-2xl animate-pulse" />)}
                         </div>
-                    ) : points.length === 0 ? (
+                    ) : filteredPoints.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
                             <MapPin size={40} className="mx-auto text-gray-200 mb-3" />
-                            <p className="text-gray-400 font-medium">Hali bazalar yo'q</p>
+                            <p className="text-gray-400 font-medium">Hali bazalar yo{`'`}q</p>
                             <button onClick={() => setShowPointForm(true)} className="text-emerald-600 text-sm font-semibold mt-2 hover:underline">
-                                Birinchi bazani qo'shing →
+                                Birinchi bazani qo{`'`}shing →
                             </button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {points.map(point => (
+                            {filteredPoints.map(point => (
                                 <div key={point.id} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all group">
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-3">
@@ -681,7 +910,7 @@ export default function AdminRecyclingPage() {
                                             onClick={() => handlePointDelete(point.id)}
                                             className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
                                         >
-                                            <Trash2 size={12} /> O'chirish
+                                            <Trash2 size={12} /> O{`'`}chirish
                                         </button>
                                     </div>
                                 </div>
@@ -733,6 +962,75 @@ export default function AdminRecyclingPage() {
                         </div>
                     </div>
 
+                    <div className="flex flex-wrap items-end gap-2">
+                        <div className="min-w-[160px]">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Baza</label>
+                            <select
+                                value={selectedPointId ?? ''}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setSelectedPointId(v ? parseInt(v, 10) : null);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                                title="Baza"
+                            >
+                                <option value="">Barcha bazalar</option>
+                                {points.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.regionUz}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="min-w-[160px]">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Masul</label>
+                            <select
+                                value={selectedSupervisorId ?? ''}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setSelectedSupervisorId(v ? parseInt(v, 10) : null);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                                title="Masul"
+                            >
+                                <option value="">Barcha masullar</option>
+                                {supervisors.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="min-w-[160px]">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Haydovchi</label>
+                            <select
+                                value={selectedDriverId ?? ''}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setSelectedDriverId(v ? parseInt(v, 10) : null);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                                title="Haydovchi"
+                            >
+                                <option value="">Barcha haydovchilar</option>
+                                {driverOptions.map((d) => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {requestsHasExtraFilters && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRequestSearch('');
+                                    setRequestFilter('all');
+                                    setSelectedPointId(null);
+                                    setSelectedSupervisorId(null);
+                                    setSelectedDriverId(null);
+                                }}
+                                className="px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100"
+                            >
+                                Barcha filtrlarni tozalash
+                            </button>
+                        )}
+                    </div>
+
                     {/* Requests List */}
                     {loadingRequests ? (
                         <div className="space-y-3">
@@ -742,7 +1040,11 @@ export default function AdminRecyclingPage() {
                         <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
                             <Package size={40} className="mx-auto text-gray-200 mb-3" />
                             <p className="text-gray-400 font-medium">
-                                {requestSearch || requestFilter !== 'all' ? 'Topilmadi' : 'Hali arizalar yo\'q'}
+                                {requestsHasExtraFilters ? (
+                                    'Topilmadi'
+                                ) : (
+                                    <>Hali arizalar yo{`'`}q</>
+                                )}
                             </p>
                         </div>
                     ) : (
@@ -842,10 +1144,21 @@ export default function AdminRecyclingPage() {
             )}
 
             {/* MASUL SHAXSLAR TAB */}
-            {activeTab === 'supervisors' && <SupervisorsTab points={points.map(p => ({ id: p.id, regionUz: p.regionUz }))} />}
+            {activeTab === 'supervisors' && (
+                <SupervisorsTab
+                    points={points.map(p => ({ id: p.id, regionUz: p.regionUz }))}
+                    selectedSupervisorId={selectedSupervisorId}
+                />
+            )}
 
             {/* HAYDOVCHILAR TAB */}
-            {activeTab === 'drivers' && <DriversTab points={points.map(p => ({ id: p.id, regionUz: p.regionUz }))} supervisors={supervisors.map(s => ({ id: s.id, name: s.name }))} />}
+            {activeTab === 'drivers' && (
+                <DriversTab
+                    points={points.map(p => ({ id: p.id, regionUz: p.regionUz }))}
+                    supervisors={supervisors.map(s => ({ id: s.id, name: s.name }))}
+                    selectedDriverId={selectedDriverId}
+                />
+            )}
 
             {/* HISOB-KITOB TAB */}
             {activeTab === 'collections' && <CollectionsTab />}
@@ -855,11 +1168,19 @@ export default function AdminRecyclingPage() {
                 <MonthlyJournalTab
                     points={points.map(p => ({ id: p.id, name: p.regionUz }))}
                     supervisors={supervisors.map(s => ({ id: s.id, name: s.name }))}
+                    urlPointId={selectedPointId}
+                    urlSupervisorId={selectedSupervisorId}
+                    onFilterUrlChange={syncJournalFiltersFromChild}
                 />
             )}
 
+            {/* BOT EVENTS TAB */}
+            {activeTab === 'bot-events' && <BotEventsTab />}
+
             {/* SHIKOYATLAR TAB */}
-            {activeTab === 'complaints' && <ComplaintsTab />}
+            {activeTab === 'complaints' && (
+                <ComplaintsTab highlightRequestId={complaintsHighlightRequestId} />
+            )}
         </div>
     );
 }

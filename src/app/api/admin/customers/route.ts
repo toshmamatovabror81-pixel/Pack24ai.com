@@ -140,6 +140,8 @@ export async function GET(request: NextRequest) {
         if (group && group !== 'all') {
             if (group === 'debtor') {
                 filtered = filtered.filter(c => c.totalDebit > 0);
+            } else if (group === 'active') {
+                filtered = filtered.filter(c => c.activeOrders > 0);
             } else {
                 filtered = filtered.filter(c => c.customerGroup === group);
             }
@@ -174,6 +176,7 @@ export async function GET(request: NextRequest) {
             totalDebit: allCustomers.reduce((s, c) => s + c.totalDebit, 0),
             totalPaid: allCustomers.reduce((s, c) => s + c.totalPaid, 0),
             debtors: allCustomers.filter(c => c.totalDebit > 0).length,
+            activeWithOrders: allCustomers.filter(c => c.activeOrders > 0).length,
         };
 
         return NextResponse.json({ customers: paginated, total, page, limit, totalPages, stats });

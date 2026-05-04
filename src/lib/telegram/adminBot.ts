@@ -5,6 +5,8 @@ import {
     supervisorMainKeyboard,
     supervisorSharePhoneKeyboard,
 } from './keyboards';
+import { applyBotDefaults } from './botInit';
+import { getAdminBotToken } from './botTokens';
 import { registerAdminCallbackHandler } from './adminBot.callback';
 import { registerAdminContactHandler } from './adminBot.contact';
 import { registerAdminTextHandler } from './adminBot.text';
@@ -14,24 +16,14 @@ let adminBotInstance: Telegraf | null = null;
 export async function initAdminBot(): Promise<Telegraf | null> {
     if (adminBotInstance) return adminBotInstance;
 
-    const token = process.env.ADMIN_BOT_TOKEN;
+    const token = getAdminBotToken();
     if (!token) {
         console.warn('[AdminBot] ADMIN_BOT_TOKEN topilmadi');
         return null;
     }
 
     const bot = new Telegraf(token);
-
-    await bot.telegram.setMyCommands([
-        { command: 'start', description: '🏠 Bosh menyu / Главное меню / Main menu' },
-        { command: 'help', description: '❓ Yordam / Помощь / Help' },
-    ]).catch(() => {});
-
-    bot.use(async (ctx, next) => {
-        const startedAt = Date.now();
-        await next();
-        console.log(`[AdminBot] ${ctx.updateType} in ${Date.now() - startedAt}ms`);
-    });
+    await applyBotDefaults(bot, 'AdminBot');
 
     bot.start(async (ctx) => {
         const tgId = ctx.from.id.toString();
@@ -63,11 +55,12 @@ export async function initAdminBot(): Promise<Telegraf | null> {
             '🚚 Haydovchi tayinlash — ariza uchun haydovchi tanlash\n' +
             '💰 To\'lovlar — hisob-kitob tasdiqlash\n' +
             '🏭 Punkt boshqarish — ochiq/yopiq almashtirish\n' +
-            '📥 Qabul — makulatura qabul jurnaliga yozuv qo\'shish\n' +
-            '🏭 Press — press/toy ishlab chiqarish jurnaliga yozuv qo\'shish\n' +
-            '💸 Xarajat — ish haqi va boshqa xarajatlarni kiritish\n' +
-            '💼 Kassa — kunlik kassa ochilishini saqlash\n' +
-            '🚛 Sotuv — preslangan makulatura sotuvini kiritish\n' +
+            '📥 Qabul — sana: tugmalar (bugun/kecha/qo\'lda) yoki matn, kg, narx\n' +
+            '🏭 Press — sana tugmalari, kg, toylar, bajaruvchilar\n' +
+            '💸 Xarajat — sana tugmalari, xarajat, avans, komment\n' +
+            '💼 Kassa — sana tugmalari, boshlang\'ich summa\n' +
+            '🚛 Sotuv — sana tugmalari, mijoz, kg, narx, mashina, raqam\n' +
+            '✏️ Jurnal tahriri (HQ) — eski yozuvni o\'zgartirish (HQ tasdig\'i)\n' +
             '📊 Hisobotlar — kunlik/haftalik/oylik statistika\n\n' +
             '/start — Bosh menyu',
             { parse_mode: 'HTML' }

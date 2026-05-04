@@ -1,69 +1,37 @@
 import { Telegraf } from 'telegraf';
-import { prisma } from '@/lib/prisma';
-
-// ─── Bot instancelari (Hot-reload himoyasi bilan) ─────────────────────────────
-const globalForBots = globalThis as unknown as {
-    customerBot?: Telegraf | null;
-    driverBot?: Telegraf | null;
-    adminBot?: Telegraf | null;
-};
-
-let customerBot = globalForBots.customerBot || null;
-let driverBot = globalForBots.driverBot || null;
-let adminBot = globalForBots.adminBot || null;
-
-// ─── Token olish yordamchisi ──────────────────────────────────────────────────
-async function getCustomerToken(): Promise<string | null> {
-    // 1. Env dan
-    if (process.env.CUSTOMER_BOT_TOKEN) return process.env.CUSTOMER_BOT_TOKEN;
-    // 2. Bazadan (fallback)
-    const config = await prisma.telegramConfig.findFirst();
-    return config?.botToken || null;
-}
+import { initAdminBot } from './adminBot';
+import {
+    getAdminBotToken,
+    getCustomerBotToken,
+    getDriverBotToken,
+    getPack24AdminBotToken,
+} from './botTokens';
+import { initCustomerBot, resetInitializedCustomerBot } from './customerBot';
+import { initDriverBot } from './driverBot';
+import { initPack24AdminBot } from './pack24AdminBot';
 
 // ─── Asosiy mijozlar botini olish ─────────────────────────────────────────────
 export async function getCustomerBot(): Promise<Telegraf | null> {
-    if (customerBot) return customerBot;
+    return initCustomerBot();
+}
 
-    const token = await getCustomerToken();
-    if (!token) {
-        console.warn('[BotManager] Customer Bot Token topilmadi');
-        return null;
-    }
-
-    customerBot = new Telegraf(token);
-    if (process.env.NODE_ENV !== 'production') globalForBots.customerBot = customerBot;
-    return customerBot;
+export function resetCustomerBot() {
+    resetInitializedCustomerBot();
 }
 
 // ─── Haydovchilar botini olish ────────────────────────────────────────────────
 export async function getDriverBot(): Promise<Telegraf | null> {
-    if (driverBot) return driverBot;
-
-    const token = process.env.DRIVER_BOT_TOKEN;
-    if (!token) {
-        console.warn('[BotManager] DRIVER_BOT_TOKEN topilmadi (.env)');
-        return null;
-    }
-
-    driverBot = new Telegraf(token);
-    if (process.env.NODE_ENV !== 'production') globalForBots.driverBot = driverBot;
-    return driverBot;
+    return initDriverBot();
 }
 
 // ─── Admin/Masul botini olish ─────────────────────────────────────────────────
 export async function getAdminBot(): Promise<Telegraf | null> {
-    if (adminBot) return adminBot;
+    return initAdminBot();
+}
 
-    const token = process.env.ADMIN_BOT_TOKEN;
-    if (!token) {
-        console.warn('[BotManager] ADMIN_BOT_TOKEN topilmadi (.env)');
-        return null;
-    }
-
-    adminBot = new Telegraf(token);
-    if (process.env.NODE_ENV !== 'production') globalForBots.adminBot = adminBot;
-    return adminBot;
+// ─── HQ / Pack24 admin botini olish ───────────────────────────────────────────
+export async function getPack24AdminBot(): Promise<Telegraf | null> {
+    return initPack24AdminBot();
 }
 
 // ─── Barcha botlar ────────────────────────────────────────────────────────────
@@ -72,12 +40,13 @@ export async function getAllBots() {
         customer: await getCustomerBot(),
         driver: await getDriverBot(),
         admin: await getAdminBot(),
+        pack24admin: await getPack24AdminBot(),
     };
 }
 
 // ─── Bot tokenlar ro'yxati (admin sahifa uchun) ──────────────────────────────
 export async function getBotStatuses() {
-    const customerToken = await getCustomerToken();
+    const customerToken = await getCustomerBotToken();
     return [
         {
             name: 'Customer Bot',
@@ -90,15 +59,22 @@ export async function getBotStatuses() {
             name: 'Driver Bot',
             username: '@pack24MX_bot',
             envKey: 'DRIVER_BOT_TOKEN',
-            hasToken: !!process.env.DRIVER_BOT_TOKEN,
+            hasToken: !!getDriverBotToken(),
             description: 'Haydovchilar — topshiriqlar, kalkulyator, online/offline',
         },
         {
             name: 'Admin Bot',
             username: '@pack24AUP_bot',
             envKey: 'ADMIN_BOT_TOKEN',
-            hasToken: !!process.env.ADMIN_BOT_TOKEN,
+            hasToken: !!getAdminBotToken(),
             description: 'Masullar — arizalar, haydovchi tayinlash, to\'lovlar',
+        },
+        {
+            name: 'Pack24 Admin Bot',
+            username: '@pack24admin_bot',
+            envKey: 'PACK24ADMIN_BOT_TOKEN',
+            hasToken: !!getPack24AdminBotToken(),
+            description: 'HQ adminlar — event feed, alertlar, operativ nazorat',
         },
     ];
 }

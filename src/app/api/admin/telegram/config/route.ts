@@ -1,9 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getBot, resetBot } from '@/lib/telegram/bot';
+import {
+    readJsonObject,
+    readOptionalString,
+    RequestValidationError,
+} from '@/lib/requestValidation';
+import { getCustomerBot, resetCustomerBot } from '@/lib/telegram/botManager';
+import {
+    getTelegramWebhookSecret,
+    hasTelegramWebhookSecret,
+    isAuthorizedTelegramOpsRequest,
+} from '@/lib/telegram/security';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const config = await prisma.telegramConfig.findFirst();
 
         // ─── Real DB stats ─────────────────────────────────────────────
@@ -16,16 +31,22 @@ export async function GET() {
         ] = await Promise.all([
             prisma.user.count(),
             prisma.order.count(),
-            (prisma as any).recyclingCollection?.count?.() ?? 0,
-            (prisma as any).recyclingCollection?.count?.({ where: { isPaid: false, status: 'approved' } }) ?? 0,
-            (prisma as any).recyclingCollection?.count?.({ where: { isPaid: true } }) ?? 0,
+            prisma.recycleCollection.count(),
+            prisma.recycleCollection.count({
+                where: { paymentStatus: 'pending' },
+            }),
+            prisma.recycleCollection.count({
+                where: {
+                    paymentStatus: { in: ['paid_to_driver', 'paid_to_customer', 'paid_both', 'completed'] },
+                },
+            }),
         ]);
 
         // ─── Webhook info ───────────────────────────────────────────────
         let webhookInfo = null;
         if (config?.botToken) {
             try {
-                const bot = await getBot();
+                const bot = await getCustomerBot();
                 if (bot) {
                     webhookInfo = await bot.telegram.getWebhookInfo();
                 }
@@ -58,10 +79,18 @@ export async function GET() {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { botToken, welcomeMessage, mainButton, salesChatId } = body;
+        const authorized = await isAuthorizedTelegramOpsRequest(request);
+        if (!authorized) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await readJsonObject(request);
+        const botToken = readOptionalString(body.botToken, 'botToken', { allowEmpty: true }) ?? '';
+        const welcomeMessage = readOptionalString(body.welcomeMessage, 'welcomeMessage', { allowEmpty: true }) ?? '';
+        const mainButton = readOptionalString(body.mainButton, 'mainButton', { allowEmpty: true }) ?? '';
+        const salesChatId = readOptionalString(body.salesChatId, 'salesChatId', { allowEmpty: true }) ?? '';
 
         let config = await prisma.telegramConfig.findFirst();
 
@@ -76,13 +105,13 @@ export async function POST(request: Request) {
             });
         }
 
-        resetBot();
+        resetCustomerBot();
 
         let botUsername = config.botUsername || 'Noma\'lum';
 
         if (botToken) {
             try {
-                const bot = await getBot();
+                const bot = await getCustomerBot();
                 if (bot) {
                     const me = await bot.telegram.getMe();
                     botUsername = `@${me.username}`;
@@ -93,9 +122,17 @@ export async function POST(request: Request) {
                     });
 
                     if (process.env.NEXT_PUBLIC_APP_URL) {
-                        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/telegram/webhook`;
-                        await bot.telegram.setWebhook(webhookUrl);
-                        console.log(`✅ Webhook set: ${webhookUrl}`);
+                        if (hasTelegramWebhookSecret()) {
+                            const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/telegram/webhook`;
+                            const webhookSecret = getTelegramWebhookSecret();
+                            await bot.telegram.setWebhook(
+                                webhookUrl,
+                                webhookSecret ? { secret_token: webhookSecret } : undefined,
+                            );
+                            console.log(`✅ Webhook set: ${webhookUrl}`);
+                        } else {
+                            console.warn('⚠️ TELEGRAM_WEBHOOK_SECRET yo\'q — webhook o\'rnatilmadi');
+                        }
                     } else {
                         console.warn('⚠️ NEXT_PUBLIC_APP_URL not set — webhook not configured');
                     }
@@ -107,6 +144,10 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ ...config, botUsername });
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
         console.error('Error saving config:', error);
         return NextResponse.json({ error: 'Failed to save config' }, { status: 500 });
     }

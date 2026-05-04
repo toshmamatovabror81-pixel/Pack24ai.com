@@ -232,6 +232,8 @@ export function supervisorMainKeyboard(): ReplyKeyboard {
     return {
         keyboard: [
             [{ text: '📋 Arizalar' }, { text: '👥 Haydovchilar' }],
+            [{ text: '📝 Driver arizalari' }],
+            [{ text: '✏️ Jurnal tahriri (HQ)' }],
             [{ text: '💰 To\'lovlar' }, { text: '🏭 Punkt holati' }],
             [{ text: '📥 Qabul' }, { text: '🏭 Press' }],
             [{ text: '💸 Xarajat' }, { text: '💼 Kassa' }],
@@ -246,6 +248,36 @@ export function supervisorMainKeyboard(): ReplyKeyboard {
  * Masul telefon ulashish
  */
 export function supervisorSharePhoneKeyboard(): ReplyKeyboard {
+    return {
+        keyboard: [
+            [{ text: '📱 Telefon raqamimni ulashish', request_contact: true }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+    };
+}
+
+/**
+ * HQ admin bosh menyu klaviaturasi
+ */
+export function pack24AdminMainKeyboard(): ReplyKeyboard {
+    return {
+        keyboard: [
+            [{ text: '👷 Masullar' }, { text: '🚚 Haydovchilar' }],
+            [{ text: '📝 Admin arizalari' }],
+            [{ text: '📋 Jurnal tahrirlari' }],
+            [{ text: '📡 Hodisalar' }, { text: '🚨 Ogohlantirishlar' }],
+            [{ text: '📊 Statistika' }, { text: '✅ Barchasini o\'qildi' }],
+            [{ text: '👤 Profil' }, { text: '❓ Yordam' }],
+        ],
+        resize_keyboard: true,
+    };
+}
+
+/**
+ * HQ admin telefon ulashish
+ */
+export function pack24AdminSharePhoneKeyboard(): ReplyKeyboard {
     return {
         keyboard: [
             [{ text: '📱 Telefon raqamimni ulashish', request_contact: true }],

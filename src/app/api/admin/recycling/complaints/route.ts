@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTelegramMessage } from '@/lib/telegram/bot';
+import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
+import { createBotEvent } from '@/lib/telegram/botEvents';
 
 async function sendToTelegram(chatId: string, message: string) {
     try {
-        const { getBot } = await import('@/lib/telegram/bot');
-        const bot = await getBot();
-        if (bot && chatId) {
-            await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        }
+        if (!chatId) return;
+        await notifyCustomer(chatId, message);
     } catch (e) { console.error('[Complaints TG]', e); }
 }
 
@@ -58,6 +56,24 @@ export async function POST(req: NextRequest) {
             include: { request: { include: { point: true } } },
         });
 
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: 'complaint.created',
+            entityType: 'recycle_complaint',
+            entityId: complaint.id,
+            severity: complaint.level === 'director' ? 'error' : 'warning',
+            title: complaint.level === 'director' ? 'Direktor darajasiga eskalatsiya' : 'Yangi shikoyat yaratildi',
+            message: `${complaint.fromName} ariza #${complaint.requestId} bo'yicha shikoyat qoldirdi.`,
+            requestId: complaint.requestId,
+            supervisorId: complaint.request.supervisorId ?? undefined,
+            pointId: complaint.request.point?.id ?? complaint.request.regionId,
+            payload: {
+                level: complaint.level,
+                message: complaint.message,
+                fromPhone: complaint.fromPhone,
+            },
+        });
+
         // Xabar yuborish
         if (complaint.level === 'supervisor' && complaint.request.supervisorId) {
             const sup = await prisma.supervisor.findUnique({
@@ -75,7 +91,7 @@ export async function POST(req: NextRequest) {
 
         // Director (=Admin) darajasidagi shikoyat
         if (complaint.level === 'director') {
-            await sendTelegramMessage(
+            await notifySalesChats(
                 `🚨 <b>ESKALATSIYA! Ariza #${complaint.requestId}</b>\n\n` +
                 `👤 ${complaint.fromName} | 📞 ${complaint.fromPhone}\n` +
                 `📍 ${complaint.request.point?.regionUz || ''}\n\n` +
@@ -113,6 +129,24 @@ export async function PUT(req: NextRequest) {
             where: { id: Number(id) },
             data: updateData,
             include: { request: true },
+        });
+
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: 'complaint.updated',
+            entityType: 'recycle_complaint',
+            entityId: complaint.id,
+            severity: status === 'resolved' || status === 'closed' ? 'success' : 'info',
+            title: 'Shikoyat holati yangilandi',
+            message: `Shikoyat #${complaint.id} holati ${status || complaint.status} ga o'zgartirildi.`,
+            requestId: complaint.requestId,
+            supervisorId: complaint.request.supervisorId ?? undefined,
+            pointId: complaint.request.regionId,
+            payload: {
+                status: status || complaint.status,
+                response: response || null,
+                respondedBy: respondedBy || null,
+            },
         });
 
         // Mijozga javob xabari

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { ToggleLeft, ToggleRight, Settings, Info, CreditCard, Banknote, Smartphone, Wallet, X, Check } from 'lucide-react';
+import { ToggleLeft, ToggleRight, Info, CreditCard, Banknote, Smartphone, Wallet, X, Check } from 'lucide-react';
 
 interface PaymentMethod {
     id: string;

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createBotEvent } from '@/lib/telegram/botEvents';
+import { normalizeStaffPhone } from '@/lib/telegram/botAccessRequests';
 
 // 5-raqamli unikal kod generatsiya
 async function generateDriverCode(): Promise<string> {
@@ -25,16 +27,23 @@ export async function GET(req: NextRequest) {
         if (pointId) where.pointId = Number(pointId);
         if (status) where.status = status;
 
-        const drivers = await prisma.driver.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            include: {
-                supervisor: true,
-                point: true,
-                _count: { select: { collections: true, assignedRequests: true } },
-            },
-        });
-        return NextResponse.json(drivers);
+        const [drivers, supervisorPhones] = await Promise.all([
+            prisma.driver.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    supervisor: true,
+                    point: true,
+                    _count: { select: { collections: true, assignedRequests: true } },
+                },
+            }),
+            prisma.supervisor.findMany({ select: { phone: true } }),
+        ]);
+
+        const supPhoneSet = new Set(supervisorPhones.map((s) => s.phone));
+        const result = drivers.map((d) => ({ ...d, isSupervisor: supPhoneSet.has(d.phone) }));
+
+        return NextResponse.json(result);
     } catch (error) {
         console.error('[Drivers GET]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
@@ -55,7 +64,7 @@ export async function POST(req: NextRequest) {
         const driver = await prisma.driver.create({
             data: {
                 name: body.name.trim(),
-                phone: body.phone.trim(),
+                phone: normalizeStaffPhone(body.phone.trim()),
                 telegramId: body.telegramId || null,
                 telegramName: body.telegramName || null,
                 supervisorId: body.supervisorId ? Number(body.supervisorId) : null,
@@ -65,6 +74,20 @@ export async function POST(req: NextRequest) {
                 registrationCode,
             },
             include: { supervisor: true, point: true },
+        });
+
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: 'driver.created',
+            entityType: 'driver',
+            entityId: driver.id,
+            severity: 'success',
+            title: 'Driver qo\'shildi',
+            message: `${driver.name} admin panel orqali tizimga qo'shildi.`,
+            driverId: driver.id,
+            supervisorId: driver.supervisorId ?? undefined,
+            pointId: driver.pointId ?? undefined,
+            notifyAdmins: true,
         });
 
         return NextResponse.json(driver, { status: 201 });

@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
-  // Bundle size
+  // Bundle size + `src/instrumentation.ts` Next 15 da fayl mavjud boʻlsa avtomatik ishlaydi
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },

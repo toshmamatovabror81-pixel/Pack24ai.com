@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, MessageCircle, CheckCircle, Clock } from 'lucide-react';
 
@@ -7,12 +7,19 @@ interface Complaint { id: number; requestId: number; fromPhone: string; fromName
 
 const STATUS_MAP: Record<string, { label: string; icon: React.FC<{ size?: number; className?: string }>; color: string }> = { open: { label: 'Ochiq', icon: AlertTriangle, color: 'bg-red-100 text-red-700' }, in_progress: { label: 'Ko\'rib chiqilmoqda', icon: Clock, color: 'bg-amber-100 text-amber-700' }, resolved: { label: 'Hal qilindi', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' }, closed: { label: 'Yopildi', icon: CheckCircle, color: 'bg-gray-100 text-gray-600' } };
 
-export default function ComplaintsTab() {
+export default function ComplaintsTab({ highlightRequestId = null }: { highlightRequestId?: number | null }) {
     const [items, setItems] = useState<Complaint[]>([]);
     const [loading, setLoading] = useState(true);
     const [respondId, setRespondId] = useState<number | null>(null);
     const [responseText, setResponseText] = useState('');
     const [respondedBy, setRespondedBy] = useState('');
+
+    const displayItems = useMemo(() => {
+        if (highlightRequestId == null) return items;
+        const first = items.filter(c => c.requestId === highlightRequestId);
+        const rest = items.filter(c => c.requestId !== highlightRequestId);
+        return [...first, ...rest];
+    }, [items, highlightRequestId]);
 
     const fetch_ = useCallback(async () => {
         setLoading(true);
@@ -58,7 +65,7 @@ export default function ComplaintsTab() {
                 <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center"><MessageCircle size={40} className="mx-auto text-gray-200 mb-3" /><p className="text-gray-400">Shikoyatlar yo&apos;q ✨</p></div>
             ) : (
                 <div className="space-y-3">
-                    {items.map(c => { const st = STATUS_MAP[c.status] || STATUS_MAP.open; const StIcon = st.icon; return (
+                    {displayItems.map(c => { const st = STATUS_MAP[c.status] || STATUS_MAP.open; const StIcon = st.icon; return (
                         <div key={c.id} className={`bg-white rounded-2xl border p-5 transition-all ${c.status === 'open' ? 'border-red-200 shadow-sm' : 'border-gray-100'}`}>
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-2">
