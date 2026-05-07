@@ -4,12 +4,142 @@ import { getAccessIdentity, touchDbAdmin, formatEventRows, replyWithMenu } from 
 import { renderSupervisorsList, renderDriversList, renderSupervisorAccessRequests } from './renders';
 import { pack24AdminMainKeyboard } from '../../keyboards';
 
+// ─── /link va /tasks buyruqlari ──────────────────────────────────────────────
+export function registerStaffCommands(bot: Telegraf) {
+    // /link <code> — Xodim Telegram hisobini ulash
+    bot.command('link', async (ctx) => {
+        const tgId = ctx.from.id.toString();
+        const args = ctx.message.text.split(' ');
+        const code = args[1]?.trim();
+
+        if (!code || code.length < 4) {
+            await ctx.reply(
+                '🔗 <b>Telegram ulash</b>\n\n' +
+                'Foydalanish: <code>/link 123456</code>\n\n' +
+                'Kodni admin paneldan oling:\n' +
+                '1. Admin panelga kiring\n' +
+                '2. Xodimlar → Ismingizga bosing\n' +
+                '3. "Ulash kodi yaratish" tugmasini bosing\n' +
+                '4. Kodni shu yerga yuboring',
+                { parse_mode: 'HTML' },
+            );
+            return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const g = globalThis as any;
+        const codes = g.__staffTelegramCodes || {};
+        const userId = codes[code];
+
+        if (!userId) {
+            await ctx.reply('❌ Kod noto\'g\'ri yoki muddati o\'tgan. Admin paneldan yangi kod oling.');
+            return;
+        }
+
+        try {
+            // Telegram ID ni foydalanuvchiga ulash
+            const user = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    telegramId: tgId,
+                    telegramVerifiedAt: new Date(),
+                },
+                select: { id: true, name: true, department: true, position: true },
+            });
+
+            // Kodni o'chirish
+            delete codes[code];
+
+            await ctx.reply(
+                '✅ <b>Telegram muvaffaqiyatli ulandi!</b>\n\n' +
+                `👤 ${user.name}\n` +
+                `📍 ${user.department || ''}${user.position ? ' — ' + user.position : ''}\n\n` +
+                'Endi vazifalar tayinlanganda sizga avtomatik xabar keladi.\n\n' +
+                '📋 /tasks — Sizga tayinlangan vazifalar',
+                { parse_mode: 'HTML' },
+            );
+        } catch (err) {
+            console.error('[Link] Xatolik:', err);
+            await ctx.reply('❌ Xatolik yuz berdi. Qayta urinib ko\'ring.');
+        }
+    });
+
+    // /tasks — Xodimga tayinlangan vazifalar
+    bot.command('tasks', async (ctx) => {
+        const tgId = ctx.from.id.toString();
+
+        const user = await prisma.user.findUnique({
+            where: { telegramId: tgId },
+            select: {
+                id: true, name: true,
+                taskAssignments: {
+                    include: {
+                        task: {
+                            select: {
+                                id: true, publicCode: true, title: true,
+                                status: true, priority: true, dueAt: true,
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
+                },
+            },
+        });
+
+        if (!user) {
+            await ctx.reply(
+                '❌ Siz tizimga ulanmagansiz.\n\n' +
+                '/link <code>kod</code> buyrug\'i bilan Telegram hisobingizni ulang.',
+                { parse_mode: 'HTML' },
+            );
+            return;
+        }
+
+        const tasks = user.taskAssignments;
+        if (tasks.length === 0) {
+            await ctx.reply('📋 Sizga hozircha vazifa tayinlanmagan.');
+            return;
+        }
+
+        const statusIcons: Record<string, string> = {
+            pending: '⏳', in_progress: '🔄', review: '👁️', completed: '✅', cancelled: '❌',
+        };
+        const priorityIcons: Record<string, string> = {
+            urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢',
+        };
+
+        const lines = tasks.map(a => {
+            const t = a.task;
+            const icon = statusIcons[t.status] || '📋';
+            const pIcon = priorityIcons[t.priority] || '';
+            const due = t.dueAt ? ` ⏰ ${new Date(t.dueAt).toLocaleDateString('uz-UZ')}` : '';
+            return `${icon} ${pIcon} <b>${t.publicCode}</b> ${t.title}${due}`;
+        }).join('\n\n');
+
+        const inlineButtons = tasks
+            .filter(a => a.task.status === 'pending')
+            .map(a => [{
+                text: `✅ ${a.task.publicCode} Qabul qilish`,
+                callback_data: `task_accept_${a.task.id}`,
+            }]);
+
+        await ctx.reply(
+            `📋 <b>${user.name} — Vazifalarim</b>\n\n${lines}`,
+            {
+                parse_mode: 'HTML',
+                ...(inlineButtons.length > 0 ? { reply_markup: { inline_keyboard: inlineButtons } } : {}),
+            },
+        );
+    });
+}
+
 export function registerTextHandlers(bot: Telegraf) {
     bot.on('text', async (ctx) => {
         const tgId = ctx.from.id.toString();
         const text = ctx.message.text;
 
-        if (text.startsWith('/')) return;
+        if (text.startsWith('/')) return; // /link, /tasks handled separately
 
         const hqAdmin = await getAccessIdentity(tgId);
         if (!hqAdmin) {

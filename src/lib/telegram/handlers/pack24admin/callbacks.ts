@@ -31,6 +31,77 @@ export function registerCallbackHandlers(bot: Telegraf) {
         await touchDbAdmin(identity);
 
         try {
+            // ─── TASK CALLBACKS (Vazifa qabul/rad) ─────────────────────────
+            if (data.startsWith('task_accept_')) {
+                const taskId = Number(data.replace('task_accept_', ''));
+                const telegramId = ctx.from.id.toString();
+
+                // Telegram ID orqali foydalanuvchini topish
+                const { prisma: db } = await import('@/lib/prisma');
+                const dbUser = await db.user.findUnique({
+                    where: { telegramId },
+                    select: { id: true, name: true },
+                });
+                if (!dbUser) {
+                    await ctx.answerCbQuery('Siz tizimda ro\'yxatdan o\'tmagansiz');
+                    return;
+                }
+
+                const { markTaskAccepted } = await import('@/lib/services/notificationEscalationService');
+                await markTaskAccepted(taskId, dbUser.id);
+
+                await ctx.answerCbQuery('✅ Vazifa qabul qilindi!');
+                if ('editMessageText' in ctx) {
+                    await ctx.editMessageText(
+                        `✅ <b>${dbUser.name}</b> vazifani qabul qildi!\n\n` +
+                        `Vazifa #${taskId} — Jarayonga o'tkazildi.\n` +
+                        `Dashboard: pack24.uz/admin/tasks`,
+                        { parse_mode: 'HTML' },
+                    );
+                }
+                return;
+            }
+
+            if (data.startsWith('task_reject_')) {
+                const taskId = Number(data.replace('task_reject_', ''));
+                const telegramId = ctx.from.id.toString();
+
+                const { prisma: db } = await import('@/lib/prisma');
+                const dbUser = await db.user.findUnique({
+                    where: { telegramId },
+                    select: { id: true, name: true },
+                });
+                if (!dbUser) {
+                    await ctx.answerCbQuery('Siz tizimda ro\'yxatdan o\'tmagansiz');
+                    return;
+                }
+
+                const { markTaskRejected } = await import('@/lib/services/notificationEscalationService');
+                await markTaskRejected(taskId, dbUser.id);
+
+                await ctx.answerCbQuery('❌ Vazifa rad etildi');
+                if ('editMessageText' in ctx) {
+                    await ctx.editMessageText(
+                        `❌ <b>${dbUser.name}</b> vazifani rad etdi.\n\n` +
+                        `Menejerga xabar yuborildi — boshqa xodimga tayinlang.`,
+                        { parse_mode: 'HTML' },
+                    );
+                }
+                return;
+            }
+
+            if (data.startsWith('task_detail_')) {
+                const taskId = Number(data.replace('task_detail_', ''));
+                await ctx.answerCbQuery('📋');
+                await ctx.reply(
+                    `📋 Vazifa batafsil: https://pack24.uz/admin/tasks\n\n` +
+                    `Yoki Pack24 admin paneliga kiring va Vazifalar bo'limini oching.\n` +
+                    `Vazifa ID: #${taskId}`,
+                );
+                return;
+            }
+
+            // ─── END TASK CALLBACKS ────────────────────────────────────────
             if (data.startsWith('pa_jcorr_ok_')) {
                 const correctionId = Number(data.replace('pa_jcorr_ok_', ''));
                 try {

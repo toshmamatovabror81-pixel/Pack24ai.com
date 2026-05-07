@@ -18,6 +18,8 @@ export async function initPack24AdminBot(): Promise<Telegraf | null> {
     await applyBotDefaults(bot, 'Pack24AdminBot', [
         { command: 'start', description: 'Bosh menyu' },
         { command: 'help', description: 'Yordam' },
+        { command: 'link', description: 'Telegram hisobni ulash' },
+        { command: 'tasks', description: 'Mening vazifalarim' },
     ]);
 
     registerPack24AdminHandlers(bot);

@@ -17,8 +17,14 @@ model User {
   email        String?  @unique
   phone        String   @unique
   passwordHash String
-  role         String   @default("user")        // "user" | "admin"
+  role         String   @default("user")        // "user" | "admin" | "staff" | "manager"
   isActive     Boolean  @default(true)
+
+  // ─── Xodim klassifikatsiyasi ────────────────
+  department   String?                            // warehouse, logistics, production, household, sales, management
+  position     String?                            // Lavozim: Omborchi, Operator, Menejer, h.k.
+  telegramNotify Boolean @default(true)           // Telegram xabar olish
+  smsNotify      Boolean @default(true)           // SMS xabar olish
 
   // ─── Telegram orqali ro'yxatdan o'tish ───
   telegramId         String?   @unique          // Telegram user ID
@@ -57,6 +63,7 @@ model User {
   taskCommentsAuthored TaskComment[]
   performanceReceived  TaskPerformanceEntry[] @relation("PerformanceSubject")
   performanceRecorded  TaskPerformanceEntry[] @relation("PerformanceAuthor")
+  taskNotifications    TaskNotification[]     @relation("NotificationRecipient")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -752,7 +759,9 @@ model Task {
   assignees   TaskAssignee[]
   subtasks    TaskSubtask[]
   comments    TaskComment[]
+  attachments TaskAttachment[]
   performanceEntries TaskPerformanceEntry[]
+  notifications      TaskNotification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -825,3 +834,44 @@ model TaskPerformanceEntry {
   @@index([taskId])
 }
 
+// ─── Vazifaga biriktirilgan fayllar (natija rasmlari, hujjatlar) ──────────────
+model TaskAttachment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileUrl      String
+  fileSize     Int?
+  mimeType     String?
+  uploadedById Int?
+  createdAt    DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// ─── Vazifa bildirishnoma eskalatsiya tizimi ─────────────────────────────────
+model TaskNotification {
+  id         Int      @id @default(autoincrement())
+  taskId     Int
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  channel    String                 // "telegram" | "sms" | "call"
+  status     String   @default("sent")  // "sent" | "delivered" | "read" | "accepted" | "failed" | "escalated"
+
+  sentAt       DateTime  @default(now())
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  acceptedAt   DateTime?
+
+  escalatedToSms  Boolean @default(false)
+  escalatedToCall Boolean @default(false)
+  escalationNote  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId, userId])
+  @@index([status, sentAt])
+  @@index([userId, channel])
+}
