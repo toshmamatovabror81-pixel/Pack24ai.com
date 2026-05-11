@@ -14,6 +14,7 @@ import CollectionsTab from './_components/CollectionsTab';
 import ComplaintsTab from './_components/ComplaintsTab';
 import MonthlyJournalTab from './_components/MonthlyJournalTab';
 import BotEventsTab from './_components/BotEventsTab';
+import FinanceTab from './_components/FinanceTab';
 import { removeBotEventFeedParamsFromSearchString, urlHasBotEventFeedParams } from '@/lib/platform/botEventFeedUrl';
 
 // ─── Типлар ──────────────────────────────────────────────────────────────────
@@ -113,6 +114,7 @@ type AdminRecyclingTab =
     | 'supervisors'
     | 'drivers'
     | 'collections'
+    | 'finance'
     | 'complaints'
     | 'journal'
     | 'bot-events';
@@ -176,6 +178,7 @@ function readInitialRecyclingFilters(): {
         'supervisors',
         'drivers',
         'collections',
+        'finance',
         'complaints',
         'journal',
         'bot-events',
@@ -537,6 +540,7 @@ export default function AdminRecyclingPage() {
                     ['supervisors', '👷 Masullar'],
                     ['drivers', '🚚 Haydovchilar'],
                     ['collections', '💰 Hisob-kitob'],
+                    ['finance', '💹 Moliya'],
                     ['journal', '🧾 Oylik jurnal'],
                     ['bot-events', '🤖 Bot Events'],
                     ['complaints', '⚠️ Shikoyatlar'],
@@ -1162,6 +1166,9 @@ export default function AdminRecyclingPage() {
 
             {/* HISOB-KITOB TAB */}
             {activeTab === 'collections' && <CollectionsTab />}
+
+            {/* MOLIYAVIY HISOBOT TAB */}
+            {activeTab === 'finance' && <FinanceTab />}
 
             {/* OYLIK JURNAL TAB */}
             {activeTab === 'journal' && (

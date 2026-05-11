@@ -54,6 +54,7 @@ model User {
   referrals           User[]   @relation("UserReferrals")
 
   orders            Order[]
+  contracts         Contract[]
   pushSubscriptions PushSubscription[]
   recycleRequests   RecycleRequest[]
 
@@ -264,6 +265,7 @@ model Order {
   cancelledAt     DateTime?   // Bekor qilingan
   
   items           OrderItem[]
+  corporateInvoices CorporateInvoice[]
 
   staffTasks      Task[]
   
@@ -494,6 +496,8 @@ model Driver {
   isOnline       Boolean  @default(false)
   vehicleInfo    String?                 // Mashina ma'lumoti
   lastSeenAt     DateTime?
+  lastLat        Float?                  // Oxirgi GPS kenglik
+  lastLng        Float?                  // Oxirgi GPS uzunlik
 
   registrationCode String? @unique       // 5 raqamli kod (botda ro'yxatdan o'tish uchun)
   registeredAt     DateTime?             // Botda ro'yxatdan o'tgan vaqti
@@ -874,4 +878,62 @@ model TaskNotification {
   @@index([taskId, userId])
   @@index([status, sentAt])
   @@index([userId, channel])
+}
+
+// ─── Korporativ shartnoma ────────────────────────────────────────────────────
+model Contract {
+  id             Int       @id @default(autoincrement())
+  contractNo     String    @unique          // SH-2026-001
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+
+  companyName    String                     // Kompaniya nomi
+  inn            String?                    // INN (STIR raqami)
+  mfo            String?                    // Bank MFO
+  bankAccount    String?                    // Hisob raqami (P/P)
+  bankName       String?                    // Bank nomi
+  directorName   String?                    // Direktor ismi
+
+  creditLimit    Float     @default(0)      // Nasiya limiti (so'm)
+  paymentTermDays Int      @default(15)     // To'lov muddati (kun)
+
+  status         String    @default("active") // active, suspended, closed
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  notes          String?
+
+  invoices       CorporateInvoice[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Korporativ hisob-faktura ────────────────────────────────────────────────
+model CorporateInvoice {
+  id             Int       @id @default(autoincrement())
+  invoiceNo      String    @unique          // INV-2026-0001
+  contractId     Int
+  contract       Contract  @relation(fields: [contractId], references: [id])
+  orderId        Int
+  order          Order     @relation(fields: [orderId], references: [id])
+
+  subtotal       Float                      // QQS siz summa
+  vatPercent     Float     @default(12)     // QQS foizi
+  vatAmount      Float                      // QQS summasi
+  totalAmount    Float                      // Jami (QQS bilan)
+
+  status         String    @default("issued") // issued, paid, partial, overdue, cancelled
+  dueDate        DateTime                   // To'lov muddati
+  paidAmount     Float     @default(0)
+  paidAt         DateTime?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([contractId, status])
+  @@index([orderId])
+  @@index([dueDate, status])
 }

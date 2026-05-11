@@ -23,6 +23,7 @@ const NAV_LINKS = [
     { href: '/special-offers',   key: 'nav.special' },
     { href: '/recycling',        key: 'nav.recycling' },
     { href: '/eco-dashboard',    key: 'nav.eco_dashboard' }, // Added for Gamification UI
+    { href: '/prts',             key: 'nav.prts' },          // PRTS Recycle Track System
     { href: '/referral',         key: 'nav.referral' },      // Added for Gamification UI
     { href: '/reviews',          key: 'nav.reviews' },
     { href: '/faq',              key: 'nav.faq' },

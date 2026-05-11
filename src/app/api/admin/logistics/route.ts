@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
                 name: true,
                 phone: true,
                 status: true,
+                lastLat: true,
+                lastLng: true,
+                lastSeenAt: true,
             }
         });
 

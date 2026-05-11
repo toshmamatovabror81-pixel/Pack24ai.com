@@ -14,18 +14,10 @@ export function registerStartHandler(bot: Telegraf) {
             const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
             sessions.set(tgId, { step: 'menu', lang });
             await ctx.reply(
-                formatText('cabinet_menu', lang, {
-                    name: user.name,
-                    phone: user.phone,
-                    points: String(user.ecoPoints),
-                }),
-                { parse_mode: 'HTML', reply_markup: cabinetMenuKeyboard(lang) }
-            );
-            await ctx.reply(
-                lang === 'uz' ? '⬇️ Yoki quyidagi xizmatlardan foydalaning:' :
-                lang === 'ru' ? '⬇️ Или воспользуйтесь услугами:' :
-                '⬇️ Or use our services below:',
-                { reply_markup: customerMainKeyboard(lang) }
+                lang === 'uz' ? `👋 Xush kelibsiz, <b>${user.name}</b>!` :
+                lang === 'ru' ? `👋 Добро пожаловать, <b>${user.name}</b>!` :
+                `👋 Welcome, <b>${user.name}</b>!`,
+                { parse_mode: 'HTML', reply_markup: customerMainKeyboard(lang) }
             );
             return;
         }

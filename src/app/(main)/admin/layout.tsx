@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Toaster, toast } from 'sonner';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { useHasMounted } from '@/lib/hooks/useHasMounted';
+import { useRealtimeEvents, type RealtimeEvent } from '@/lib/hooks/useRealtimeEvents';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
 import AdminCallPopup from '@/components/admin/AdminCallPopup';
@@ -29,7 +30,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         lastOrder: string;
     } | null>(null);
 
-    // ── Real-time polling: yangi buyurtmalar har 30 sekundda ────────────
+    // ── Real-time SSE: botlardan kelgan eventlar ──────────────────────────
+    const SEVERITY_ICONS: Record<string, string> = {
+        success: '✅', warning: '⚠️', error: '🚨', info: 'ℹ️',
+    };
+
+    const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+        const icon = SEVERITY_ICONS[event.severity] || 'ℹ️';
+        toast(`${icon} ${event.title}`, {
+            description: event.message,
+            duration: event.severity === 'error' ? 8000 : 5000,
+        });
+    }, []);
+
+    const { connected } = useRealtimeEvents(handleRealtimeEvent);
+
+    // ── Polling: yangi buyurtmalar har 30 sekundda ────────────────────────
     useEffect(() => {
         let active = true;
         const poll = async () => {
@@ -44,10 +60,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 setLastChecked(data.timestamp ?? new Date().toISOString());
             } catch { /* silent fail */ }
         };
-        poll(); // initial
+        poll();
         const interval = setInterval(poll, 30_000);
         return () => { active = false; clearInterval(interval); };
-    // newOrdersCount va lastChecked intentionally excluded — polling ref'siz pattern
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -111,6 +126,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onDecline={handleDeclineCall}
                 />
             )}
+
+            {/* SSE Connection Indicator */}
+            <div className={`fixed bottom-4 left-4 z-50 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all ${
+                connected 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                {connected ? 'LIVE' : 'OFFLINE'}
+            </div>
 
             <Toaster position="top-right" expand={true} richColors />
         </div>

@@ -312,6 +312,43 @@ export function registerTextHandlers(bot: Telegraf) {
             return;
         }
 
+        // ─── 🌿 PRTS Statistika ────────────────────────────────────────
+        if (text === '🌿 PRTS Statistika') {
+            const [totalUsers, totalWeight, totalPoints, topUsers] = await Promise.all([
+                prisma.user.count({ where: { ecoPoints: { gt: 0 } } }),
+                prisma.user.aggregate({ _sum: { totalRecycledWeight: true } }),
+                prisma.user.aggregate({ _sum: { ecoPoints: true } }),
+                prisma.user.findMany({
+                    where: { ecoPoints: { gt: 0 } },
+                    orderBy: { ecoPoints: 'desc' },
+                    take: 5,
+                    select: { name: true, ecoPoints: true, totalRecycledWeight: true },
+                }),
+            ]);
+
+            const weight = totalWeight._sum.totalRecycledWeight || 0;
+            const points = totalPoints._sum.ecoPoints || 0;
+
+            const topList = topUsers.length > 0
+                ? topUsers.map((u, i) =>
+                    `${['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][i]} <b>${u.name}</b> — ${u.ecoPoints} ball (${u.totalRecycledWeight} kg)`
+                ).join('\n')
+                : '— Hali ma\'lumot yo\'q';
+
+            await ctx.reply(
+                `🌿 <b>PRTS Statistika</b>\n\n` +
+                `👥 Aktiv foydalanuvchilar: <b>${totalUsers}</b>\n` +
+                `♻️ Jami qayta ishlangan: <b>${weight.toFixed(1)} kg</b>\n` +
+                `🏆 Jami berilgan ballar: <b>${points}</b>\n` +
+                `🌍 CO₂ tejaldi: <b>${(weight * 2.5).toFixed(1)} kg</b>\n` +
+                `🌳 Daraxtlar saqlandi: <b>${(weight * 0.017).toFixed(1)} ta</b>\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `🏆 <b>Top 5 Eko-qahramon:</b>\n\n${topList}`,
+                { parse_mode: 'HTML', reply_markup: pack24AdminMainKeyboard() },
+            );
+            return;
+        }
+
         await replyWithMenu(ctx, hqAdmin.name);
     });
 }

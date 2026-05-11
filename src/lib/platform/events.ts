@@ -6,6 +6,7 @@ import {
     PlatformEventSource,
     PublishPlatformEventInput,
 } from './contracts';
+import { eventBus, type RealtimeEvent } from './eventBus';
 
 function sourceLabel(source: PlatformEventSource): string {
     switch (source) {
@@ -96,6 +97,28 @@ export async function publishPlatformEvent(input: PublishPlatformEventInput): Pr
             userId: input.userId,
         },
     });
+
+    // ── Real-time SSE broadcast ──────────────────────────────────────────
+    try {
+        const realtimeEvent: RealtimeEvent = {
+            type: input.type,
+            title: input.title,
+            message: input.message,
+            severity: (input.severity ?? 'info') as RealtimeEvent['severity'],
+            entityType: input.entityType,
+            entityId: input.entityId,
+            requestId: input.requestId,
+            collectionId: input.collectionId,
+            driverId: input.driverId,
+            supervisorId: input.supervisorId,
+            pointId: input.pointId,
+            timestamp: event.createdAt.toISOString(),
+            source: input.source,
+        };
+        eventBus.publish(realtimeEvent);
+    } catch (err) {
+        console.error('[SSE broadcast]', err);
+    }
 
     if (input.notifyAdmins !== false) {
         const hqAdmins = await prisma.telegramHqAdmin.findMany({

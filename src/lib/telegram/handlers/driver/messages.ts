@@ -9,6 +9,29 @@ import { createOrReuseBotAccessRequest } from '../../botAccessRequests';
 import { fmtN } from './types';
 
 export function registerMessageHandlers(bot: Telegraf) {
+    // LOCATION HANDLER — GPS tracking
+    bot.on('location', async (ctx) => {
+        const tgId = ctx.from.id.toString();
+        const { latitude, longitude } = ctx.message.location;
+        const driver = await getDriver(tgId);
+        if (!driver) return;
+
+        await prisma.driver.update({
+            where: { id: driver.id },
+            data: {
+                lastLat: latitude,
+                lastLng: longitude,
+                lastSeenAt: new Date(),
+            },
+        });
+
+        await ctx.reply(
+            `📍 Joylashuvingiz yangilandi\n` +
+            `🕐 ${new Date().toLocaleTimeString('ru-RU')}`,
+            { reply_markup: driverMainKeyboard(driver.isOnline, 'uz') }
+        );
+    });
+
     // CONTACT HANDLER
     bot.on('contact', async (ctx) => {
         const tgId = ctx.from.id.toString();
@@ -67,12 +90,9 @@ export function registerMessageHandlers(bot: Telegraf) {
                 return;
             }
 
-            if (driver.telegramId && driver.telegramId !== tgId) {
-                await ctx.reply(getText('drv_already_registered', 'uz'), {
-                    parse_mode: 'HTML',
-                    reply_markup: { remove_keyboard: true },
-                });
-                return;
+            // Telegram ID boshqa bo'lsa — yangilash (qurilma/akkaunt almashuvi)
+            if (driver.telegramId && driver.telegramId.trim() !== tgId) {
+                console.log(`[DriverBot] telegramId yangilanmoqda: ${driver.telegramId.trim()} → ${tgId}`);
             }
 
             const code = await generateUniqueDriverCode();

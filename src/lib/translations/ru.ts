@@ -38,6 +38,7 @@ export const ru = {
     'nav.onlinePayment': 'Онлайн-оплата',
     'nav.catalog': 'КАТАЛОГ',
     'nav.eco_dashboard': 'ЭКО ПАНЕЛЬ',
+    'nav.prts': '🌿 PRTS',
     'nav.referral': 'РЕФЕРАЛ',
     // Common
     'common.search': 'Поиск...',

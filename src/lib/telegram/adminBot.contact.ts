@@ -66,12 +66,9 @@ export function registerAdminContactHandler(bot: Telegraf) {
                 return;
             }
 
-            if (supervisor.telegramId && supervisor.telegramId !== tgId) {
-                await ctx.reply(getText('adm_already_registered', 'uz'), {
-                    parse_mode: 'HTML',
-                    reply_markup: { remove_keyboard: true },
-                });
-                return;
+            // Telegram ID boshqa bo'lsa — yangilash (qurilma/akkaunt almashuvi)
+            if (supervisor.telegramId && supervisor.telegramId.trim() !== tgId) {
+                console.log(`[AdminBot] telegramId yangilanmoqda: ${supervisor.telegramId.trim()} → ${tgId}`);
             }
 
             const code = await generateUniqueSupCode();

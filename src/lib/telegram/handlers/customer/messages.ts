@@ -19,12 +19,8 @@ export function registerMessageHandlers(bot: Telegraf) {
                 const lang: Lang = 'uz';
                 sessions.set(tgId, { step: 'menu', lang });
                 await ctx.reply(
-                    formatText('cabinet_menu', lang, {
-                        name: existingUser.name,
-                        phone: existingUser.phone,
-                        points: String(existingUser.ecoPoints),
-                    }),
-                    { parse_mode: 'HTML', reply_markup: customerMainKeyboard(lang) }
+                    '🏠 Asosiy menyu',
+                    { reply_markup: customerMainKeyboard(lang) }
                 );
                 return;
             }
@@ -47,16 +43,12 @@ export function registerMessageHandlers(bot: Telegraf) {
 
             const existing = await prisma.user.findFirst({ where: { phone } });
             if (existing) {
-                if (existing.telegramId && existing.telegramId !== tgId) {
-                    await ctx.reply(getText('reg_phone_taken', lang), {
-                        parse_mode: 'HTML',
-                        reply_markup: { remove_keyboard: true },
+                // Telegram ID ni yangilash (yangi qurilma yoki akkaunt)
+                if (existing.telegramId !== tgId) {
+                    await prisma.user.update({
+                        where: { id: existing.id },
+                        data: { telegramId: tgId, telegramVerifiedAt: new Date() },
                     });
-                    sessions.delete(tgId);
-                    return;
-                }
-                if (!existing.telegramId) {
-                    await prisma.user.update({ where: { id: existing.id }, data: { telegramId: tgId } });
                 }
                 ses.step = 'menu';
                 sessions.set(tgId, { ...ses, phone });
@@ -321,6 +313,45 @@ export function registerMessageHandlers(bot: Telegraf) {
             return;
         }
 
+        // ─── 🌿 PRTS Ballarim tugmasi ─────────────────────────────────────
+        if (text === getText('btn_prts', lang) || text === getText('btn_prts', 'uz') || text === getText('btn_prts', 'ru') || text === getText('btn_prts', 'en')) {
+            const user = await getUserByTgId(tgId);
+            if (!user) {
+                await ctx.reply(lang === 'uz' ? '❌ Avval ro\'yxatdan o\'ting. /start bosing.' : '❌ Сначала зарегистрируйтесь. Нажмите /start.');
+                return;
+            }
+            // 1) PRTS haqida ma'lumot
+            await ctx.reply(getText('prts_info', lang), { parse_mode: 'HTML' });
+
+            // 2) Shaxsiy dashboard
+            const totalWeight = user.totalRecycledWeight || 0;
+            await ctx.reply(
+                formatText('prts_dashboard', lang, {
+                    name: user.name,
+                    weight: String(totalWeight),
+                    co2: (totalWeight * 2.5).toFixed(1),
+                    trees: (totalWeight * 0.017).toFixed(1),
+                    water: (totalWeight * 26).toFixed(0),
+                    points: String(user.ecoPoints || 0),
+                }),
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '🎁 Mukofotlar', callback_data: 'prts_rewards' },
+                                { text: '♻️ Topshirish', callback_data: 'cab_recycling' },
+                            ],
+                            [
+                                { text: 'ℹ️ PRTS nima?', callback_data: 'prts_info' },
+                            ],
+                        ],
+                    },
+                }
+            );
+            return;
+        }
+
         if (text === getText('btn_ai', lang) || text === getText('btn_ai', 'uz') || text === getText('btn_ai', 'ru') || text === getText('btn_ai', 'en')) {
             await ctx.reply(
                 lang === 'uz' ? '🤖 AI Assistent tez orada ishga tushadi!' :
@@ -331,15 +362,23 @@ export function registerMessageHandlers(bot: Telegraf) {
         }
 
         if (text === getText('btn_settings', lang) || text === getText('btn_settings', 'uz') || text === getText('btn_settings', 'ru') || text === getText('btn_settings', 'en')) {
+            const user = await getUserByTgId(tgId);
+            const code = user?.telegramCode || '—';
+            const name = user?.name || '—';
+            const phone = user?.phone || '—';
+
             await ctx.reply(
-                lang === 'uz' ? '⚙️ <b>Sozlamalar</b>\n\nTilni o\'zgartiring:' :
-                lang === 'ru' ? '⚙️ <b>Настройки</b>\n\nИзмените язык:' :
-                '⚙️ <b>Settings</b>\n\nChange language:',
+                lang === 'uz'
+                    ? `⚙️ <b>Sozlamalar</b>\n\n👤 Ism: <b>${name}</b>\n📱 Telefon: <b>${phone}</b>\n\n🔑 <b>Kirish kodi:</b> <code>${code}</code>\n🌐 <b>pack24.ai</b> saytida shu kod va telefon bilan kiring.\n\n🌐 Tilni o'zgartiring:`
+                    : lang === 'ru'
+                    ? `⚙️ <b>Настройки</b>\n\n👤 Имя: <b>${name}</b>\n📱 Телефон: <b>${phone}</b>\n\n🔑 <b>Код входа:</b> <code>${code}</code>\n🌐 Войдите на <b>pack24.ai</b> с этим кодом.\n\n🌐 Изменить язык:`
+                    : `⚙️ <b>Settings</b>\n\n👤 Name: <b>${name}</b>\n📱 Phone: <b>${phone}</b>\n\n🔑 <b>Login code:</b> <code>${code}</code>\n🌐 Use this at <b>pack24.ai</b> to login.\n\n🌐 Change language:`,
                 {
                     parse_mode: 'HTML',
                     reply_markup: {
                         inline_keyboard: [
                             [btn('🇺🇿 O\'zbekcha', 'lang_uz'), btn('🇷🇺 Русский', 'lang_ru'), btn('🇬🇧 English', 'lang_en')],
+                            [{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }],
                         ],
                     },
                 }
@@ -348,10 +387,19 @@ export function registerMessageHandlers(bot: Telegraf) {
         }
 
         if (ses?.step === 'location' && !text.startsWith('/')) {
+            const l = ses.lang;
+            if (text === getText('cancel', l) || text === getText('cancel', 'uz') || text === getText('cancel', 'ru') || text === getText('cancel', 'en')) {
+                ses.step = 'menu';
+                await ctx.reply(
+                    lang === 'uz' ? '❌ Bekor qilindi. Asosiy menyu:' : lang === 'ru' ? '❌ Отменено. Главное меню:' : '❌ Cancelled. Main menu:',
+                    { reply_markup: customerMainKeyboard(lang) }
+                );
+                return;
+            }
+
             ses.lat = 0;
             ses.lng = 0;
             ses.step = 'choose_method';
-            const l = ses.lang;
 
             await ctx.reply(
                 getText('recycle_choose', l),

@@ -46,6 +46,7 @@ export function customerMainKeyboard(lang: Lang, appUrl?: string): ReplyKeyboard
 
     rows.push(
         [{ text: getText('btn_catalog', lang) }, { text: getText('btn_recycle', lang) }],
+        [{ text: getText('btn_prts', lang) }],
         [{ text: getText('btn_my_requests', lang) }, { text: getText('btn_ai', lang) }],
         [{ text: getText('btn_contact', lang) }, { text: getText('btn_settings', lang) }],
     );
@@ -268,6 +269,7 @@ export function pack24AdminMainKeyboard(): ReplyKeyboard {
             [{ text: '📋 Jurnal tahrirlari' }],
             [{ text: '📡 Hodisalar' }, { text: '🚨 Ogohlantirishlar' }],
             [{ text: '📊 Statistika' }, { text: '✅ Barchasini o\'qildi' }],
+            [{ text: '🌿 PRTS Statistika' }],
             [{ text: '👤 Profil' }, { text: '❓ Yordam' }],
         ],
         resize_keyboard: true,
@@ -373,13 +375,11 @@ export function backKeyboard(): InlineKeyboard {
 export function cabinetMenuKeyboard(lang: Lang): InlineKeyboard {
     return {
         inline_keyboard: [
+            [btn(getText('cabinet_btn_prts', lang), 'cab_prts')],
             [btn(getText('cabinet_btn_recycling', lang), 'cab_recycling')],
             [btn(getText('cabinet_btn_orders', lang), 'cab_orders')],
             [btn(getText('cabinet_btn_referral', lang), 'cab_referral')],
-            [
-                btn(getText('cabinet_btn_code', lang), 'cab_show_code'),
-                btn(getText('cabinet_btn_settings', lang), 'cab_settings'),
-            ],
+            [btn(getText('cabinet_btn_settings', lang), 'cab_settings')],
         ],
     };
 }

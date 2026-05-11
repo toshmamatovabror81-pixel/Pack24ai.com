@@ -136,20 +136,66 @@ export default function CollectionsTab() {
             </div>
 
             {/* To'lov modal */}
-            {payingId && (
-                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setPayingId(null)}>
-                    <div className="bg-white rounded-2xl p-6 w-96 space-y-3" onClick={e => e.stopPropagation()}>
-                        <h3 className="font-bold text-gray-800">💰 To&apos;lov amalga oshirish</h3>
-                        <select value={payForm.paymentStatus} onChange={e => setPayForm({ ...payForm, paymentStatus: e.target.value })} title="To'lov turi" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
-                            <option value="paid_to_customer">Mijozga</option><option value="paid_to_driver">Haydovchiga</option><option value="paid_both">Ikkalasiga</option>
-                        </select>
-                        {(payForm.paymentStatus === 'paid_to_driver' || payForm.paymentStatus === 'paid_both') && <input value={payForm.paymentToDriver} onChange={e => setPayForm({ ...payForm, paymentToDriver: e.target.value })} placeholder="Haydovchiga (so'm)" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />}
-                        {(payForm.paymentStatus === 'paid_to_customer' || payForm.paymentStatus === 'paid_both') && <input value={payForm.paymentToCustomer} onChange={e => setPayForm({ ...payForm, paymentToCustomer: e.target.value })} placeholder="Mijozga (so'm)" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />}
-                        <input value={payForm.paidBy} onChange={e => setPayForm({ ...payForm, paidBy: e.target.value })} placeholder="Kim to'ladi (masul ismi)" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                        <div className="flex gap-2"><button onClick={() => pay(payingId)} className="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm">Tasdiqlash</button><button onClick={() => setPayingId(null)} className="bg-gray-100 text-gray-600 font-bold px-4 py-2 rounded-xl text-sm">Bekor</button></div>
+            {payingId && (() => {
+                const payCollection = collections.find(c => c.id === payingId);
+                return (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in" onClick={() => setPayingId(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 text-white">
+                            <h3 className="font-bold text-lg">💰 To&apos;lov amalga oshirish</h3>
+                            {payCollection && (
+                                <div className="flex items-center gap-3 mt-2 text-emerald-100 text-xs">
+                                    <span>Ariza #{payCollection.requestId}</span>
+                                    <span>•</span>
+                                    <span>{payCollection.request.name}</span>
+                                    <span>•</span>
+                                    <span className="font-bold text-white">{fmt(payCollection.totalAmount)} so&apos;m</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* To'lov turi */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">To&apos;lov turi</label>
+                                <select value={payForm.paymentStatus} onChange={e => setPayForm({ ...payForm, paymentStatus: e.target.value })} title="To'lov turi" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all">
+                                    <option value="paid_to_customer">💵 Mijozga to&apos;lash</option>
+                                    <option value="paid_to_driver">🚚 Haydovchiga to&apos;lash</option>
+                                    <option value="paid_both">👥 Ikkalasiga to&apos;lash</option>
+                                </select>
+                            </div>
+
+                            {/* Summa inputlari */}
+                            {(payForm.paymentStatus === 'paid_to_driver' || payForm.paymentStatus === 'paid_both') && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Haydovchiga (so&apos;m)</label>
+                                    <input type="number" value={payForm.paymentToDriver} onChange={e => setPayForm({ ...payForm, paymentToDriver: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none transition-all" />
+                                </div>
+                            )}
+                            {(payForm.paymentStatus === 'paid_to_customer' || payForm.paymentStatus === 'paid_both') && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Mijozga (so&apos;m)</label>
+                                    <input type="number" value={payForm.paymentToCustomer} onChange={e => setPayForm({ ...payForm, paymentToCustomer: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all" />
+                                </div>
+                            )}
+
+                            {/* Masul */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Kim to&apos;ladi</label>
+                                <input value={payForm.paidBy} onChange={e => setPayForm({ ...payForm, paidBy: e.target.value })} placeholder="Masul ismi" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none transition-all" />
+                            </div>
+
+                            {/* Tugmalar */}
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => pay(payingId)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">✅ Tasdiqlash</button>
+                                <button onClick={() => setPayingId(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 rounded-xl text-sm transition-colors">Bekor</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
         </div>
     );
 }

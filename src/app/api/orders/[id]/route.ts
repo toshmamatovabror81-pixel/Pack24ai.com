@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { restoreStockForOrder } from '@/lib/domain/stockValidation';
 
 async function canAccessOrder(order: {
     userId: number | null;
@@ -121,11 +122,17 @@ export async function PATCH(
                 );
             }
 
-            const cancelled = await prisma.order.update({
-                where: { id: parseInt(id) },
-                data: { status: 'cancelled' },
-                include: { items: { include: { product: true } } },
-            });
+            const cancelled = await prisma.$transaction(async (tx) => {
+                // 1. Ombor zaxirasini tiklash
+                await restoreStockForOrder(tx, parseInt(id));
+
+                // 2. Buyurtma statusini yangilash
+                return tx.order.update({
+                    where: { id: parseInt(id) },
+                    data: { status: 'cancelled' },
+                    include: { items: { include: { product: true } } },
+                });
+            }, { maxWait: 10000, timeout: 30000 });
 
             // Telegram xabar
             try {

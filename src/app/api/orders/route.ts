@@ -12,10 +12,11 @@ import {
 } from '@/lib/requestValidation';
 import { publishPlatformEvent } from '@/lib/platform/events';
 import { sendWebsiteOrderCreatedToAdminChats } from '@/lib/platform/telegramCommands';
+import { validateAndReserveStock, formatStockErrors } from '@/lib/domain/stockValidation';
 
 const ORDER_STATUSES = ['draft', 'new', 'processing', 'shipping', 'delivered', 'cancelled'] as const;
 const ORDER_DELIVERY_METHODS = ['courier', 'pickup'] as const;
-const ORDER_PAYMENT_METHODS = ['cash', 'click', 'payme'] as const;
+const ORDER_PAYMENT_METHODS = ['cash', 'click', 'payme', 'bank_transfer'] as const;
 
 // ─── POST /api/orders — Buyurtma yaratish ────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -107,24 +108,38 @@ export async function POST(req: NextRequest) {
             computedTotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
         }
 
-        const order = await prisma.order.create({
-            data: {
-                telegramUserId: telegramUserId?.toString() ?? null,
-                userId:          Number.isFinite(sessionUserId) ? sessionUserId : null,
-                customerName:    customerName ?? session?.user?.name ?? null,
-                contactPhone:    contactPhone ?? session?.user?.phone ?? null,
-                shippingAddress: shippingAddress ?? null,
-                shippingLocation: shippingLocation ?? null,
-                comment:         comment ?? null,
-                deliveryMethod:  deliveryMethod ?? 'courier',
-                paymentMethod:   paymentMethod ?? 'cash',
-                paymentStatus:   (paymentMethod === 'cash' || !paymentMethod) ? 'pending' : 'awaiting',
-                status,
-                totalAmount: computedTotal,
-                items: { create: orderItems },
-            },
-            include: { items: { include: { product: { select: { name: true } } } } },
-        });
+        // ─── Ombor tekshiruv + buyurtma yaratish (tranzaksiya) ───────────
+        const order = await prisma.$transaction(async (tx) => {
+            // 1. Omborda zaxira tekshirish va reserve qilish
+            const stockResult = await validateAndReserveStock(tx, orderItems.map(i => ({
+                productId: i.productId,
+                quantity: i.quantity,
+            })));
+
+            if (!stockResult.ok) {
+                throw new Error(`STOCK_ERROR:${formatStockErrors(stockResult.errors)}`);
+            }
+
+            // 2. Buyurtma yaratish
+            return tx.order.create({
+                data: {
+                    telegramUserId: telegramUserId?.toString() ?? null,
+                    userId:          Number.isFinite(sessionUserId) ? sessionUserId : null,
+                    customerName:    customerName ?? session?.user?.name ?? null,
+                    contactPhone:    contactPhone ?? session?.user?.phone ?? null,
+                    shippingAddress: shippingAddress ?? null,
+                    shippingLocation: shippingLocation ?? null,
+                    comment:         comment ?? null,
+                    deliveryMethod:  deliveryMethod ?? 'courier',
+                    paymentMethod:   paymentMethod ?? 'cash',
+                    paymentStatus:   (paymentMethod === 'cash' || !paymentMethod) ? 'pending' : 'awaiting',
+                    status,
+                    totalAmount: computedTotal,
+                    items: { create: orderItems },
+                },
+                include: { items: { include: { product: { select: { name: true } } } } },
+            });
+        }, { maxWait: 10000, timeout: 30000 });
 
         const eventPayload = {
             orderId: order.id,
@@ -177,6 +192,15 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         if (error instanceof RequestValidationError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
+        // Ombor zaxira yetarli emas
+        if (error instanceof Error && error.message.startsWith('STOCK_ERROR:')) {
+            const detail = error.message.replace('STOCK_ERROR:', '');
+            return NextResponse.json({
+                error: `Omborda yetarli mahsulot yo'q: ${detail}`,
+                code: 'INSUFFICIENT_STOCK',
+            }, { status: 400 });
         }
 
         console.error('[POST /api/orders]', error);

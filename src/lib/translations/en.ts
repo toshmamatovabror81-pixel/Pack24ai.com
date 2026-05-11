@@ -38,6 +38,7 @@ export const en = {
     'nav.onlinePayment': 'Online Payment',
     'nav.catalog': 'CATALOG',
     'nav.eco_dashboard': 'ECO DASHBOARD',
+    'nav.prts': '🌿 PRTS',
     'nav.referral': 'REFERRAL',
     // Common
     'common.search': 'Search...',

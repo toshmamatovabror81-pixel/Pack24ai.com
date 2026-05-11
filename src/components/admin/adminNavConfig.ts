@@ -16,6 +16,8 @@ import {
     Newspaper,
     Recycle,
     CheckCircle2,
+    FileSignature,
+    Receipt,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -88,6 +90,8 @@ export const navItems: NavItem[] = [
         ],
     },
     { name: 'To\u2018lov turi', href: '/admin/payments', icon: CreditCard },
+    { name: 'Shartnomalar', href: '/admin/contracts', icon: FileSignature, badge: 'NEW' },
+    { name: 'Fakturalar', href: '/admin/invoices', icon: Receipt, badge: 'NEW' },
     { name: 'Yetkazib berish', href: '/admin/delivery', icon: Truck },
     { name: 'Filiallar', href: '/admin/branches', icon: MapPin },
     {

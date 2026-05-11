@@ -38,6 +38,7 @@ export const uz = {
     'nav.onlinePayment': "Onlayn To'lov",
     'nav.catalog': 'KATALOG',
     'nav.eco_dashboard': 'ECO DASHBOARD',
+    'nav.prts': '🌿 PRTS',
     'nav.referral': 'REFERAL',
     // Common
     'common.search': 'Qidirish...',

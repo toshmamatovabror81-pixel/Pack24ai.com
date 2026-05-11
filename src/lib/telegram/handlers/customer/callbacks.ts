@@ -17,6 +17,17 @@ export function registerCallbackHandlers(bot: Telegraf) {
         const tgId = ctx.from.id.toString();
 
         try {
+            // ─── ORTGA / ASOSIY MENYU ──────────────────────────────────
+            if (data === 'back_main') {
+                const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
+                await ctx.answerCbQuery('🏠');
+                await ctx.reply(
+                    lang === 'uz' ? '🏠 Asosiy menyu' : lang === 'ru' ? '🏠 Главное меню' : '🏠 Main menu',
+                    { reply_markup: customerMainKeyboard(lang) }
+                );
+                return;
+            }
+
             // TIL TANLASH
             if (data.startsWith('lang_')) {
                 const lang = data.replace('lang_', '') as Lang;
@@ -32,17 +43,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         { parse_mode: 'HTML' }
                     );
                     await ctx.reply(
-                        user
-                            ? formatText('cabinet_menu', lang, {
-                                name: user.name,
-                                phone: user.phone,
-                                points: String(user.ecoPoints),
-                            })
-                            : getText('register_success', lang),
-                        { parse_mode: 'HTML', reply_markup: user ? cabinetMenuKeyboard(lang) : undefined }
-                    );
-                    await ctx.reply(
-                        lang === 'uz' ? '⬇️ Yoki quyidagi xizmatlardan foydalaning:' : lang === 'ru' ? '⬇️ Или воспользуйтесь услугами:' : '⬇️ Or use our services below:',
+                        lang === 'uz' ? '🏠 Asosiy menyu' : lang === 'ru' ? '🏠 Главное меню' : '🏠 Main menu',
                         { reply_markup: customerMainKeyboard(lang) }
                     );
                     return;
@@ -65,6 +66,38 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     return;
                 }
 
+                // ─── PRTS Dashboard ───────────────────────────────────────
+                if (data === 'cab_prts') {
+                    await ctx.answerCbQuery('🌿');
+                    const totalWeight = user.totalRecycledWeight || 0;
+                    await ctx.reply(
+                        formatText('prts_dashboard', lang, {
+                            name: user.name,
+                            weight: String(totalWeight),
+                            co2: (totalWeight * 2.5).toFixed(1),
+                            trees: (totalWeight * 0.017).toFixed(1),
+                            water: (totalWeight * 26).toFixed(0),
+                            points: String(user.ecoPoints || 0),
+                        }),
+                        {
+                            parse_mode: 'HTML',
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [
+                                        { text: '🎁 Mukofotlar', callback_data: 'prts_rewards' },
+                                        { text: '♻️ Topshirish', callback_data: 'cab_recycling' },
+                                    ],
+                                    [
+                                        { text: 'ℹ️ PRTS nima?', callback_data: 'prts_info' },
+                                        { text: '◀️ Asosiy menyu', callback_data: 'back_main' },
+                                    ],
+                                ],
+                            },
+                        }
+                    );
+                    return;
+                }
+
                 if (data === 'cab_show_code') {
                     await ctx.answerCbQuery('🔑');
                     await ctx.reply(
@@ -73,7 +106,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                             : lang === 'ru'
                             ? `🔑 <b>Ваш код входа:</b> <code>${user.telegramCode || '—'}</code>\n\n📱 Телефон: <b>${user.phone}</b>\n\n🌐 Войдите на <b>pack24.ai</b> с этим кодом и телефоном.`
                             : `🔑 <b>Your login code:</b> <code>${user.telegramCode || '—'}</code>\n\n📱 Phone: <b>${user.phone}</b>\n\n🌐 Use this code at <b>pack24.ai</b> to login.`,
-                        { parse_mode: 'HTML' }
+                        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] } }
                     );
                     return;
                 }
@@ -92,7 +125,10 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     }
                     const stMap: Record<string, string> = { new: '🔵', dispatched: '📋', assigned: '🚚', en_route: '🚚', arrived: '📍', collecting: '⚖️', completed: '✅', cancelled: '❌' };
                     const list = reqs.map(r => `${stMap[r.status] || '⚪'} <b>#${r.id}</b> — ${r.point?.regionUz || '—'} — ${new Date(r.createdAt).toLocaleDateString('ru-RU')}`).join('\n');
-                    await ctx.reply(`♻️ <b>${lang === 'uz' ? 'Makulatura tarixi' : 'История макулатуры'}:</b>\n\n${list}`, { parse_mode: 'HTML' });
+                    await ctx.reply(`♻️ <b>${lang === 'uz' ? 'Makulatura tarixi' : 'История макулатуры'}:</b>\n\n${list}`, {
+                        parse_mode: 'HTML',
+                        reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] },
+                    });
                     return;
                 }
 
@@ -108,7 +144,10 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         return;
                     }
                     const list = orders.map(o => `📦 <b>#${o.id}</b> — ${o.status} — ${o.totalAmount.toLocaleString('ru-RU')} so'm — ${new Date(o.createdAt).toLocaleDateString('ru-RU')}`).join('\n');
-                    await ctx.reply(`📦 <b>${lang === 'uz' ? 'Buyurtmalaringiz' : 'Ваши заказы'}:</b>\n\n${list}`, { parse_mode: 'HTML' });
+                    await ctx.reply(`📦 <b>${lang === 'uz' ? 'Buyurtmalaringiz' : 'Ваши заказы'}:</b>\n\n${list}`, {
+                        parse_mode: 'HTML',
+                        reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] },
+                    });
                     return;
                 }
 
@@ -120,7 +159,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         lang === 'uz'
                             ? `👥 <b>Referral dastur</b>\n\nSizning kod: <code>${user.referralCode || '—'}</code>\nTaklif qilganlar: <b>${refCount} kishi</b>\n\n🔗 Havola: ${appUrl}/referral?ref=${user.referralCode || ''}`
                             : `👥 <b>Реферальная программа</b>\n\nВаш код: <code>${user.referralCode || '—'}</code>\nПриглашено: <b>${refCount} чел.</b>\n\n🔗 Ссылка: ${appUrl}/referral?ref=${user.referralCode || ''}`,
-                        { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }
+                        { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] } }
                     );
                     return;
                 }
@@ -129,14 +168,103 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     await ctx.answerCbQuery('⚙️');
                     await ctx.reply(
                         lang === 'uz'
-                            ? `⚙️ <b>Sozlamalar</b>\n\n👤 Ism: <b>${user.name}</b>\n📱 Telefon: <b>${user.phone}</b>\n🌐 Til: O\'zbek\n\n✏️ O\'zgartirish uchun <b>pack24.ai</b> saytiga kiring.`
-                            : `⚙️ <b>Настройки</b>\n\n👤 Имя: <b>${user.name}</b>\n📱 Телефон: <b>${user.phone}</b>\n\n✏️ Для изменений войдите на <b>pack24.ai</b>`,
-                        { parse_mode: 'HTML' }
+                            ? `⚙️ <b>Sozlamalar</b>\n\n👤 Ism: <b>${user.name}</b>\n📱 Telefon: <b>${user.phone}</b>\n🌐 Til: O'zbek\n\n🔑 <b>Kirish kodi:</b> <code>${user.telegramCode || '—'}</code>\n🌐 <b>pack24.ai</b> saytida shu kod va telefon bilan kiring.\n\n✏️ O'zgartirish uchun <b>pack24.ai</b> saytiga kiring.`
+                            : lang === 'ru'
+                            ? `⚙️ <b>Настройки</b>\n\n👤 Имя: <b>${user.name}</b>\n📱 Телефон: <b>${user.phone}</b>\n\n🔑 <b>Код входа:</b> <code>${user.telegramCode || '—'}</code>\n🌐 Войдите на <b>pack24.ai</b> с этим кодом.\n\n✏️ Для изменений войдите на <b>pack24.ai</b>`
+                            : `⚙️ <b>Settings</b>\n\n👤 Name: <b>${user.name}</b>\n📱 Phone: <b>${user.phone}</b>\n\n🔑 <b>Login code:</b> <code>${user.telegramCode || '—'}</code>\n🌐 Use this code at <b>pack24.ai</b> to login.`,
+                        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] } }
                     );
                     return;
                 }
 
                 await ctx.answerCbQuery();
+                return;
+            }
+
+            // ─── PRTS INFO ───────────────────────────────────────────────
+            if (data === 'prts_info') {
+                const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
+                await ctx.answerCbQuery('🌿');
+                await ctx.reply(getText('prts_info', lang), {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '◀️ Ortga', callback_data: 'cab_prts' }, { text: '🏠 Asosiy menyu', callback_data: 'back_main' }],
+                        ],
+                    },
+                });
+                return;
+            }
+
+            // ─── PRTS MUKOFOTLAR ────────────────────────────────────────────
+            if (data === 'prts_rewards') {
+                const user = await getUserByTgId(tgId);
+                const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
+                if (!user) { await ctx.answerCbQuery('❌'); return; }
+
+                await ctx.answerCbQuery('🎁');
+                await ctx.reply(
+                    formatText('prts_rewards_list', lang, { points: String(user.ecoPoints || 0) }),
+                    {
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '☕ Kofe (150)', callback_data: 'prts_redeem_coffee_150' }],
+                                [{ text: '🚌 Transport (300)', callback_data: 'prts_redeem_transport_300' }],
+                                [{ text: '🎬 Kino (500)', callback_data: 'prts_redeem_cinema_500' }],
+                                [{ text: '🌳 Daraxt (1000)', callback_data: 'prts_redeem_tree_1000' }],
+                                [{ text: '◀️ Ortga', callback_data: 'cab_prts' }],
+                            ],
+                        },
+                    }
+                );
+                return;
+            }
+
+            // ─── PRTS REDEEM ───────────────────────────────────────────────
+            if (data.startsWith('prts_redeem_')) {
+                const user = await getUserByTgId(tgId);
+                const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
+                if (!user) { await ctx.answerCbQuery('❌'); return; }
+
+                const parts = data.replace('prts_redeem_', '').split('_');
+                const rewardName = parts[0];
+                const cost = parseInt(parts[1]);
+
+                const rewardLabels: Record<string, Record<Lang, string>> = {
+                    coffee: { uz: '☕ Kofe 50% chegirma', ru: '☕ 50% скидка на кофе', en: '☕ 50% coffee discount' },
+                    transport: { uz: '🚌 Bepul transport', ru: '🚌 Бесплатный проезд', en: '🚌 Free transport' },
+                    cinema: { uz: '🎬 Kino chipta', ru: '🎬 Билет в кино', en: '🎬 Cinema ticket' },
+                    tree: { uz: '🌳 Daraxt ekish', ru: '🌳 Посадка дерева', en: '🌳 Plant a tree' },
+                };
+
+                if (user.ecoPoints < cost) {
+                    await ctx.answerCbQuery('❌');
+                    await ctx.reply(
+                        formatText('prts_insufficient', lang, {
+                            required: String(cost),
+                            current: String(user.ecoPoints),
+                            diff: String(cost - user.ecoPoints),
+                        }),
+                        { parse_mode: 'HTML' }
+                    );
+                    return;
+                }
+
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { ecoPoints: { decrement: cost } },
+                });
+
+                await ctx.answerCbQuery('🎉');
+                await ctx.reply(
+                    formatText('prts_reward_success', lang, {
+                        reward: rewardLabels[rewardName]?.[lang] || rewardName,
+                        spent: String(cost),
+                        remaining: String(user.ecoPoints - cost),
+                    }),
+                    { parse_mode: 'HTML' }
+                );
                 return;
             }
 

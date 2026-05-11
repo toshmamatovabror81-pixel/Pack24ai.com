@@ -34,12 +34,9 @@ export function registerContactHandler(bot: Telegraf) {
                 return;
             }
 
-            if (hqAdmin.telegramId && hqAdmin.telegramId !== tgId) {
-                await ctx.reply(
-                    '❌ Bu telefon boshqa Telegram аккаунтга bog\'langan.',
-                    { reply_markup: { remove_keyboard: true } },
-                );
-                return;
+            // Telegram ID boshqa bo'lsa — yangilash (qurilma/akkaunt almashuvi)
+            if (hqAdmin.telegramId && hqAdmin.telegramId.trim() !== tgId) {
+                console.log(`[Pack24AdminBot] telegramId yangilanmoqda: ${hqAdmin.telegramId.trim()} → ${tgId}`);
             }
 
             const registrationCode = hqAdmin.registrationCode ?? await generateUniqueTelegramRegistrationCode();
