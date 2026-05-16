@@ -199,6 +199,12 @@ model User {
   // Eco & Gamification
   ecoPoints           Int      @default(0)
   totalRecycledWeight Float    @default(0)
+  ecoLevel            String   @default("seed")  // seed|sprout|sapling|tree|forest|guardian|legend
+  ecoStreak           Int      @default(0)        // Ketma-ket faol kunlar
+  lastEcoActivity     DateTime?                   // Oxirgi faollik sanasi
+  totalCO2Saved       Float    @default(0)        // Tejangan CO₂ (kg)
+  treesEquivalent     Int      @default(0)        // Ekvivalent daraxt soni
+  achievements        EcoAchievement[]
 
   // Referral System
   referralCode        String?  @unique
@@ -887,6 +893,18 @@ model RecycleComplaint {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Ekologik yutuqlar (Gamification Badges) ─────────────────────────────────
+model EcoAchievement {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeKey  String   // first_step|10kg_club|50kg_hero|streak_7|streak_30|multi_material|referral_first|tree_saver|co2_warrior|early_bird|b2b_champion|eco_legend
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeKey])
+  @@index([userId])
 }
 
 // ─── Ichki vazifalar / jamoa topshiriqlari (admin CRM ichki modul) ────────────

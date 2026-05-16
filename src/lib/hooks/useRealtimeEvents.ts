@@ -16,6 +16,8 @@ export interface RealtimeEvent {
     pointId?: number;
     timestamp: string;
     source: string;
+    callerName?: string;
+    callerPhone?: string;
 }
 
 type EventHandler = (event: RealtimeEvent) => void;

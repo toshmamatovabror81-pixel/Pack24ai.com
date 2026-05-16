@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { publishPlatformEvent } from '@/lib/platform/events';
+import { getLevelByWeight, calcEcoPoints } from '@/lib/eco/levels';
+import { calcEcoImpact } from '@/lib/eco/co2Calculator';
+import { checkAndAwardBadges } from '@/lib/eco/achievements';
+import { notifyDriver } from '@/lib/telegram/notifier';
 
 function getRequestStatusEventMeta(status: string) {
     switch (status) {
@@ -74,6 +78,67 @@ export async function updateRecycleRequest(
             },
             notifyAdmins: false,
         });
+
+        // 🔔 Telegram Push Notification: Haydovchiga xabar yuborish
+        if (data.status === 'assigned' && req.assignedDriver?.telegramId) {
+            const msg = `🔔 <b>Sizga yangi ariza biriktirildi!</b>\n\n` +
+                        `📋 Ariza: #${req.id}\n` +
+                        `👤 Mijoz: ${req.name}\n` +
+                        `📞 Tel: ${req.phone}\n` +
+                        `📍 Manzil: ${req.address || req.point.regionUz}\n` +
+                        `📦 Hajm: ${req.volumeSize || (req.volume ? req.volume + ' kg' : 'Noma\'lum')}\n\n` +
+                        `Iltimos, ilovaga kirib statusni "Yo'lga chiqish" ga o'zgartiring.`;
+            notifyDriver(req.assignedDriver.telegramId, msg).catch(console.error);
+        }
+    }
+
+    // ♻️ Eco Progress — ariza yig'ilganda/yakunlanganda avtomatik yangilash
+    if (
+        (data.status === 'collected' || data.status === 'completed') &&
+        req.userId && req.volume && req.volume > 0
+    ) {
+        try {
+            const user = await prisma.user.findUnique({ where: { id: req.userId } });
+            if (user) {
+                const newTotalKg = user.totalRecycledWeight + req.volume;
+                const newLevel = getLevelByWeight(newTotalKg);
+                const impact = calcEcoImpact(req.material || 'Makulatura', req.volume);
+                const newCO2 = Math.round((user.totalCO2Saved + impact.co2SavedKg) * 10) / 10;
+                const newTrees = Math.floor(newCO2 / 60);
+                const earnedPoints = calcEcoPoints(
+                    req.material || 'Makulatura',
+                    req.volume,
+                    newLevel.pointsMultiplier
+                );
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const lastActivity = user.lastEcoActivity ? new Date(user.lastEcoActivity) : null;
+                lastActivity?.setHours(0, 0, 0, 0);
+                const diffDays = lastActivity
+                    ? Math.floor((today.getTime() - lastActivity.getTime()) / 86400000)
+                    : -1;
+                const newStreak = diffDays === 1 ? user.ecoStreak + 1
+                    : diffDays === 0 ? user.ecoStreak : 1;
+
+                await prisma.user.update({
+                    where: { id: req.userId },
+                    data: {
+                        totalRecycledWeight: newTotalKg,
+                        ecoLevel: newLevel.key,
+                        ecoPoints: { increment: earnedPoints },
+                        totalCO2Saved: newCO2,
+                        treesEquivalent: newTrees,
+                        ecoStreak: newStreak,
+                        lastEcoActivity: new Date(),
+                    },
+                });
+
+                // Badge tekshirish (background — asosiy jarayonni to'sib qo'ymasin)
+                checkAndAwardBadges(req.userId).catch(console.error);
+            }
+        } catch (ecoErr) {
+            console.error('[eco-progress trigger]', ecoErr);
+        }
     }
 
     return req;

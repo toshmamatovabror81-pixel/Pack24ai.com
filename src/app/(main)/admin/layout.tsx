@@ -36,11 +36,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
-        const icon = SEVERITY_ICONS[event.severity] || 'ℹ️';
-        toast(`${icon} ${event.title}`, {
-            description: event.message,
-            duration: event.severity === 'error' ? 8000 : 5000,
-        });
+        if (event.type === 'support.call') {
+            // Support.call eventini ushlab popupga chiqarish
+            setIncomingCall({
+                name: event.callerName || 'Mijoz',
+                phone: event.callerPhone || '+998 ** *** ** **',
+                avatar: (event.callerName || 'M')[0].toUpperCase(),
+                lastOrder: 'Hozirgi chaqiruv',
+            });
+            // Ovozli bildirishnoma ham chalish mumkin
+        } else {
+            const icon = SEVERITY_ICONS[event.severity] || 'ℹ️';
+            toast(`${icon} ${event.title}`, {
+                description: event.message,
+                duration: event.severity === 'error' ? 8000 : 5000,
+            });
+        }
     }, []);
 
     const { connected } = useRealtimeEvents(handleRealtimeEvent);

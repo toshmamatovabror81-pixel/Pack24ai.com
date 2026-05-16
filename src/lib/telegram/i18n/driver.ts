@@ -42,9 +42,9 @@ export const driverTexts: Texts = {
     drv_btn_profile: { uz: '👤 Profilim', ru: '👤 Мой профиль', en: '👤 My profile' },
     drv_no_tasks: { uz: '📋 Hozircha sizga tayinlangan topshiriq yo\'q.', ru: '📋 Пока нет назначенных заданий.', en: '📋 No assigned tasks yet.' },
     drv_task_info: {
-        uz: '🆕 <b>Topshiriq #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n⚖️ Hajm: {volume}\n📸 Rasm: {photo}\n\n🕐 {time}',
-        ru: '🆕 <b>Задание #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n⚖️ Объём: {volume}\n📸 Фото: {photo}\n\n🕐 {time}',
-        en: '🆕 <b>Task #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n⚖️ Volume: {volume}\n📸 Photo: {photo}\n\n🕐 {time}',
+        uz: '🆕 <b>Topshiriq #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n🏠 Manzil: {address}\n⚖️ Hajm: {volume}\n📸 Rasm: {photo}\n\n🕐 {time}',
+        ru: '🆕 <b>Задание #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n🏠 Адрес: {address}\n⚖️ Объём: {volume}\n📸 Фото: {photo}\n\n🕐 {time}',
+        en: '🆕 <b>Task #{id}</b>\n\n👤 {name}\n📞 {phone}\n📍 {region}\n🏠 Address: {address}\n⚖️ Volume: {volume}\n📸 Photo: {photo}\n\n🕐 {time}',
     },
     drv_accepted: { uz: '✅ Topshiriq #{id} qabul qilindi!\n\nMijozga xabar yuborildi.', ru: '✅ Задание #{id} принято!\n\nКлиент уведомлён.', en: '✅ Task #{id} accepted!\n\nCustomer notified.' },
     drv_rejected: { uz: '❌ Topshiriq #{id} rad etildi.\n\nMasulga xabar yuborildi.', ru: '❌ Задание #{id} отклонено.\n\nОтветственный уведомлён.', en: '❌ Task #{id} rejected.\n\nSupervisor notified.' },

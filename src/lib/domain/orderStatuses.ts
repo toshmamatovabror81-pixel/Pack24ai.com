@@ -170,3 +170,42 @@ export const complaintStatuses = [
 ] as const;
 
 export type ComplaintStatus = (typeof complaintStatuses)[number];
+
+// ─── Recycle Request Status ───────────────────────────────────────────────────
+export const recycleRequestStatuses = [
+    'new',
+    'dispatched',
+    'assigned',
+    'en_route',
+    'arrived',
+    'collecting',
+    'collected',
+    'confirmed',
+    'completed',
+    'disputed',
+    'cancelled',
+] as const;
+
+export type RecycleRequestStatus = (typeof recycleRequestStatuses)[number];
+
+export const recycleRequestStatusLabels: Record<RecycleRequestStatus, string> = {
+    new: '🔵 Yangi',
+    dispatched: '📋 Dispatch',
+    assigned: '🚚 Tayinlandi',
+    en_route: '🚛 Yo\'lda',
+    arrived: '📍 Yetib keldi',
+    collecting: '⚖️ Yig\'ilmoqda',
+    collected: '✅ Yig\'ildi',
+    confirmed: '🎉 Tasdiqlandi',
+    completed: '✅ Yakunlandi',
+    disputed: '⚠️ E\'tiroz',
+    cancelled: '❌ Bekor',
+};
+
+export function isRecycleRequestStatus(v: string): v is RecycleRequestStatus {
+    return recycleRequestStatuses.includes(v as RecycleRequestStatus);
+}
+
+// ─── Recycle Collection Status ────────────────────────────────────────────────
+export const recycleCollectionStatuses = ['pending', 'completed', 'disputed'] as const;
+export type RecycleCollectionStatus = (typeof recycleCollectionStatuses)[number];

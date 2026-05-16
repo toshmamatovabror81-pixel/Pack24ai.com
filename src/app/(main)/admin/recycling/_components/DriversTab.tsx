@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Phone, Truck, MapPin, User, Copy, ShieldCheck } from 'lucide-react';
 
-interface Driver { id: number; name: string; phone: string; telegramId: string | null; telegramName: string | null; registrationCode: string | null; supervisorId: number | null; supervisor: { id: number; name: string } | null; pointId: number | null; point: { id: number; regionUz: string } | null; status: string; isOnline: boolean; vehicleInfo: string | null; isSupervisor?: boolean; _count?: { collections: number; assignedRequests: number }; }
+interface Driver { id: number; name: string; phone: string; telegramId: string | null; telegramName: string | null; registrationCode: string | null; supervisorId: number | null; supervisor: { id: number; name: string } | null; pointId: number | null; point: { id: number; regionUz: string } | null; status: string; isOnline: boolean; vehicleInfo: string | null; lastSeenAt: string | null; lastLat: number | null; lastLng: number | null; isSupervisor?: boolean; _count?: { collections: number; assignedRequests: number }; }
 interface Supervisor { id: number; name: string; }
 interface Point { id: number; regionUz: string; }
 
@@ -128,6 +128,7 @@ export default function DriversTab({
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden md:table-cell">Masul</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Telegram</th>
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden lg:table-cell">Baza</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden xl:table-cell">Mashina / GPS</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Yig'ishlar</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase hidden md:table-cell">Lavozim</th>
                                 <th className="px-4 py-3 w-24"></th>
@@ -141,6 +142,21 @@ export default function DriversTab({
                                     <td className="px-4 py-3 hidden md:table-cell">{d.supervisor ? <span className="text-xs text-gray-600 flex items-center gap-1"><User size={11} />{d.supervisor.name}</span> : <span className="text-xs text-gray-300">—</span>}</td>
                                     <td className="px-4 py-3 text-center">{d.telegramId ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">🟢 Ulangan</span> : d.registrationCode ? <button onClick={() => { navigator.clipboard.writeText(d.registrationCode!); toast.success('Kod nusxalandi: ' + d.registrationCode); }} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 cursor-pointer inline-flex items-center gap-1" title="Nusxalash"><Copy size={9} />{d.registrationCode}</button> : <span className="text-[10px] text-gray-300">—</span>}</td>
                                     <td className="px-4 py-3 hidden lg:table-cell">{d.point ? <span className="text-xs text-emerald-600 flex items-center gap-1"><MapPin size={11} />{d.point.regionUz}</span> : <span className="text-xs text-gray-300">—</span>}</td>
+                                    <td className="px-4 py-3 hidden xl:table-cell">
+                                        <div className="flex flex-col gap-0.5">
+                                            {d.vehicleInfo && <span className="text-xs text-gray-700 flex items-center gap-1"><Truck size={10} />{d.vehicleInfo}</span>}
+                                            {d.lastSeenAt ? (
+                                                <span className="text-[10px] text-gray-400">
+                                                    🕐 {new Date(d.lastSeenAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            ) : null}
+                                            {d.lastLat && d.lastLng ? (
+                                                <a href={`https://maps.google.com/?q=${d.lastLat},${d.lastLng}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5">
+                                                    <MapPin size={9} />GPS ko'rish
+                                                </a>
+                                            ) : <span className="text-[10px] text-gray-300">GPS yo&apos;q</span>}
+                                        </div>
+                                    </td>
                                     <td className="px-4 py-3 text-center"><span className="text-sm font-bold text-gray-700">{d._count?.collections ?? 0}</span></td>
                                     <td className="px-4 py-3 text-center hidden md:table-cell">
                                         {d.isSupervisor

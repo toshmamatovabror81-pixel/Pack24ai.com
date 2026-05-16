@@ -231,7 +231,7 @@ export function registerMessageHandlers(bot: Telegraf) {
             const tasks = await prisma.recycleRequest.findMany({
                 where: {
                     assignedDriverId: driver.id,
-                    status: { in: ['assigned', 'en_route', 'arrived'] },
+                    status: { in: ['assigned', 'en_route', 'arrived', 'collecting'] },
                 },
                 include: { point: true },
                 orderBy: { createdAt: 'desc' },
@@ -251,12 +251,18 @@ export function registerMessageHandlers(bot: Telegraf) {
                     name: task.name,
                     phone: task.phone,
                     region: task.point?.regionUz || '—',
+                    address: task.address || 'Kiritilmagan',
                     volume: volLabel,
                     photo: task.photoUrl ? 'Bor ✅' : 'Yo\'q',
                     time: new Date(task.createdAt).toLocaleString('ru-RU'),
                 });
 
                 const buttons: any[][] = [];
+                
+                if (task.pickupLat && task.pickupLng) {
+                    buttons.push([{ text: '🗺 Xaritada ochish', url: `https://yandex.com/maps/?pt=${task.pickupLng},${task.pickupLat}&z=16&l=map` }]);
+                }
+
                 if (task.status === 'assigned') {
                     buttons.push([
                         btn('✅ Qabul', `accept_${task.id}`),
@@ -267,6 +273,9 @@ export function registerMessageHandlers(bot: Telegraf) {
                     buttons.push([btn('📍 Yetib keldim', `arrived_${task.id}`)]);
                 } else if (task.status === 'arrived') {
                     buttons.push([btn('⚖️ Kalkulyator', `calc_${task.id}`)]);
+                    buttons.push([btn('🚫 Bekor qilish', `cancel_${task.id}`)]);
+                } else if (task.status === 'collecting') {
+                    buttons.push([btn('✅ Yakunlash', `complete_${task.id}`)]);
                 }
 
                 await ctx.reply(info, {

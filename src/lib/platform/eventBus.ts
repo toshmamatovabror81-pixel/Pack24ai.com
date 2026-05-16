@@ -19,6 +19,8 @@ export interface RealtimeEvent {
     pointId?: number;
     timestamp: string;
     source: string;
+    callerName?: string;
+    callerPhone?: string;
 }
 
 type SSEClient = (event: RealtimeEvent) => void;

@@ -88,9 +88,10 @@ export function registerCallbackHandlers(bot: Telegraf) {
                                         { text: '♻️ Topshirish', callback_data: 'cab_recycling' },
                                     ],
                                     [
+                                        { text: '🏆 Reyting', callback_data: 'prts_leaderboard' },
                                         { text: 'ℹ️ PRTS nima?', callback_data: 'prts_info' },
-                                        { text: '◀️ Asosiy menyu', callback_data: 'back_main' },
                                     ],
+                                    [{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }],
                                 ],
                             },
                         }
@@ -264,6 +265,58 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         remaining: String(user.ecoPoints - cost),
                     }),
                     { parse_mode: 'HTML' }
+                );
+                return;
+            }
+
+            // ─── PRTS LEADERBOARD ───────────────────────────────────────────
+            if (data === 'prts_leaderboard') {
+                await ctx.answerCbQuery('🏆');
+                const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
+
+                // Top 10 foydalanuvchilar
+                const top = await prisma.user.findMany({
+                    where: { totalRecycledWeight: { gt: 0 } },
+                    orderBy: { ecoPoints: 'desc' },
+                    take: 10,
+                    select: { name: true, ecoPoints: true, totalRecycledWeight: true, ecoLevel: true },
+                });
+
+                // Joriy foydalanuvchi
+                const me = await getUserByTgId(tgId);
+                const meRankResult = me ? await prisma.user.count({
+                    where: { ecoPoints: { gt: me.ecoPoints } },
+                }) : null;
+                const meRank = meRankResult !== null ? meRankResult + 1 : null;
+
+                const medals = ['🥇', '🥈', '🥉'];
+                const levelEmoji: Record<string, string> = {
+                    seed: '🌱', sprout: '🌿', tree: '🌳', forest: '🌲', guardian: '🌍',
+                };
+
+                const topList = top.length === 0
+                    ? (lang === 'uz' ? 'Hali hech kim ro\'yxatda yo\'q' : 'Список пуст')
+                    : top.map((u, i) => {
+                        const m = medals[i] || `${i + 1}.`;
+                        const lv = levelEmoji[u.ecoLevel] || '🌱';
+                        return `${m} ${lv} <b>${u.name}</b> — ${u.ecoPoints} ball (${Math.round(u.totalRecycledWeight)} kg)`;
+                    }).join('\n');
+
+                const myLine = me && meRank
+                    ? `\n\n📍 <b>Sizning o'rningiz: #${meRank}</b> — ${me.ecoPoints} ball`
+                    : '';
+
+                await ctx.reply(
+                    `🏆 <b>${lang === 'uz' ? 'Global Reyting — Top 10' : 'Глобальный Рейтинг — Топ 10'}</b>\n\n${topList}${myLine}`,
+                    {
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🔄 Yangilash', callback_data: 'prts_leaderboard' }],
+                                [{ text: '◀️ Ortga', callback_data: 'cab_prts' }],
+                            ],
+                        },
+                    }
                 );
                 return;
             }

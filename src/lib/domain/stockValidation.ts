@@ -84,74 +84,75 @@ export async function validateAndReserveStock(
         return checkResult;
     }
 
-    // 2. Asosiy omborni topish
-    const mainWarehouse = await tx.warehouse.findFirst({
-        where: { isMain: true },
-    });
-
-    if (!mainWarehouse) {
-        // Agar asosiy ombor yo'q bo'lsa — birinchi omborni ishlatamiz
-        const anyWarehouse = await tx.warehouse.findFirst({
-            orderBy: { createdAt: 'asc' },
-        });
-
-        if (!anyWarehouse) {
-            // Ombor umuman yo'q — tekshiruvni o'tkazib yuboramiz
-            return { ok: true };
-        }
-
-        return await reserveFromWarehouse(tx, items, anyWarehouse.id, orderId);
-    }
-
-    return await reserveFromWarehouse(tx, items, mainWarehouse.id, orderId);
+    // 2. Multi-warehouse logikasi orqali yechib olish
+    return await reserveFromMultipleWarehouses(tx, items, orderId);
 }
 
 /**
- * Berilgan ombordan mahsulotlarni reserve qiladi (chiqim).
+ * Barcha omborlardan mahsulotlarni kaskad usulida reserve qiladi.
+ * Avval asosiy ombordan, yetmasa boshqa omborlardan qidiradi.
  */
-async function reserveFromWarehouse(
+async function reserveFromMultipleWarehouses(
     tx: Tx,
     items: StockCheckItem[],
-    warehouseId: number,
     orderId?: number,
 ): Promise<StockCheckResult> {
+    // Omborlarni ustuvorlik (Asosiy > Boshqalar) va yaratilgan vaqti bo'yicha olish
+    const warehouses = await tx.warehouse.findMany({
+        orderBy: [
+            { isMain: 'desc' },
+            { createdAt: 'asc' }
+        ]
+    });
+
+    if (warehouses.length === 0) {
+        return { ok: true }; // Hech qanday ombor yo'q bo'lsa tekshiruvdan o'tadi
+    }
+
     for (const item of items) {
-        // Inventory yangilash
-        const existing = await tx.inventory.findUnique({
-            where: {
-                productId_warehouseId: {
-                    productId: item.productId,
-                    warehouseId,
-                },
-            },
-        });
+        let remainingToDeduct = item.quantity;
 
-        if (existing) {
-            const newQuantity = existing.quantity - item.quantity;
-            if (newQuantity < 0) {
-                // Bu omborda yetarli emas — boshqa omborlardan qidirish
-                // (hozircha xatolik qaytaramiz, keyingi bosqichda multi-warehouse)
-                const product = await tx.product.findUnique({
-                    where: { id: item.productId },
-                    select: { name: true },
-                });
-                return {
-                    ok: false,
-                    errors: [{
+        for (const warehouse of warehouses) {
+            if (remainingToDeduct <= 0) break;
+
+            const existing = await tx.inventory.findUnique({
+                where: {
+                    productId_warehouseId: {
                         productId: item.productId,
-                        productName: product?.name ?? `ID:${item.productId}`,
-                        requested: item.quantity,
-                        available: existing.quantity,
-                    }],
-                };
-            }
-
-            await tx.inventory.update({
-                where: { id: existing.id },
-                data: { quantity: newQuantity },
+                        warehouseId: warehouse.id,
+                    },
+                },
             });
-        } else {
-            // Bu omborda umuman yo'q
+
+            if (existing && existing.quantity > 0) {
+                const take = Math.min(existing.quantity, remainingToDeduct);
+                const newQuantity = existing.quantity - take;
+
+                // Ombor qoldig'ini yangilash
+                await tx.inventory.update({
+                    where: { id: existing.id },
+                    data: { quantity: newQuantity },
+                });
+
+                // StockMovement (OUT) yozuvi
+                await tx.stockMovement.create({
+                    data: {
+                        type: 'OUT',
+                        productId: item.productId,
+                        fromWarehouseId: warehouse.id,
+                        quantity: take,
+                        reason: orderId
+                            ? `Buyurtma #${orderId} — kaskad chiqim (ID:${warehouse.id})`
+                            : `Buyurtma — kaskad chiqim (ID:${warehouse.id})`,
+                    },
+                });
+
+                remainingToDeduct -= take;
+            }
+        }
+
+        // Agar barcha omborlarni ko'rib ham yetarlicha yig'a olmasa
+        if (remainingToDeduct > 0) {
             const product = await tx.product.findUnique({
                 where: { id: item.productId },
                 select: { name: true },
@@ -162,23 +163,10 @@ async function reserveFromWarehouse(
                     productId: item.productId,
                     productName: product?.name ?? `ID:${item.productId}`,
                     requested: item.quantity,
-                    available: 0,
+                    available: item.quantity - remainingToDeduct, // Aslida tranzaksiya bekor qilinadi
                 }],
             };
         }
-
-        // StockMovement yozuvi
-        await tx.stockMovement.create({
-            data: {
-                type: 'OUT',
-                productId: item.productId,
-                fromWarehouseId: warehouseId,
-                quantity: item.quantity,
-                reason: orderId
-                    ? `Buyurtma #${orderId} — avtomatik chiqim`
-                    : 'Buyurtma — avtomatik chiqim',
-            },
-        });
     }
 
     return { ok: true };

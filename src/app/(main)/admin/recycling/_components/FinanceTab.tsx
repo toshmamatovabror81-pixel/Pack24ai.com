@@ -108,12 +108,20 @@ export default function FinanceTab() {
                         ))}
                     </div>
                 </div>
-                <button
-                    onClick={() => window.open(`/api/admin/export?type=recycling&period=${period}`, '_blank')}
-                    className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-lg text-xs transition-colors"
-                >
-                    <Download size={13} /> Excel eksport
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => window.open(`/api/admin/export?type=recycling&period=${period}`, '_blank')}
+                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-lg text-xs transition-colors"
+                    >
+                        <Download size={13} /> Excel
+                    </button>
+                    <button
+                        onClick={() => window.open(`/api/eco/esg-report?userId=1&year=${new Date().getFullYear()}`, '_blank')}
+                        className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs transition-colors"
+                    >
+                        🌍 ESG Hisobot
+                    </button>
+                </div>
             </div>
 
             {/* ═══ KPI Kartochkalari ═══ */}
