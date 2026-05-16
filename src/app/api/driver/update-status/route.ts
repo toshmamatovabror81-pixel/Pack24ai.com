@@ -51,7 +51,22 @@ export async function POST(req: NextRequest) {
                         status: 'completed',
                     },
                 });
-                return NextResponse.json({ ok: true, status, collectionId: collection.id });
+
+                // Haydovchiga daromad yozish — RecyclePoint.driverRatePerKg asosida
+                const driverRate = (request.point as any)?.driverRatePerKg ?? 100;
+                const driverEarning = Math.round(actualWeight * driverRate);
+                await prisma.driverTransaction.create({
+                    data: {
+                        driverId: Number(driverId),
+                        type: 'earning',
+                        amount: driverEarning,
+                        status: 'completed',
+                        description: `Buyurtma #${requestId} (${actualWeight} kg × ${driverRate} so'm/kg)`,
+                        collectionId: collection.id,
+                    }
+                });
+
+                return NextResponse.json({ ok: true, status, collectionId: collection.id, earned: driverEarning });
             }
         }
 

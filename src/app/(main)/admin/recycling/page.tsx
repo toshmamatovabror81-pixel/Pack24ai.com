@@ -15,6 +15,7 @@ import ComplaintsTab from './_components/ComplaintsTab';
 import MonthlyJournalTab from './_components/MonthlyJournalTab';
 import BotEventsTab from './_components/BotEventsTab';
 import FinanceTab from './_components/FinanceTab';
+import PayoutsTab from './_components/PayoutsTab';
 import dynamic from 'next/dynamic';
 import { removeBotEventFeedParamsFromSearchString, urlHasBotEventFeedParams } from '@/lib/platform/botEventFeedUrl';
 
@@ -119,6 +120,7 @@ type AdminRecyclingTab =
     | 'drivers'
     | 'collections'
     | 'finance'
+    | 'payouts'
     | 'complaints'
     | 'journal'
     | 'bot-events';
@@ -184,6 +186,7 @@ function readInitialRecyclingFilters(): {
         'drivers',
         'collections',
         'finance',
+        'payouts',
         'complaints',
         'journal',
         'bot-events',
@@ -547,6 +550,7 @@ export default function AdminRecyclingPage() {
                     ['drivers', '🚚 Haydovchilar'],
                     ['collections', '💰 Hisob-kitob'],
                     ['finance', '💹 Moliya'],
+                    ['payouts', '💳 To\'lovlar'],
                     ['journal', '🧾 Oylik jurnal'],
                     ['bot-events', '🤖 Bot Events'],
                     ['complaints', '⚠️ Shikoyatlar'],
@@ -1190,6 +1194,9 @@ export default function AdminRecyclingPage() {
 
             {/* MOLIYAVIY HISOBOT TAB */}
             {activeTab === 'finance' && <FinanceTab />}
+
+            {/* TO'LOVLAR TAB */}
+            {activeTab === 'payouts' && <PayoutsTab />}
 
             {/* OYLIK JURNAL TAB */}
             {activeTab === 'journal' && (

@@ -568,8 +568,9 @@ model RecyclePoint {
   address     String?                    // Baza manzili
   lat         Float?                     // Kenglik (koordinata)
   lng         Float?                     // Uzunlik (koordinata)
-  pricePerKg    Float    @default(800)     // Default narx (so'm/kg) — masul+admin belgilaydi
-  status        RecyclePointStatus   @default(active)
+  pricePerKg      Float    @default(800)     // Default narx (so'm/kg) — masul+admin belgilaydi
+  driverRatePerKg Float    @default(100)     // Haydovchiga 1 kg uchun to'lov (so'm/kg)
+  status          RecyclePointStatus   @default(active)
   color         String   @default("bg-emerald-500")
   workingHours  String   @default("08:00-18:00") // Ish tartibi
   isAccepting   Boolean  @default(true)    // Hozir qabul qilayaptimi (masul boshqaradi)
@@ -696,6 +697,8 @@ model DriverCard {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  transactions  DriverTransaction[]   // Bu karta bilan bog'liq tranzaksiyalar
+
   @@index([driverId])
 }
 
@@ -704,11 +707,12 @@ model DriverTransaction {
   id            Int      @id @default(autoincrement())
   driverId      Int
   driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  type          String                    // earning, withdrawal, bonus
+  type          String                    // earning | withdrawal | bonus
   amount        Float                     // Summa (so'm)
   description   String?                   // Tavsif
-  status        String   @default("completed") // pending, completed, failed
-  cardId        Int?                      // Qaysi kartaga
+  status        String   @default("completed") // pending | completed | failed
+  cardId        Int?                      // Qaysi kartaga (FK)
+  card          DriverCard? @relation(fields: [cardId], references: [id], onDelete: SetNull)
   collectionId  Int?                      // Qaysi yig'ish uchun
   metadata      Json?                     // Qo'shimcha ma'lumot
 
