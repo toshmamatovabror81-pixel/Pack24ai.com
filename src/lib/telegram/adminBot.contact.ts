@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
-import { formatText, getText } from './i18n';
+import { formatText } from './i18n';
 import { supervisorMainKeyboard, supervisorSharePhoneKeyboard } from './keyboards';
 import {
     adminSessions,

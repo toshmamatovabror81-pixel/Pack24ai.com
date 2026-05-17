@@ -54,7 +54,7 @@ export async function pushToCustomer(userId: number, message: PushMessage): Prom
         where: { userId, appType: 'customer', isActive: true },
         select: { token: true },
     });
-    await sendExpoPush(subs.map(s => s.token), message);
+    await sendExpoPush(subs.map(s => s.token).filter((t): t is string => !!t), message);
 }
 
 /**
@@ -65,7 +65,7 @@ export async function pushToDriver(driverId: number, message: PushMessage): Prom
         where: { driverId, appType: 'driver', isActive: true },
         select: { token: true },
     });
-    await sendExpoPush(subs.map(s => s.token), message);
+    await sendExpoPush(subs.map(s => s.token).filter((t): t is string => !!t), message);
 }
 
 /**
@@ -80,6 +80,6 @@ export async function pushBroadcast(appType: 'customer' | 'driver', message: Pus
     // Expo 100 tadan yuborish
     for (let i = 0; i < subs.length; i += 100) {
         const batch = subs.slice(i, i + 100);
-        await sendExpoPush(batch.map(s => s.token), message);
+        await sendExpoPush(batch.map(s => s.token).filter((t): t is string => !!t), message);
     }
 }

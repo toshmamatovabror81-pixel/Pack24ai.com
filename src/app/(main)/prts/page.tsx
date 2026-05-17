@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface EcoStats {
@@ -42,6 +43,7 @@ const WASTE_TYPES = [
 type TabId = 'dashboard' | 'pickup' | 'rewards';
 
 export default function PRTSPage() {
+    const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<TabId>('dashboard');
     const [stats, setStats] = useState<EcoStats | null>(null);
     const [chartData, setChartData] = useState<MonthlyData[]>([]);
@@ -108,8 +110,8 @@ export default function PRTSPage() {
 
     const TABS = [
         { id: 'dashboard' as TabId, label: 'Dashboard', icon: TrendingUp },
-        { id: 'pickup' as TabId, label: 'Olib ketish', icon: Truck },
-        { id: 'rewards' as TabId, label: 'Mukofotlar', icon: Gift },
+        { id: 'pickup' as TabId, label: t('recycling.submit'), icon: Truck },
+        { id: 'rewards' as TabId, label: t('recycling.eco_shop'), icon: Gift },
     ];
 
     // ─── Loading ──────────────────────────────────────────────
@@ -118,7 +120,7 @@ export default function PRTSPage() {
             <div className="flex h-[70vh] items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
                     <Leaf className="h-10 w-10 animate-bounce text-emerald-500" />
-                    <p className="text-sm text-gray-400 font-medium">PRTS yuklanmoqda...</p>
+                    <p className="text-sm text-gray-400 font-medium">{t('common.loading')}</p>
                 </div>
             </div>
         );
@@ -130,7 +132,7 @@ export default function PRTSPage() {
                 <Recycle className="h-12 w-12 text-emerald-300" />
                 <p className="text-gray-500">{error}</p>
                 <a href="/login" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors">
-                    Tizimga kirish
+                    {t('auth.login')}
                 </a>
             </div>
         );
@@ -164,7 +166,7 @@ export default function PRTSPage() {
                             <Trophy className="h-8 w-8 text-amber-400" />
                             <div>
                                 <p className="text-3xl font-black">{points.toLocaleString()}</p>
-                                <p className="text-xs text-emerald-200">PRTS Ballar</p>
+                                <p className="text-xs text-emerald-200">{t('recycling.my_points')}</p>
                             </div>
                         </div>
                     </div>
@@ -203,9 +205,9 @@ export default function PRTSPage() {
                         {/* KPI Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {[
-                                { icon: Recycle, label: 'Qayta ishlangan', value: `${totalWeight} kg`, color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
-                                { icon: CloudSun, label: 'CO₂ tejaldi', value: `${stats?.co2Offset || '0'} kg`, color: 'from-blue-500 to-cyan-500', iconBg: 'bg-blue-100 text-blue-600' },
-                                { icon: Trophy, label: 'PRTS Ballar', value: points.toLocaleString(), color: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-100 text-amber-600' },
+                                { icon: Recycle, label: t('recycling.history'), value: `${totalWeight} kg`, color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
+                                { icon: CloudSun, label: 'CO₂', value: `${stats?.co2Offset || '0'} kg`, color: 'from-blue-500 to-cyan-500', iconBg: 'bg-blue-100 text-blue-600' },
+                                { icon: Trophy, label: t('recycling.my_points'), value: points.toLocaleString(), color: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-100 text-amber-600' },
                             ].map((kpi, i) => (
                                 <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
                                     <div className="flex items-center justify-between mb-4">
@@ -280,20 +282,20 @@ export default function PRTSPage() {
                                         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-300">
                                             <CheckCircle size={40} className="text-emerald-500" />
                                         </div>
-                                        <h3 className="text-xl font-extrabold text-gray-900 mb-2">Buyurtma qabul qilindi! 🎉</h3>
-                                        <p className="text-gray-500 text-sm mb-6">Tez orada siz bilan bog&apos;lanamiz.</p>
+                                        <h3 className="text-xl font-extrabold text-gray-900 mb-2">{t('recycling.success')} 🎉</h3>
+                                        <p className="text-gray-500 text-sm mb-6">{t('recycling.success_msg')}</p>
                                         <button
                                             onClick={() => { setPickupDone(false); setPickupForm({ type: '', weight: '', address: '' }); }}
                                             className="text-sm font-semibold text-emerald-600 hover:underline"
                                         >
-                                            Yana buyurtma berish
+                                            {t('recycling.submit')}
                                         </button>
                                     </div>
                                 ) : (
                                     <form onSubmit={handlePickupSubmit} className="space-y-5">
                                         {/* Chiqindi turi */}
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Chiqindi turi *</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">{t('recycling.material')} *</label>
                                             <div className="grid grid-cols-2 gap-2">
                                                 {WASTE_TYPES.map(wt => (
                                                     <button
@@ -314,7 +316,7 @@ export default function PRTSPage() {
 
                                         {/* Og'irlik */}
                                         <div>
-                                            <label htmlFor="prts-weight" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Taxminiy og&apos;irlik (kg) *</label>
+                                            <label htmlFor="prts-weight" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">{t('recycling.weight')} *</label>
                                             <input
                                                 id="prts-weight"
                                                 type="number"
@@ -328,7 +330,7 @@ export default function PRTSPage() {
 
                                         {/* Manzil */}
                                         <div>
-                                            <label htmlFor="prts-address" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Olib ketish manzili *</label>
+                                            <label htmlFor="prts-address" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">{t('recycling.address')} *</label>
                                             <textarea
                                                 id="prts-address"
                                                 value={pickupForm.address}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, Plus, Search, Building2, CreditCard, AlertTriangle, X, Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface Contract {
     id: number;
@@ -41,6 +42,7 @@ function fmtMoney(n: number) {
 }
 
 export default function ContractsPage() {
+    const router = useRouter();
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -161,7 +163,9 @@ export default function ContractsPage() {
                                 const s = STATUS_CFG[c.status] ?? STATUS_CFG.active;
                                 const dangerDebt = c.creditLimit > 0 && c.creditUsagePercent > 80;
                                 return (
-                                    <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                    <tr key={c.id}
+                                        onClick={() => router.push(`/admin/contracts/${c.id}`)}
+                                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer">
                                         <td className="px-4 py-3">
                                             <span className="font-mono font-bold text-sm text-emerald-700">{c.contractNo}</span>
                                             <p className="text-[10px] text-gray-400 mt-0.5">{new Date(c.startDate).toLocaleDateString('uz-UZ')}</p>

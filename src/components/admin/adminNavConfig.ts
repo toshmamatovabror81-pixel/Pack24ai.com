@@ -18,6 +18,8 @@ import {
     CheckCircle2,
     FileSignature,
     Receipt,
+    Leaf,
+    Settings,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -102,8 +104,10 @@ export const navItems: NavItem[] = [
         subItems: [
             { name: 'Arizalar', href: '/admin/recycling' },
             { name: 'Xarita (GPS)', href: '/admin/logistics', badge: 'NEW' },
+            { name: 'Hisobot', href: '/admin/recycling?tab=finance', badge: 'PRO' },
         ],
     },
+    { name: 'PRTS Monitor', href: '/admin/prts', icon: Leaf, badge: 'ECO' },
     {
         name: 'Xodimlar',
         href: '/admin/staff',
@@ -117,4 +121,5 @@ export const navItems: NavItem[] = [
     },
     { name: 'Tarif rejasi', href: '/admin/subscription', icon: Crown },
     { name: 'Robo market', href: '/admin/market', icon: Store },
+    { name: 'Sozlamalar', href: '/admin/settings', icon: Settings },
 ];

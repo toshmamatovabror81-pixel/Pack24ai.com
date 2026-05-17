@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLanguage } from '../lib/contexts/LanguageContext';
 import { useAI } from '../lib/hooks/useAI';
 import { BoxModel, BoxDimensions, Material } from '../lib/types';
@@ -21,179 +21,373 @@ interface AIConsultantProps {
     quantity?: number;
 }
 
+const WELCOME: Record<string, string> = {
+    uz: 'Assalomu alaykum! 👋 Men Pack24 AI maslahatchisiman.\n\nSavol bering yoki quyidagi mavzulardan birini tanlang:',
+    ru: 'Здравствуйте! 👋 Я AI-консультант Pack24.\n\nЗадайте вопрос или выберите тему ниже:',
+    en: 'Hello! 👋 I am Pack24 AI Assistant.\n\nAsk a question or choose a topic below:',
+    qr: 'Assalawma áleykum! 👋 Men Pack24 AI másláhátshisimen.\n\nSoraw beriń yaki taqırıp tańlań:',
+    zh: '你好！👋 我是Pack24 AI助手。\n\n请提问或选择以下主题：',
+    tr: 'Merhaba! 👋 Ben Pack24 AI Danışmanıyım.\n\nSoru sorun veya konu seçin:',
+    tg: 'Ассалому алайкум! 👋 Ман маслаҳатчии Pack24 AI ҳастам.\n\nСавол диҳед ё мавзӯ интихоб кунед:',
+    kk: 'Сәлеметсіз бе! 👋 Мен Pack24 AI кеңесшісімін.\n\nСұрақ қойыңыз немесе тақырып таңдаңыз:',
+    tk: 'Salam! 👋 Men Pack24 AI maslahatçy.\n\nSorag beriň ýa-da tema saýlaň:',
+    fa: 'سلام! 👋 من مشاور Pack24 AI هستم.\n\nسوال بپرسید یا موضوع انتخاب کنید:',
+};
+
+const SUGGESTIONS: Record<string, { label: string; text: string }[]> = {
+    uz: [
+        { label: '💰 Narx', text: 'Narxi qancha?' },
+        { label: '📦 MOQ', text: 'Minimal buyurtma qancha?' },
+        { label: '🖨️ Pechat', text: 'Pechat turlari qanday?' },
+        { label: '🚚 Yetkazish', text: 'Yetkazib berish xizmati bormi?' },
+        { label: '🎨 Dizayn', text: 'AI dizayn xizmati bormi?' },
+        { label: '📞 Aloqa', text: "Qanday bog'lanish mumkin?" },
+    ],
+    ru: [
+        { label: '💰 Цена', text: 'Какова цена?' },
+        { label: '📦 MOQ', text: 'Минимальный заказ?' },
+        { label: '🖨️ Печать', text: 'Виды печати?' },
+        { label: '🚚 Доставка', text: 'Есть ли доставка?' },
+        { label: '🎨 Дизайн', text: 'Есть AI дизайн?' },
+        { label: '📞 Контакт', text: 'Как связаться?' },
+    ],
+    en: [
+        { label: '💰 Price', text: 'What is the price?' },
+        { label: '📦 MOQ', text: 'What is the minimum order?' },
+        { label: '🖨️ Print', text: 'What printing types do you offer?' },
+        { label: '🚚 Delivery', text: 'Do you offer delivery?' },
+        { label: '🎨 Design', text: 'Do you have AI design tools?' },
+        { label: '📞 Contact', text: 'How can I contact you?' },
+    ],
+};
+
+const getGreetingTime = () => {
+    const h = new Date().getHours();
+    if (h < 12) return { uz: 'Xayrli tong', ru: 'Доброе утро', en: 'Good morning' };
+    if (h < 18) return { uz: 'Xayrli kun', ru: 'Добрый день', en: 'Good afternoon' };
+    return { uz: 'Xayrli kech', ru: 'Добрый вечер', en: 'Good evening' };
+};
+
 export default function AIConsultant({ model, dims, totalPrice, unitPrice, material, quantity }: AIConsultantProps) {
-    const { t, language } = useLanguage();
+    const { language } = useLanguage();
     const { generateResponse, isTyping } = useAI();
+
     const [isOpen, setIsOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [hasOpened, setHasOpened] = useState(false);
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 1,
-            text: language === 'uz' ? 'Assalomu alaykum! Men Pack24 AI maslahatchisiman. Sizga qanday yordam bera olaman?' :
-                language === 'ru' ? 'Здравствуйте! Я AI-консультант Pack24. Чем могу помочь?' :
-                    'Hello! I am Pack24 AI Assistant. How can I help you?',
+            text: WELCOME[language] ?? WELCOME['uz'],
             sender: 'ai',
-            timestamp: new Date()
-        }
+            timestamp: new Date(),
+        },
     ]);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const scrollToBottom = useCallback(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, []);
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isOpen, isTyping]);
+    }, [messages, isTyping, scrollToBottom]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setUnreadCount(0);
+            setTimeout(() => inputRef.current?.focus(), 300);
+        }
+    }, [isOpen]);
+
+    // Auto-open with delay + unread badge after first load
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (!hasOpened) setUnreadCount(1);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [hasOpened]);
+
+    const handleOpen = () => {
+        setIsOpen(true);
+        setHasOpened(true);
+        setUnreadCount(0);
+    };
 
     const handleSend = async (textArg?: string) => {
-        const textToSend = textArg || input;
-        if (!textToSend.trim()) return;
+        const textToSend = (textArg ?? input).trim();
+        if (!textToSend || isTyping) return;
 
         const userMsg: Message = {
             id: Date.now(),
             text: textToSend,
             sender: 'user',
-            timestamp: new Date()
+            timestamp: new Date(),
         };
 
         setMessages(prev => [...prev, userMsg]);
         setInput('');
 
-        // Generate AI Response using Hook
         const aiResponseText = await generateResponse(userMsg.text, {
             model,
             dims,
             totalPrice,
             unitPrice,
-            language,
+            language: language as any,
             material,
-            quantity
+            quantity,
         });
 
         const aiMsg: Message = {
             id: Date.now() + 1,
             text: aiResponseText,
             sender: 'ai',
-            timestamp: new Date()
+            timestamp: new Date(),
         };
         setMessages(prev => [...prev, aiMsg]);
     };
 
-    const suggestions = [
-        { label: language === 'uz' ? 'Narx' : language === 'ru' ? 'Цена' : 'Price', text: language === 'uz' ? 'Narxi qancha?' : language === 'ru' ? 'Сколько стоит?' : 'How much?' },
-        { label: language === 'uz' ? 'To\'lov' : language === 'ru' ? 'Оплата' : 'Payment', text: language === 'uz' ? 'Qanday to\'lov turlari bor?' : language === 'ru' ? 'Как оплатить?' : 'Payment methods?' },
-        { label: language === 'uz' ? 'Pechat' : language === 'ru' ? 'Печать' : 'Printing', text: language === 'uz' ? 'Pechat turlari qanday?' : language === 'ru' ? 'Какая печать?' : 'Printing types?' },
-        { label: 'MOQ', text: language === 'uz' ? 'Minimal buyurtma qancha?' : language === 'ru' ? 'Какой минимальный заказ?' : 'What is MOQ?' }
-    ];
+    const suggestions = SUGGESTIONS[language] ?? SUGGESTIONS['uz'];
+    const greetTime = getGreetingTime();
+    const greetLabel = (greetTime as Record<string, string>)[language] ?? greetTime.en;
 
     return (
         <>
-            {/* FLOATING BUTTON */}
+            {/* ── FLOATING BUTTON ── */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                aria-label={isOpen ? "Close AI Chat" : "Open AI Chat"}
-                className={`fixed bottom-6 right-6 z-[60] p-4 rounded-full shadow-2xl shadow-blue-500/30 transition-all duration-500 hover:scale-110 active:scale-95 flex items-center justify-center
-                    ${isOpen ? 'bg-red-500 rotate-90' : 'bg-gradient-to-r from-blue-600 to-indigo-600 animate-bounce-subtle'}
-                `}
+                id="ai-chat-toggle"
+                onClick={isOpen ? () => setIsOpen(false) : handleOpen}
+                aria-label={isOpen ? 'Close AI Chat' : 'Open AI Chat'}
+                className={`fixed bottom-6 right-6 z-[60] flex items-center justify-center transition-all duration-500
+                    ${isOpen
+                        ? 'w-12 h-12 bg-gray-700/90 hover:bg-gray-600/90 rounded-full backdrop-blur-md shadow-xl rotate-0'
+                        : 'w-14 h-14 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700'
+                    }`}
+                style={isOpen ? {} : { boxShadow: '0 8px 32px rgba(79,70,229,0.45)' }}
             >
                 {isOpen ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="white" className="w-8 h-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="white" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
                 ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="white" className="w-8 h-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-                    </svg>
+                    <>
+                        {/* AI Robot Icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="white" className="w-7 h-7">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                        </svg>
+                        {/* Puls animatsiyasi */}
+                        <span className="absolute inset-0 rounded-2xl animate-ping opacity-20 bg-indigo-400 pointer-events-none" />
+                    </>
+                )}
+
+                {/* Unread badge */}
+                {!isOpen && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg animate-bounce">
+                        {unreadCount}
+                    </span>
                 )}
             </button>
 
-            {/* CHAT WINDOW */}
+            {/* ── CHAT WINDOW ── */}
             {isOpen && (
-                <div className="fixed bottom-24 right-4 md:right-6 w-[90vw] md:w-[400px] h-[600px] max-h-[80vh] rounded-[32px] overflow-hidden z-[60] flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-300 shadow-2xl shadow-blue-900/20 border border-white/40 ring-1 ring-black/5 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
-
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-5 flex items-center gap-4 shadow-lg shrink-0">
-                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/30 shadow-inner">
-                            <span className="text-2xl">🤖</span>
+                <div
+                    id="ai-chat-window"
+                    className="fixed bottom-24 right-4 md:right-6 w-[92vw] md:w-[420px] max-h-[82vh] rounded-[28px] overflow-hidden z-[60] flex flex-col shadow-2xl border border-white/20"
+                    style={{
+                        background: 'rgba(15,23,42,0.92)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        boxShadow: '0 25px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
+                        animation: 'slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                    }}
+                >
+                    {/* ── Header ── */}
+                    <div
+                        className="flex items-center gap-3 px-5 py-4 shrink-0 border-b border-white/10"
+                        style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 100%)' }}
+                    >
+                        {/* Avatar */}
+                        <div className="relative shrink-0">
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="white" className="w-6 h-6">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                                </svg>
+                            </div>
+                            <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-[#1e1b4b] shadow" />
                         </div>
-                        <div>
-                            <h3 className="font-bold text-white text-xl tracking-tight">Pack24 AI</h3>
-                            <div className="flex items-center gap-1.5 opacity-90">
-                                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                                <p className="text-blue-50 text-xs font-medium">Online Consultant</p>
+
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-white text-base leading-tight tracking-tight">Pack24 AI</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                                <p className="text-green-300/80 text-[11px] font-medium">{greetLabel} · Online</p>
                             </div>
                         </div>
+
+                        {/* Close */}
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center transition-colors shrink-0"
+                            aria-label="Close chat"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="rgba(255,255,255,0.7)" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
 
-                    {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 scroll-smooth">
-                        <div className="text-center text-xs text-gray-400 my-2 font-medium">Bugun, {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    {/* ── Messages ── */}
+                    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 scroll-smooth" style={{ minHeight: 0 }}>
+
+                        {/* Date badge */}
+                        <div className="flex justify-center">
+                            <span className="px-3 py-1 rounded-full bg-white/5 text-white/30 text-[10px] font-medium border border-white/10">
+                                {new Date().toLocaleDateString(language === 'ru' ? 'ru-RU' : language === 'uz' ? 'uz-UZ' : 'en-US', { day: 'numeric', month: 'long' })}
+                            </span>
+                        </div>
 
                         {messages.map((msg) => (
                             <div
                                 key={msg.id}
-                                className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200 hover:shadow-md ${msg.sender === 'user'
-                                    ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white self-end rounded-tr-none'
-                                    : 'bg-white/80 backdrop-blur-sm border border-gray-100 text-gray-800 self-start rounded-tl-none'
-                                    }`}
+                                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} gap-2`}
                             >
-                                {msg.text}
-                                <div className={`text-[10px] mt-1 opacity-70 flex justify-end ${msg.sender === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {/* AI avatar */}
+                                {msg.sender === 'ai' && (
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center shrink-0 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                                        </svg>
+                                    </div>
+                                )}
+
+                                <div
+                                    className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+                                        ${msg.sender === 'user'
+                                            ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-tr-sm shadow-lg shadow-blue-900/30'
+                                            : 'bg-white/8 border border-white/10 text-gray-100 rounded-tl-sm'
+                                        }`}
+                                    style={msg.sender === 'ai' ? { background: 'rgba(255,255,255,0.07)' } : {}}
+                                >
+                                    {msg.text}
+                                    <div className={`text-[10px] mt-1.5 opacity-50 flex ${msg.sender === 'user' ? 'justify-end text-blue-100' : 'justify-start text-gray-400'}`}>
+                                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
                                 </div>
                             </div>
                         ))}
 
+                        {/* Typing indicator */}
                         {isTyping && (
-                            <div className="self-start bg-white/80 backdrop-blur-sm border border-gray-100 p-4 rounded-2xl rounded-tl-none shadow-sm flex gap-1.5 items-center h-[52px]">
-                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></span>
+                            <div className="flex justify-start gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center shrink-0 mt-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                                    </svg>
+                                </div>
+                                <div
+                                    className="px-4 py-3.5 rounded-2xl rounded-tl-sm border border-white/10 flex items-center gap-1.5"
+                                    style={{ background: 'rgba(255,255,255,0.07)' }}
+                                >
+                                    {[0, 1, 2].map(i => (
+                                        <span
+                                            key={i}
+                                            className="w-2 h-2 bg-blue-400 rounded-full"
+                                            style={{
+                                                animation: 'typingBounce 1.2s ease-in-out infinite',
+                                                animationDelay: `${i * 0.2}s`,
+                                            }}
+                                        />
+                                    ))}
+                                </div>
                             </div>
                         )}
+
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Suggestions Chips */}
-                    <div className="bg-white/40 backdrop-blur-sm p-3 flex gap-2 overflow-x-auto no-scrollbar shrink-0 border-t border-white/20">
-                        {suggestions.map((s, i) => (
-                            <button
-                                key={i}
-                                onClick={() => handleSend(s.text)}
-                                className="whitespace-nowrap px-4 py-2 bg-white/60 hover:bg-white border border-blue-100 rounded-full text-xs font-medium text-blue-700 shadow-sm hover:shadow transition-all active:scale-95"
-                            >
-                                {s.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Input Area */}
-                    <div className="p-4 bg-white/60 backdrop-blur-md border-t border-gray-100/50 flex gap-3 shrink-0 pb-6 md:pb-4">
-                        <div className="flex-1 relative group">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                placeholder={language === 'uz' ? "Savolingizni yozing..." : "Type your message..."}
-                                className="w-full bg-white border border-gray-200 focus:border-blue-500 rounded-2xl pl-5 pr-4 py-3 text-sm outline-none transition-all shadow-sm group-hover:shadow-md focus:shadow-blue-500/10"
-                            />
+                    {/* ── Quick Suggestions ── */}
+                    {messages.length <= 2 && (
+                        <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
+                            {suggestions.slice(0, 4).map((s, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => handleSend(s.text)}
+                                    disabled={isTyping}
+                                    className="whitespace-nowrap px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all hover:scale-105 active:scale-95 disabled:opacity-50 border shrink-0"
+                                    style={{
+                                        background: 'rgba(79,70,229,0.12)',
+                                        borderColor: 'rgba(129,140,248,0.25)',
+                                        color: 'rgba(199,210,254,0.9)',
+                                    }}
+                                >
+                                    {s.label}
+                                </button>
+                            ))}
                         </div>
+                    )}
+
+                    {/* ── Input Area ── */}
+                    <div
+                        className="px-4 pb-5 pt-3 flex gap-3 shrink-0 border-t border-white/8"
+                        style={{ background: 'rgba(15,23,42,0.6)' }}
+                    >
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                            placeholder={
+                                language === 'uz'
+                                    ? 'Savolingizni yozing...'
+                                    : language === 'ru'
+                                    ? 'Введите вопрос...'
+                                    : 'Type your question...'
+                            }
+                            className="flex-1 rounded-xl px-4 py-3 text-sm outline-none transition-all text-white placeholder-white/25"
+                            style={{
+                                background: 'rgba(255,255,255,0.07)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                            }}
+                            disabled={isTyping}
+                            id="ai-chat-input"
+                        />
                         <button
                             onClick={() => handleSend()}
-                            disabled={!input.trim()}
+                            disabled={!input.trim() || isTyping}
                             aria-label="Send message"
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white p-3 rounded-2xl shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center aspect-square"
+                            className="w-11 h-11 flex items-center justify-center rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', boxShadow: '0 4px 15px rgba(79,70,229,0.4)' }}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 translate-x-0.5 -translate-y-0.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-4.5 h-4.5">
                                 <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
                             </svg>
                         </button>
                     </div>
+
+                    {/* ── Powered by badge ── */}
+                    <div className="px-4 pb-3 flex justify-center shrink-0">
+                        <span className="text-[10px] text-white/20 font-medium">Powered by Pack24 AI · pack24.uz</span>
+                    </div>
                 </div>
             )}
+
+            {/* ── CSS Animations ── */}
+            <style jsx global>{`
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+                    to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes typingBounce {
+                    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+                    40%           { transform: translateY(-6px); opacity: 1; }
+                }
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </>
     );
 }
-

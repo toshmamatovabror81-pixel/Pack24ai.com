@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
                     deliveryMethod:  deliveryMethod ?? 'courier',
                     paymentMethod:   paymentMethod ?? 'cash',
                     paymentStatus:   (paymentMethod === 'cash' || !paymentMethod) ? PaymentStatus.pending : PaymentStatus.pending,
-                    status:          (status as OrderStatus),
+                    status:          status === 'new' ? OrderStatus.new_ : (status as OrderStatus),
                     totalAmount: computedTotal,
                     items: { create: orderItems },
                 },
@@ -246,6 +246,9 @@ export async function GET(request: Request) {
         const telegramUserId = searchParams.get('telegramUserId');
         const contactPhone   = searchParams.get('contactPhone');
         const paramUserId    = searchParams.get('userId');
+        const paramStatus    = searchParams.get('status');
+        const paramLimit     = parseInt(searchParams.get('limit') ?? '100');
+        const paramSkip      = parseInt(searchParams.get('skip') ?? '0');
 
         const where: Record<string, unknown> = {};
         if (telegramUserId) where.telegramUserId = telegramUserId;
@@ -277,14 +280,20 @@ export async function GET(request: Request) {
             ];
         }
 
-        // Draft buyurtmalarni ko'rsatmaslik
+        // Draft buyurtmalarni ko'rsatmaslik (telegramUserId bo'lmasa)
         if (!telegramUserId) {
-            where.status = { not: OrderStatus.draft };
+            if (paramStatus) {
+                where.status = paramStatus;
+            } else {
+                where.status = { not: OrderStatus.draft };
+            }
         }
 
         const orders = await prisma.order.findMany({
             where,
             orderBy: { createdAt: 'desc' },
+            take: Math.min(paramLimit, 200),
+            skip: paramSkip,
             include: { items: { include: { product: true } } },
         });
         return NextResponse.json(orders);

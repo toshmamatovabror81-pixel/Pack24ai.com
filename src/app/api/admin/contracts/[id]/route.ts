@@ -33,11 +33,18 @@ export async function GET(
             .filter(i => i.status !== 'cancelled')
             .reduce((s, i) => s + i.paidAmount, 0);
 
+        const outstandingDebt = Math.round(totalInvoiced - totalPaid);
+        const creditUsagePercent = contract.creditLimit > 0
+            ? Math.round((outstandingDebt / contract.creditLimit) * 100)
+            : 0;
+
         return NextResponse.json({
             ...contract,
             totalInvoiced: Math.round(totalInvoiced),
             totalPaid: Math.round(totalPaid),
-            outstandingDebt: Math.round(totalInvoiced - totalPaid),
+            outstandingDebt,
+            creditUsagePercent,
+            _count: { invoices: contract.invoices.length },
         });
     } catch (error) {
         console.error('[Contract GET]', error);

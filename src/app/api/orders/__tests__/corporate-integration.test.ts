@@ -251,11 +251,16 @@ async function main() {
     // ══════════════════════════════════════════════════════════════
 
     await runTest('3.0 — Mijoz topish', async () => {
-        const { data } = await api('/api/admin/customers?limit=5');
+        const { data } = await api('/api/admin/customers?limit=10');
         const list = data.customers || data;
         assert(Array.isArray(list) && list.length > 0, `Mijozlar: ${JSON.stringify(data).substring(0, 100)}`);
-        testUserId = list[0].id;
-        console.log(`    → Mijoz: #${testUserId} (${list[0].name})`);
+        
+        // Mehmon mijozlarni tashlab yuboramiz (shartnoma uchun user kerak)
+        const registered = list.filter((c: any) => c.source === 'registered');
+        assert(registered.length > 0, 'Kamida 1 ta ro\'yxatdan o\'tgan mijoz kerak (shartnoma uchun)');
+        
+        testUserId = registered[0].id;
+        console.log(`    → Mijoz: #${testUserId} (${registered[0].name})`);
     });
 
     await runTest('3.1 — Shartnoma YARATISH', async () => {

@@ -5,26 +5,44 @@ import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { restoreStockForOrder } from '@/lib/domain/stockValidation';
+import { cookies } from 'next/headers';
+import { validateAdminToken, ADMIN_AUTH_COOKIE } from '@/lib/adminAuthShared';
 
 async function canAccessOrder(order: {
     userId: number | null;
     contactPhone: string | null;
 }) {
+    // 1. Check next-auth session
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return false;
+    if (session?.user?.id) {
+        if (session.user.role === 'admin') {
+            return true;
+        }
+
+        const sessionUserId = Number(session.user.id);
+        if (Number.isFinite(sessionUserId) && order.userId === sessionUserId) {
+            return true;
+        }
+
+        if (session.user.phone && order.contactPhone === session.user.phone) {
+            return true;
+        }
     }
 
-    if (session.user.role === 'admin') {
-        return true;
+    // 2. Check custom admin token (for tests and admin panel)
+    const cookieStore = await cookies();
+    const token = cookieStore.get(ADMIN_AUTH_COOKIE)?.value;
+    if (token) {
+        const adminSecret = process.env.ADMIN_SECRET;
+        if (adminSecret) {
+            const validation = await validateAdminToken(token, adminSecret);
+            if (validation.valid) {
+                return true;
+            }
+        }
     }
 
-    const sessionUserId = Number(session.user.id);
-    if (Number.isFinite(sessionUserId) && order.userId === sessionUserId) {
-        return true;
-    }
-
-    return Boolean(session.user.phone && order.contactPhone === session.user.phone);
+    return false;
 }
 
 export async function GET(

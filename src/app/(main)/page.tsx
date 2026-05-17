@@ -1,6 +1,7 @@
 import HomeHero from '@/components/home/HomeHero';
 import MobileCategoryStrip from '@/components/home/MobileCategoryStrip';
 import ConfiguratorSection from '@/components/home/ConfiguratorSection';
+import AISection from '@/components/home/AISection';
 import ReviewsSection from '@/components/home/ReviewsSection';
 import CTABanner from '@/components/home/CTABanner';
 import { prisma } from '@/lib/prisma';
@@ -55,6 +56,9 @@ export default async function Home() {
 
             {/* 3D konfigurator + B2B + Stats + Features (barchasi birlashtirildi) */}
             <ConfiguratorSection />
+
+            {/* Pack24 AI Section */}
+            <AISection />
 
             {/* Sharhlar */}
             <ReviewsSection />
