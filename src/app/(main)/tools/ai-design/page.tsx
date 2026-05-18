@@ -79,6 +79,8 @@ export default function AIDesignPage() {
     const [selectedStyle, setSelectedStyle] = useState('minimalist');
     const [isGenerating, setIsGenerating] = useState(false);
     const [textureUrl, setTextureUrl] = useState<string | undefined>(undefined);
+    const [aiVariants, setAiVariants] = useState<Array<{ index: number; seed: number; dataUrl: string }>>([]);
+    const [selectedVariant, setSelectedVariant] = useState<number>(0);
     const [error, setError] = useState<string | null>(null);
 
     const t_local = (uz: string, ru: string) => language === 'ru' ? ru : uz;
@@ -123,7 +125,7 @@ export default function AIDesignPage() {
             const res = await fetch('/api/tools/ai-design/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: fullPrompt, style: selectedStyle, count: 1 }),
+                body: JSON.stringify({ prompt: fullPrompt, style: selectedStyle, count: 4, width: 768, height: 768 }),
             });
 
             if (!res.ok) {
@@ -138,8 +140,10 @@ export default function AIDesignPage() {
                 throw new Error(t_local('Hech qanday rasm yuklanmadi. Qayta urining.', 'Ни одного изображения не загружено. Попробуйте снова.'));
             }
 
+            setAiVariants(images);
+            setSelectedVariant(0);
             setTextureUrl(images[0].dataUrl);
-            toast.success(t_local('Dizayn yaratildi va modelga qo\'llandi!', 'Дизайн создан и применён к модели!'));
+            toast.success(t_local(`${images.length} ta variant yaratildi!`, `Создано ${images.length} вариантов!`));
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Noma\'lum xato';
             setError(msg);
@@ -265,15 +269,41 @@ export default function AIDesignPage() {
                         )}
                     </button>
                     
-                    {textureUrl && (
-                        <div className="mt-3 rounded-lg border border-white/10 overflow-hidden">
-                            <div className="relative">
-                                <img src={textureUrl} alt="AI Design" className="w-full h-32 object-cover" />
-                                <div className="absolute top-1 right-1 flex gap-1">
-                                    <span className="text-[9px] bg-green-500/90 text-white px-1.5 py-0.5 rounded font-bold">{t_local('Kiydirilan', 'Применено')}</span>
-                                </div>
+                    {aiVariants.length > 0 && (
+                        <div className="mt-3">
+                            <label className="text-[10px] font-bold text-gray-500 mb-1.5 block uppercase tracking-[0.15em]">
+                                {t_local(`Variantlar (${aiVariants.length})`, `Варианты (${aiVariants.length})`)}
+                            </label>
+                            <div className="grid grid-cols-2 gap-1.5 mb-2">
+                                {aiVariants.map((v, i) => (
+                                    <button
+                                        key={v.seed}
+                                        onClick={() => {
+                                            setSelectedVariant(i);
+                                            setTextureUrl(v.dataUrl);
+                                        }}
+                                        className={`relative rounded-lg overflow-hidden border-2 transition-all duration-200 group ${
+                                            selectedVariant === i
+                                                ? 'border-cyan-500 shadow-lg shadow-cyan-500/20 scale-[1.02]'
+                                                : 'border-white/10 hover:border-white/30'
+                                        }`}
+                                    >
+                                        <img src={v.dataUrl} alt={`Variant ${v.index}`} className="w-full h-20 object-cover" />
+                                        <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+                                            selectedVariant === i ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                        }`}>
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                                selectedVariant === i
+                                                    ? 'bg-cyan-500 text-white'
+                                                    : 'bg-black/60 text-white'
+                                            }`}>
+                                                {selectedVariant === i ? '✓ ' + t_local('Tanlangan', 'Выбрано') : t_local('Tanlash', 'Выбрать')}
+                                            </span>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
-                            <div className="p-2 bg-white/[0.03] flex gap-1.5">
+                            <div className="flex gap-1.5">
                                 <button
                                     onClick={handleGenerate}
                                     disabled={!prompt.trim() || isGenerating}
@@ -282,7 +312,7 @@ export default function AIDesignPage() {
                                     <RefreshCw size={10} /> {t_local('Qayta yaratish', 'Пересоздать')}
                                 </button>
                                 <button
-                                    onClick={() => setTextureUrl(undefined)}
+                                    onClick={() => { setAiVariants([]); setTextureUrl(undefined); setSelectedVariant(0); }}
                                     className="flex items-center justify-center gap-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 px-3 py-1.5 rounded text-[10px] font-bold transition-all"
                                 >
                                     <Trash2 size={10} />

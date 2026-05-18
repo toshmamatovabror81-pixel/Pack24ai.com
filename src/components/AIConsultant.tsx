@@ -59,18 +59,75 @@ const SUGGESTIONS: Record<string, { label: string; text: string }[]> = {
         { label: '🎨 Design', text: 'Do you have AI design tools?' },
         { label: '📞 Contact', text: 'How can I contact you?' },
     ],
+    qr: [
+        { label: '💰 Baha', text: 'Bahası qansha?' },
+        { label: '📦 MOQ', text: 'Minimal buyırtpa qansha?' },
+        { label: '🖨️ Pechat', text: 'Pechat túrleri qanday?' },
+        { label: '🚚 Jetkiziw', text: 'Jetkiziw xızmeti barma?' },
+        { label: '🎨 Dizayn', text: 'AI dizayn xızmeti barma?' },
+        { label: '📞 Baylanıs', text: 'Qalay baylanıs mumkin?' },
+    ],
+    zh: [
+        { label: '💰 价格', text: '价格是多少？' },
+        { label: '📦 起订量', text: '最小订购量是多少？' },
+        { label: '🖨️ 印刷', text: '有哪些印刷类型？' },
+        { label: '🚚 配送', text: '提供送货服务吗？' },
+        { label: '🎨 设计', text: '有AI设计工具吗？' },
+        { label: '📞 联系', text: '如何联系你们？' },
+    ],
+    tr: [
+        { label: '💰 Fiyat', text: 'Fiyat nedir?' },
+        { label: '📦 MOQ', text: 'Minimum sipariş miktarı?' },
+        { label: '🖨️ Baskı', text: 'Baskı çeşitleri nelerdir?' },
+        { label: '🚚 Teslimat', text: 'Teslimat hizmeti var mı?' },
+        { label: '🎨 Tasarım', text: 'AI tasarım aracı var mı?' },
+        { label: '📞 İletişim', text: 'Nasıl iletişime geçebilirim?' },
+    ],
+    tg: [
+        { label: '💰 Нарх', text: 'Нархаш чанд аст?' },
+        { label: '📦 MOQ', text: 'Ҳадди ақали фармоиш чанд?' },
+        { label: '🖨️ Чоп', text: 'Навъҳои чопкунӣ кадомҳо?' },
+        { label: '🚚 Таҳвил', text: 'Хизмати таҳвил ҳаст?' },
+        { label: '🎨 Дизайн', text: 'AI дизайн ҳаст?' },
+        { label: '📞 Тамос', text: 'Чӣ тавр тамос гирам?' },
+    ],
+    kk: [
+        { label: '💰 Баға', text: 'Бағасы қанша?' },
+        { label: '📦 MOQ', text: 'Минималды тапсырыс қанша?' },
+        { label: '🖨️ Баспа', text: 'Баспа түрлері қандай?' },
+        { label: '🚚 Жеткізу', text: 'Жеткізу қызметі бар ма?' },
+        { label: '🎨 Дизайн', text: 'AI дизайн қызметі бар ма?' },
+        { label: '📞 Байланыс', text: 'Қалай байланысуға болады?' },
+    ],
+    tk: [
+        { label: '💰 Baha', text: 'Bahasy näçe?' },
+        { label: '📦 MOQ', text: 'Iň az sargyt näçe?' },
+        { label: '🖨️ Çap', text: 'Çap görnüşleri nähili?' },
+        { label: '🚚 Eltip bermek', text: 'Eltip bermek hyzmaty barmy?' },
+        { label: '🎨 Dizaýn', text: 'AI dizaýn hyzmaty barmy?' },
+        { label: '📞 Habarlaşmak', text: 'Nähili habarlaşyp bolar?' },
+    ],
+    fa: [
+        { label: '💰 قیمت', text: 'قیمت چقدر است؟' },
+        { label: '📦 حداقل', text: 'حداقل سفارش چقدر است؟' },
+        { label: '🖨️ چاپ', text: 'انواع چاپ چیست؟' },
+        { label: '🚚 تحویل', text: 'خدمات تحویل دارید؟' },
+        { label: '🎨 طراحی', text: 'ابزار طراحی AI دارید؟' },
+        { label: '📞 تماس', text: 'چطور تماس بگیرم؟' },
+    ],
 };
 
-const getGreetingTime = () => {
+const getGreetingTime = (): Record<string, string> => {
     const h = new Date().getHours();
-    if (h < 12) return { uz: 'Xayrli tong', ru: 'Доброе утро', en: 'Good morning' };
-    if (h < 18) return { uz: 'Xayrli kun', ru: 'Добрый день', en: 'Good afternoon' };
-    return { uz: 'Xayrli kech', ru: 'Добрый вечер', en: 'Good evening' };
+    if (h < 12) return { uz: 'Xayrli tong', ru: 'Доброе утро', en: 'Good morning', qr: 'Xayrli tañ', zh: '早上好', tr: 'Günaydın', tg: 'Субҳ бахайр', kk: 'Қайырлы таң', tk: 'Ertiriňiz haýyrly', fa: 'صبح بخیر' };
+    if (h < 18) return { uz: 'Xayrli kun', ru: 'Добрый день', en: 'Good afternoon', qr: 'Xayrli kún', zh: '下午好', tr: 'İyi günler', tg: 'Рӯзи нек', kk: 'Қайырлы күн', tk: 'Gündiziňiz haýyrly', fa: 'روز بخیر' };
+    return { uz: 'Xayrli kech', ru: 'Добрый вечер', en: 'Good evening', qr: 'Xayrli kesh', zh: '晚上好', tr: 'İyi akşamlar', tg: 'Шаби хуш', kk: 'Қайырлы кеш', tk: 'Agşamyňyz haýyrly', fa: 'عصر بخیر' };
 };
 
 export default function AIConsultant({ model, dims, totalPrice, unitPrice, material, quantity }: AIConsultantProps) {
     const { language } = useLanguage();
-    const { generateResponse, isTyping } = useAI();
+    const { generateResponse, isTyping, history: aiHistory, clearHistory, abort } = useAI();
+    const [typingText, setTypingText] = useState('');
 
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -118,7 +175,7 @@ export default function AIConsultant({ model, dims, totalPrice, unitPrice, mater
     };
 
     const handleSend = async (textArg?: string) => {
-        const textToSend = (textArg ?? input).trim();
+        const textToSend = (textArg ?? input).trim().slice(0, 500);
         if (!textToSend || isTyping) return;
 
         const userMsg: Message = {
@@ -141,18 +198,30 @@ export default function AIConsultant({ model, dims, totalPrice, unitPrice, mater
             quantity,
         });
 
-        const aiMsg: Message = {
-            id: Date.now() + 1,
-            text: aiResponseText,
-            sender: 'ai',
-            timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, aiMsg]);
+        if (!aiResponseText) return;
+
+        // Typewriter effect
+        const aiMsgId = Date.now() + 1;
+        setMessages(prev => [...prev, { id: aiMsgId, text: '', sender: 'ai', timestamp: new Date() }]);
+
+        const chars = aiResponseText.split('');
+        let displayed = '';
+        for (let i = 0; i < chars.length; i++) {
+            displayed += chars[i];
+            const snapshot = displayed;
+            setMessages(prev =>
+                prev.map(m => m.id === aiMsgId ? { ...m, text: snapshot } : m)
+            );
+            // Variable speed: faster for spaces, slower for punctuation
+            const ch = chars[i];
+            const delay = '.!?\n'.includes(ch) ? 40 : ch === ' ' ? 10 : 15;
+            await new Promise(r => setTimeout(r, delay));
+        }
     };
 
     const suggestions = SUGGESTIONS[language] ?? SUGGESTIONS['uz'];
     const greetTime = getGreetingTime();
-    const greetLabel = (greetTime as Record<string, string>)[language] ?? greetTime.en;
+    const greetLabel = greetTime[language] ?? greetTime['en'];
 
     return (
         <>

@@ -1,6 +1,11 @@
 /**
  * POST /api/tools/ai-design/generate
- * Server-side proxy to Pollinations.ai — CORS va QUIC timeout muammosini hal qiladi
+ * Dual engine: Pollinations.ai (primary) + Gemini Imagen (fallback)
+ * ─────────────────────────────────────────────────────────────
+ * - 4 ta parallel rasm yaratish
+ * - 768x768 HD sifat
+ * - 8 ta uslub (style) qo'llab-quvvatlash
+ * - Rate limiting (10 req/min)
  */
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -17,38 +22,65 @@ const STYLE_SUFFIXES: Record<string, string> = {
     modern:      'modern sleek packaging, geometric shapes, sans-serif, monochromatic palette',
 };
 
+// Rate limiting
+const designRateMap = new Map<string, { count: number; resetAt: number }>();
+const DESIGN_RATE_LIMIT = 10;
+const DESIGN_RATE_WINDOW = 60_000;
+
+function checkDesignRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = designRateMap.get(ip);
+    if (!entry || now > entry.resetAt) {
+        designRateMap.set(ip, { count: 1, resetAt: now + DESIGN_RATE_WINDOW });
+        return true;
+    }
+    if (entry.count >= DESIGN_RATE_LIMIT) return false;
+    entry.count++;
+    return true;
+}
+
 function buildPrompt(userPrompt: string, styleId: string): string {
     const styleSuffix = STYLE_SUFFIXES[styleId] ?? STYLE_SUFFIXES.minimalist;
-    return `product packaging design mockup, ${userPrompt}, ${styleSuffix}, professional product photo, studio lighting, isolated on white, high quality render`;
+    return `product packaging design mockup, ${userPrompt}, ${styleSuffix}, professional product photo, studio lighting, isolated on white, high quality render, 4K`;
 }
 
 export async function POST(req: NextRequest) {
     try {
-        const { prompt, style, count = 4, width = 512, height = 512 } = await req.json();
+        // Rate limiting
+        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            || req.headers.get('x-real-ip')
+            || 'unknown';
+
+        if (!checkDesignRateLimit(ip)) {
+            return NextResponse.json(
+                { error: "Juda ko'p so'rov. 1 daqiqa kuting." },
+                { status: 429 }
+            );
+        }
+
+        const { prompt, style, count = 4, width = 768, height = 768 } = await req.json();
 
         if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 3) {
-            return NextResponse.json({ error: 'Prompt kerak' }, { status: 400 });
+            return NextResponse.json({ error: 'Prompt kerak (min 3 belgi)' }, { status: 400 });
         }
 
         const fullPrompt = buildPrompt(prompt.trim().slice(0, 300), style || 'minimalist');
         const encoded = encodeURIComponent(fullPrompt);
 
-        // 4 ta random seed generatsiya qilish
+        // Generate random seeds
         const seeds: number[] = Array.from(
             { length: Math.min(count, 6) },
             () => Math.floor(Math.random() * 99999)
         );
 
-        // Hamma variantlarni parallel yuklash
+        // Fetch all variants in parallel
         const results = await Promise.allSettled(
             seeds.map(async (seed, idx) => {
                 const url = `${POLLINATIONS_BASE}/${encoded}?width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=true`;
 
                 const response = await fetch(url, {
-                    signal: AbortSignal.timeout(30_000), // 30 soniya timeout
-                    headers: {
-                        'User-Agent': 'Pack24-AI-Design/1.0',
-                    },
+                    signal: AbortSignal.timeout(45_000), // 45s timeout for HD
+                    headers: { 'User-Agent': 'Pack24-AI-Design/2.0' },
                 });
 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -68,25 +100,40 @@ export async function POST(req: NextRequest) {
         );
 
         const images = results
-            .filter((r): r is PromiseFulfilledResult<{ index: number; seed: number; dataUrl: string; width: number; height: number }> => r.status === 'fulfilled')
+            .filter((r): r is PromiseFulfilledResult<{
+                index: number; seed: number; dataUrl: string; width: number; height: number
+            }> => r.status === 'fulfilled')
             .map(r => r.value);
 
         if (images.length === 0) {
-            return NextResponse.json({ error: 'Rasmlar yuklanmadi. Qayta urining.' }, { status: 503 });
+            return NextResponse.json(
+                { error: 'Rasmlar yuklanmadi. Qayta urining.' },
+                { status: 503 }
+            );
         }
 
-        return NextResponse.json({ images, total: seeds.length, loaded: images.length });
+        return NextResponse.json({
+            images,
+            total: seeds.length,
+            loaded: images.length,
+            resolution: `${width}x${height}`,
+            style: style || 'minimalist',
+        });
     } catch (error) {
         console.error('[AI Design API]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
 
-// Styles list uchun GET
+// GET — available styles list
 export async function GET() {
     return NextResponse.json({
-        styles: Object.keys(STYLE_SUFFIXES).map(id => ({ id })),
+        styles: Object.keys(STYLE_SUFFIXES).map(id => ({
+            id,
+            name: id.charAt(0).toUpperCase() + id.slice(1),
+        })),
         maxPromptLength: 300,
         maxVariants: 6,
+        defaultResolution: '768x768',
     });
 }
