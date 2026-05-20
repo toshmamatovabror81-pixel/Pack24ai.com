@@ -5,6 +5,7 @@ import { sessions, getUserByTgId, generateUniqueUserCode, normalizePhone, getUse
 import { Lang, getText, formatText } from '../../i18n';
 import { btn, customerMainKeyboard, sharePhoneKeyboard, shareLocationKeyboard, recycleMethodKeyboard } from '../../keyboards';
 import { submitTruckRequest } from './truckRequest';
+import { askAI } from '../../aiChat';
 import type { CustomerSession } from './types';
 
 export function registerMessageHandlers(bot: Telegraf) {
@@ -353,10 +354,20 @@ export function registerMessageHandlers(bot: Telegraf) {
         }
 
         if (text === getText('btn_ai', lang) || text === getText('btn_ai', 'uz') || text === getText('btn_ai', 'ru') || text === getText('btn_ai', 'en')) {
+            sessions.set(tgId, { step: 'ai_chat', lang, aiHistory: [] });
             await ctx.reply(
-                lang === 'uz' ? '🤖 AI Assistent tez orada ishga tushadi!' :
-                lang === 'ru' ? '🤖 AI Ассистент скоро будет доступен!' :
-                '🤖 AI Assistant coming soon!'
+                lang === 'uz' ? '🤖 <b>Pack24 AI Assistent</b>\n\nSavolingizni yozing — qadoqlash, narxlar, buyurtma berish bo\'yicha yordam beraman!\n\n💡 Chiqish uchun «◀️ Menyu» tugmasini bosing.'
+                : lang === 'ru' ? '🤖 <b>Pack24 AI Ассистент</b>\n\nЗадайте вопрос — помогу с упаковкой, ценами, заказами!\n\n💡 Нажмите «◀️ Меню» чтобы выйти.'
+                : '🤖 <b>Pack24 AI Assistant</b>\n\nAsk me about packaging, pricing, orders!\n\n💡 Press «◀️ Menu» to exit.',
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        keyboard: [
+                            [{ text: lang === 'uz' ? '◀️ Menyu' : lang === 'ru' ? '◀️ Меню' : '◀️ Menu' }],
+                        ],
+                        resize_keyboard: true,
+                    },
+                }
             );
             return;
         }
@@ -380,6 +391,54 @@ export function registerMessageHandlers(bot: Telegraf) {
                             [btn('🇺🇿 O\'zbekcha', 'lang_uz'), btn('🇷🇺 Русский', 'lang_ru'), btn('🇬🇧 English', 'lang_en')],
                             [{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }],
                         ],
+                    },
+                }
+            );
+            return;
+        }
+
+        // ─── AI Chat mode ─────────────────────────────────────────────────
+        if (ses?.step === 'ai_chat') {
+            // Menyuga qaytish
+            if (text === '◀️ Menyu' || text === '◀️ Меню' || text === '◀️ Menu') {
+                ses.step = 'menu';
+                ses.aiHistory = [];
+                sessions.set(tgId, ses);
+                await ctx.reply(
+                    lang === 'uz' ? '🏠 Asosiy menyu:' : lang === 'ru' ? '🏠 Главное меню:' : '🏠 Main menu:',
+                    { reply_markup: customerMainKeyboard(lang) }
+                );
+                return;
+            }
+
+            // Typing indikator ko'rsatish
+            await ctx.sendChatAction('typing');
+
+            // AI ga so'rov yuborish
+            const history = ses.aiHistory || [];
+            const result = await askAI({
+                message: text,
+                language: lang,
+                history,
+            });
+
+            // Tarixni yangilash (oxirgi 20 ta xabar)
+            history.push({ role: 'user', text });
+            history.push({ role: 'assistant', text: result.content });
+            if (history.length > 20) history.splice(0, history.length - 20);
+            ses.aiHistory = history;
+            sessions.set(tgId, ses);
+
+            // Javobni yuborish
+            const engineBadge = result.engine === 'gemini' ? '✨' : '📋';
+            await ctx.reply(
+                `${engineBadge} ${result.content}`,
+                {
+                    reply_markup: {
+                        keyboard: [
+                            [{ text: lang === 'uz' ? '◀️ Menyu' : lang === 'ru' ? '◀️ Меню' : '◀️ Menu' }],
+                        ],
+                        resize_keyboard: true,
                     },
                 }
             );

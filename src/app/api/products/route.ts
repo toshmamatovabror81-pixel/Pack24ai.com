@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         const where: Prisma.ProductWhereInput = {};
 
         if (category && category !== 'all') where.category = category;
-        if (status   && status   !== 'all') where.status   = status;
+        if (status   && status   !== 'all') where.status   = status as any;
         if (search)                          where.name     = { contains: search, mode: 'insensitive' };
 
         const products = await prisma.product.findMany({

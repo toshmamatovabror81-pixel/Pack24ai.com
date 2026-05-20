@@ -9,7 +9,7 @@
  * - Soatlik faollik grafigi
  */
 import { NextResponse } from 'next/server';
-import { getAnalyticsData } from '../chat/route';
+import { getAnalyticsData } from '@/lib/ai-analytics';
 
 export async function GET() {
     const entries = getAnalyticsData();

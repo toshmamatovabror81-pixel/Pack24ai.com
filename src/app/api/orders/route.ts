@@ -201,6 +201,55 @@ export async function POST(req: NextRequest) {
                 console.error('[POST /api/orders] side effect failed', result.reason);
             }
         }
+        // ── Korporativ buyurtma → avtomatik faktura ────────────────────
+        if (order.userId) {
+            try {
+                const activeContract = await prisma.contract.findFirst({
+                    where: {
+                        userId: order.userId,
+                        status: 'active',
+                    },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                if (activeContract) {
+                    const subtotal = order.totalAmount;
+                    const vatPercent = 12;
+                    const vatAmount = Math.round(subtotal * vatPercent / 100);
+                    const totalWithVat = subtotal + vatAmount;
+                    const dueDate = new Date();
+                    dueDate.setDate(dueDate.getDate() + activeContract.paymentTermDays);
+
+                    // Faktura raqami generatsiya
+                    const year = new Date().getFullYear();
+                    const lastInvoice = await prisma.corporateInvoice.findFirst({
+                        where: { invoiceNo: { startsWith: `INV-${year}-` } },
+                        orderBy: { invoiceNo: 'desc' },
+                    });
+                    const nextNum = lastInvoice
+                        ? String(parseInt(lastInvoice.invoiceNo.split('-').pop() || '0') + 1).padStart(4, '0')
+                        : '0001';
+
+                    await prisma.corporateInvoice.create({
+                        data: {
+                            invoiceNo: `INV-${year}-${nextNum}`,
+                            contractId: activeContract.id,
+                            orderId: order.id,
+                            subtotal,
+                            vatPercent,
+                            vatAmount,
+                            totalAmount: totalWithVat,
+                            dueDate,
+                            status: 'issued',
+                        },
+                    });
+
+                    console.log(`[Orders] Auto-invoice INV-${year}-${nextNum} yaratildi → buyurtma #${order.id}`);
+                }
+            } catch (invoiceErr) {
+                console.error('[Orders] Auto-invoice xatosi:', invoiceErr);
+            }
+        }
 
         return NextResponse.json(order);
     } catch (error) {

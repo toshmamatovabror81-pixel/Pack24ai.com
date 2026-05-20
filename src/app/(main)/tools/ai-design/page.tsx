@@ -391,7 +391,7 @@ export default function AIDesignPage() {
                             <span className="text-lg font-black text-cyan-400">{formatPrice(totalPrice)}</span>
                         </div>
                         <button
-                            onClick={() => model.downloadPDF(dims, t_local)}
+                            onClick={() => model.downloadPDF(dims, t_local as any)}
                             className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg font-bold text-xs transition-all duration-200 flex items-center justify-center gap-1.5"
                         >
                             <Download size={14} /> {t_local('PDF chizmani yuklash', 'Скачать PDF чертеж')}
@@ -454,7 +454,7 @@ export default function AIDesignPage() {
                     <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
                         {selectedCat === 'box' ? (
                             <div className="w-full h-full max-w-[300px] max-h-[300px] border border-dashed border-white/10 rounded-xl bg-white/[0.02] p-4 flex items-center justify-center">
-                                <ActiveLayout2D dimensions={dims} material={material} foldProgress={fold} t={t_local} />
+                                <ActiveLayout2D dimensions={dims} material={material} foldProgress={fold} t={t_local as any} />
                             </div>
                         ) : selectedCat === 'pouch' ? (
                             <div className="w-full h-full flex items-center justify-center p-4">
@@ -498,7 +498,7 @@ export default function AIDesignPage() {
                                     <line x1="155" y1="30" x2="155" y2="210" stroke="#666" strokeWidth="1" />
                                     <line x1="150" y1="30" x2="160" y2="30" stroke="#666" strokeWidth="1" />
                                     <line x1="150" y1="210" x2="160" y2="210" stroke="#666" strokeWidth="1" />
-                                    <text x="165" y="125" textAnchor="left" fontSize="10" fill="#666" transform="rotate(90,165,125)">H: {bottleDims.height}mm</text>
+                                    <text x="165" y="125" textAnchor="start" fontSize="10" fill="#666" transform="rotate(90,165,125)">H: {bottleDims.height}mm</text>
                                     
                                     <text x="100" y="250" textAnchor="middle" fontSize="10" fill="#aaa">Shisha Profili (Technical)</text>
                                 </svg>
@@ -519,7 +519,7 @@ export default function AIDesignPage() {
                                     <line x1="160" y1="30" x2="160" y2="160" stroke="#666" strokeWidth="1" />
                                     <line x1="155" y1="30" x2="165" y2="30" stroke="#666" strokeWidth="1" />
                                     <line x1="155" y1="160" x2="165" y2="160" stroke="#666" strokeWidth="1" />
-                                    <text x="170" y="100" textAnchor="left" fontSize="10" fill="#666" transform="rotate(90,170,100)">H: {bottleDims.height}mm</text>
+                                    <text x="170" y="100" textAnchor="start" fontSize="10" fill="#666" transform="rotate(90,170,100)">H: {bottleDims.height}mm</text>
                                     
                                     <text x="100" y="190" textAnchor="middle" fontSize="10" fill="#aaa">Banka Profili (Technical)</text>
                                 </svg>

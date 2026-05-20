@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     try {
         const tasks = await prisma.recycleRequest.findMany({
             where: {
-                driverId: auth.driverId,
+                assignedDriverId: auth.driverId,
                 status: { in: [RecycleRequestStatus.assigned, RecycleRequestStatus.en_route, RecycleRequestStatus.arrived, RecycleRequestStatus.collecting] },
             },
             include: {

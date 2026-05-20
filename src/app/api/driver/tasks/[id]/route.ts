@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             where: { id: taskId },
             include: {
                 point: true,
-                customer: { select: { id: true, name: true, phone: true } },
+                user: { select: { id: true, name: true, phone: true } },
             }
         });
 

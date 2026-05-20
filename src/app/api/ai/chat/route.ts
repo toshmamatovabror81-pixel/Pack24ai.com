@@ -59,35 +59,8 @@ if (typeof globalThis !== 'undefined') {
     setInterval(cleanup, 300_000);
 }
 
-// ─── Analytics Tracker (in-memory) ───────────────────────────
-interface AnalyticsEntry {
-    timestamp: number;
-    language: string;
-    engine: 'gemini' | 'legacy';
-    responseTimeMs: number;
-    messageLength: number;
-}
-
-// Global analytics store (survives HMR in dev)
-const globalAnalytics = globalThis as unknown as {
-    __aiAnalytics?: AnalyticsEntry[];
-};
-if (!globalAnalytics.__aiAnalytics) {
-    globalAnalytics.__aiAnalytics = [];
-}
-
-function trackAnalytics(entry: AnalyticsEntry) {
-    const store = globalAnalytics.__aiAnalytics!;
-    store.push(entry);
-    // Keep only last 1000 entries to prevent memory bloat
-    if (store.length > 1000) {
-        globalAnalytics.__aiAnalytics = store.slice(-500);
-    }
-}
-
-export function getAnalyticsData() {
-    return globalAnalytics.__aiAnalytics ?? [];
-}
+// ─── Analytics Tracker (shared module) ───────────────────────
+import { trackAnalytics } from '@/lib/ai-analytics';
 
 // ─── System Prompt Builder ───────────────────────────────────
 function buildSystemPrompt(lang: string, ctx?: ChatRequest['context']): string {

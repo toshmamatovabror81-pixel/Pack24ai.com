@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
         if (entityType && entityType !== 'all') where.entityType = entityType;
         if (entityId) where.entityId = entityId;
         if (severity && severity !== 'all') where.severity = severity;
-        if (status && status !== 'all') where.status = status;
+        if (status && status !== 'all') where.status = status as any;
         if (q) {
             where.OR = [
                 { title: { contains: q, mode: 'insensitive' } },

@@ -155,7 +155,30 @@ export default function LogisticsMap() {
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30000);
-        return () => clearInterval(interval);
+
+        // ── SSE: Real-time GPS yangilanish ──────────────────────────
+        let sseCleanup: (() => void) | null = null;
+        try {
+            const evtSource = new EventSource('/api/admin/sse');
+            evtSource.onmessage = (ev) => {
+                try {
+                    const data = JSON.parse(ev.data);
+                    if (data.type === 'driver.gps_update') {
+                        // GPS yangilanganda — darhol ma'lumot yangilash
+                        fetchData();
+                    }
+                } catch { /* parse xatosi — e'tiborsiz */ }
+            };
+            evtSource.onerror = () => {
+                evtSource.close();
+            };
+            sseCleanup = () => evtSource.close();
+        } catch { /* SSE qo'llanilmaydi */ }
+
+        return () => {
+            clearInterval(interval);
+            sseCleanup?.();
+        };
     }, [fetchData]);
 
     // GPS'li elementlar
@@ -177,14 +200,14 @@ export default function LogisticsMap() {
     }, [points]);
 
     // Eng yaqin bazani topish
-    const findNearestPoint = useCallback((lat: number, lng: number) => {
+    const findNearestPoint = useCallback((lat: number, lng: number): { point: RecyclePointGeo; distance: number } | null => {
         let nearest: RecyclePointGeo | null = null;
         let minDist = Infinity;
         pointsWithGPS.forEach(p => {
             const dist = haversineKm(lat, lng, p.lat!, p.lng!);
             if (dist < minDist) { minDist = dist; nearest = p; }
         });
-        return nearest ? { point: nearest, distance: minDist } : null;
+        return nearest ? { point: nearest as RecyclePointGeo, distance: minDist } : null;
     }, [pointsWithGPS]);
 
     // Haydovchi → Baza chiziqlari
@@ -278,7 +301,7 @@ export default function LogisticsMap() {
                                     backgroundColor: isSelected ? hex + '20' : '#f9fafb',
                                     borderColor: isSelected ? hex : '#e5e7eb',
                                     color: isSelected ? hex : '#6b7280',
-                                    ringColor: hex,
+                                    outlineColor: hex,
                                 }}
                             >
                                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: hex }} />

@@ -41,14 +41,13 @@ export async function POST(req: NextRequest) {
                     data: {
                         requestId: Number(requestId),
                         driverId: Number(driverId),
-                        pointId: request.regionId,
                         actualWeight,
                         discountPercent: discountPercent || 0,
+                        effectiveWeight: effWeight,
                         pricePerKg: pKg,
                         totalAmount,
                         notes: notes || null,
                         paymentStatus: 'pending',
-                        status: 'completed',
                     },
                 });
 

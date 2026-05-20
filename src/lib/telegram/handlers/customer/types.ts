@@ -13,7 +13,7 @@ export const MAT: Record<string, { label: Record<Lang, string>; emoji: string; p
 
 // ─── Session types ────────────────────────────────────────────────────────────
 export interface CustomerSession {
-    step: 'lang' | 'reg_phone' | 'reg_otp' | 'reg_name' | 'menu' | 'location' | 'choose_method' | 'volume' | 'photo' | 'done';
+    step: 'lang' | 'reg_phone' | 'reg_otp' | 'reg_name' | 'menu' | 'location' | 'choose_method' | 'volume' | 'photo' | 'done' | 'ai_chat';
     lang: Lang;
     name?: string;
     phone?: string;
@@ -24,6 +24,7 @@ export interface CustomerSession {
     lng?: number;
     pickupType?: 'base' | 'pickup';
     volumeSize?: string;
+    aiHistory?: { role: 'user' | 'assistant'; text: string }[];
 }
 
 export const fmtN = (n: number) => n.toLocaleString('ru-RU');

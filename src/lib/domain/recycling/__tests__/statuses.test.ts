@@ -2,30 +2,31 @@ import {
     canTransitionRecycleRequestStatus,
     isRecycleCollectionPaymentStatus,
 } from '@/lib/domain/recycling/statuses';
+import { RecycleRequestStatus } from '@prisma/client';
 
 describe('recycling statuses', () => {
-    it('new dan assigned ga o‘tishga ruxsat beradi', () => {
-        expect(canTransitionRecycleRequestStatus('new', 'assigned')).toBe(true);
+    it('new dan assigned ga otishga ruxsat beradi', () => {
+        expect(canTransitionRecycleRequestStatus(RecycleRequestStatus.new_, RecycleRequestStatus.assigned)).toBe(true);
     });
 
-    it('assigned dan collected ga to‘g‘ridan-to‘g‘ri o‘tishga ruxsat bermaydi', () => {
-        expect(canTransitionRecycleRequestStatus('assigned', 'collected')).toBe(false);
+    it('assigned dan collected ga toggridan-toggri otishga ruxsat bermaydi', () => {
+        expect(canTransitionRecycleRequestStatus(RecycleRequestStatus.assigned, RecycleRequestStatus.collected)).toBe(false);
     });
 
-    it('collecting dan collected ga o‘tishga ruxsat beradi', () => {
-        expect(canTransitionRecycleRequestStatus('collecting', 'collected')).toBe(true);
+    it('collecting dan collected ga otishga ruxsat beradi', () => {
+        expect(canTransitionRecycleRequestStatus(RecycleRequestStatus.collecting, RecycleRequestStatus.collected)).toBe(true);
     });
 
-    it('completed dan boshqa statusga o‘tishga ruxsat bermaydi', () => {
-        expect(canTransitionRecycleRequestStatus('completed', 'cancelled')).toBe(false);
+    it('completed dan boshqa statusga otishga ruxsat bermaydi', () => {
+        expect(canTransitionRecycleRequestStatus(RecycleRequestStatus.completed, RecycleRequestStatus.cancelled)).toBe(false);
     });
 
-    it('to‘g‘ri payment statusni taniydi', () => {
+    it('toggri payment statusni taniydi', () => {
         expect(isRecycleCollectionPaymentStatus('pending')).toBe(true);
         expect(isRecycleCollectionPaymentStatus('paid_both')).toBe(true);
     });
 
-    it('noto‘g‘ri payment statusni rad etadi', () => {
+    it('notoggri payment statusni rad etadi', () => {
         expect(isRecycleCollectionPaymentStatus('paid')).toBe(false);
         expect(isRecycleCollectionPaymentStatus('unknown')).toBe(false);
     });
