@@ -7,9 +7,9 @@ import {
 } from './keyboards';
 import { applyBotDefaults } from './botInit';
 import { getAdminBotToken } from './botTokens';
-import { registerAdminCallbackHandler } from './adminBot.callback';
+import { registerAdminCallbackHandler } from './handlers/admin/callbacks';
 import { registerAdminContactHandler } from './adminBot.contact';
-import { registerAdminTextHandler } from './adminBot.text';
+import { registerAdminTextHandler } from './handlers/admin/text';
 
 let adminBotInstance: Telegraf | null = null;
 

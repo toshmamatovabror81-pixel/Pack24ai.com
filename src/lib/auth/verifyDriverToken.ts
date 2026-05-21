@@ -8,10 +8,7 @@
  */
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
-
-function getTokenSecret(): string {
-    return process.env.ADMIN_SECRET || 'pack24-driver-secret';
-}
+import { getDriverTokenSecret } from '@/lib/auth/tokenSecrets';
 
 type DriverTokenPayload = {
     driverId: number;
@@ -58,7 +55,7 @@ export async function verifyDriverToken(authHeader: string | null): Promise<Veri
     }
 
     const expectedHmac = crypto
-        .createHmac('sha256', getTokenSecret())
+        .createHmac('sha256', getDriverTokenSecret())
         .update(payloadStr)
         .digest('hex');
 

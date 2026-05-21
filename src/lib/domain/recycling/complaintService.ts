@@ -56,7 +56,7 @@ export async function createComplaint(data: {
         message: `${complaint.fromName} ariza #${complaint.requestId} bo'yicha shikoyat qoldirdi.`,
         requestId: complaint.requestId,
         supervisorId: complaint.request.supervisorId ?? undefined,
-        pointId: complaint.request.point?.id ?? complaint.request.regionId,
+        pointId: complaint.request.point?.id ?? complaint.request.pointId,
         payload: {
             level: complaint.level,
             message: complaint.message,
@@ -127,7 +127,7 @@ export async function updateComplaint(data: {
         message: `Shikoyat #${complaint.id} holati ${data.status || complaint.status} ga o'zgartirildi.`,
         requestId: complaint.requestId,
         supervisorId: complaint.request.supervisorId ?? undefined,
-        pointId: complaint.request.regionId,
+        pointId: complaint.request.pointId,
         payload: {
             status: data.status || complaint.status,
             response: data.response || null,

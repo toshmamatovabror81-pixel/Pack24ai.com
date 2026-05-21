@@ -71,7 +71,7 @@ export async function updateRecycleRequest(
             requestId: req.id,
             driverId: req.assignedDriverId ?? undefined,
             supervisorId: req.supervisorId ?? undefined,
-            pointId: req.regionId,
+            pointId: req.pointId,
             payload: {
                 status: data.status,
                 completedNote: data.completedNote ?? null,

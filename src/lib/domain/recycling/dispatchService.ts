@@ -131,7 +131,7 @@ export async function dispatchToSupervisor(requestId: number, supervisorId: numb
         status: updated.status,
         supervisorId: updated.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
     });
 
     return updated;
@@ -180,7 +180,7 @@ export async function assignDriver(requestId: number, driverId: number) {
         status: updated.status,
         supervisorId: updated.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
     });
     return updated;
 }
@@ -221,7 +221,7 @@ export async function driverEnRoute(requestId: number) {
         status: updated.status,
         supervisorId: request.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
     });
     return updated;
 }
@@ -264,7 +264,7 @@ export async function driverArrived(requestId: number) {
         status: updated.status,
         supervisorId: request.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: request.regionId,
+        pointId: request.pointId,
     });
     return updated;
 }
@@ -280,7 +280,7 @@ export async function startCollecting(requestId: number) {
         status: updated.status,
         supervisorId: updated.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
     });
     return updated;
 }
@@ -327,7 +327,7 @@ export async function markCompleted(requestId: number, note?: string) {
         status: updated.status,
         supervisorId: updated.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
         note,
     });
 
@@ -368,7 +368,7 @@ export async function cancelRequest(requestId: number, note?: string) {
         status: updated.status,
         supervisorId: updated.supervisorId,
         driverId: updated.assignedDriverId,
-        pointId: updated.regionId,
+        pointId: updated.pointId,
         note,
     });
     return updated;

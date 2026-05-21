@@ -270,7 +270,7 @@ export default function RecyclingPage() {
                 body: JSON.stringify({
                     name: form.name,
                     phone: form.phone,
-                    regionId: Number(selectedRegion),
+                    pointId: Number(selectedRegion),
                     material: form.material || null,
                     volume: form.volume ? Number(form.volume) : null,
                     pickupType: form.pickup,

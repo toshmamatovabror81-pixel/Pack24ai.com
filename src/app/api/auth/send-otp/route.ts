@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyCustomer } from '@/lib/telegram/notifier';
+import { rateLimit } from '@/lib/rateLimit';
 
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_ATTEMPTS_PER_WINDOW = 3;
@@ -24,6 +25,14 @@ function normalizePhone(phone: string): string {
 
 export async function POST(request: Request) {
     try {
+        // IP-level qatlam (DB-level rate limit pastda saqlanadi)
+        const ipRl = await rateLimit(request, {
+            bucket: 'send-otp',
+            limit: 5,
+            windowMs: 5 * 60_000,
+        });
+        if (!ipRl.ok) return ipRl.response;
+
         const body = await request.json();
         const { phone } = body as { phone?: string };
 

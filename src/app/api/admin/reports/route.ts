@@ -5,11 +5,19 @@ import {
     buildReportsDateRange,
     calculateOrderSummaries,
 } from '@/lib/domain/admin/reports';
+import { getRouteCache, setRouteCache, routeCacheTtl } from '@/lib/cache/routeCache';
 
 // ─── GET /api/admin/reports — Analitika va hisobotlar ────────────────────────
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
+        const cacheKey = `admin-reports:${searchParams.toString()}`;
+        const cached = getRouteCache<Record<string, unknown>>(cacheKey);
+        if (cached) {
+            return NextResponse.json(cached, {
+                headers: { 'X-Cache': 'HIT' },
+            });
+        }
         const fromParam = searchParams.get('from');
         const toParam = searchParams.get('to');
         const {
@@ -384,7 +392,7 @@ export async function GET(req: NextRequest) {
             peakHour = hourData?.[0]?.hour ?? 0;
         } catch { /* ignore */ }
 
-        return NextResponse.json({
+        const responseBody = {
             summary: {
                 totalOrders,
                 newOrders,
@@ -419,7 +427,9 @@ export async function GET(req: NextRequest) {
                 topSupervisors,
             },
             period: days,
-        });
+        };
+        setRouteCache(cacheKey, responseBody, routeCacheTtl(90_000));
+        return NextResponse.json(responseBody, { headers: { 'X-Cache': 'MISS' } });
     } catch (error) {
         if (error instanceof Error && error.message === 'INVALID_FROM') {
             return NextResponse.json({ error: 'Noto\'g\'ri from sana' }, { status: 400 });

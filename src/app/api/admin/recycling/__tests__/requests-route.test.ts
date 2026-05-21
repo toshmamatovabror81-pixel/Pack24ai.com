@@ -24,7 +24,7 @@ describe('PUT /api/admin/recycling/requests/[id]', () => {
             id: 44,
             assignedDriverId: 7,
             supervisorId: 5,
-            regionId: 3,
+            pointId: 3,
             point: null,
             supervisor: null,
             assignedDriver: null,

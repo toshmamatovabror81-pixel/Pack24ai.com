@@ -69,7 +69,7 @@ describe('POST /api/admin/recycling/dispatch', () => {
             address: 'Yunusobod 4',
             material: 'Qog\'oz',
             volume: 20,
-            regionId: 9,
+            pointId: 9,
         });
         supervisorFindUniqueMock.mockResolvedValue({
             id: 4,
@@ -81,7 +81,7 @@ describe('POST /api/admin/recycling/dispatch', () => {
             supervisorId: 4,
             assignedDriverId: null,
             status: 'dispatched',
-            regionId: 9,
+            pointId: 9,
         });
 
         const response = await POST(new Request('http://localhost/api/admin/recycling/dispatch', {
@@ -115,14 +115,14 @@ describe('POST /api/admin/recycling/dispatch', () => {
             customerTgId: '123456',
             assignedDriverId: 5,
             supervisorId: 2,
-            regionId: 11,
+            pointId: 11,
         });
         recycleRequestUpdateMock.mockResolvedValue({
             id: 18,
             status: 'cancelled',
             assignedDriverId: 5,
             supervisorId: 2,
-            regionId: 11,
+            pointId: 11,
         });
 
         const response = await POST(new Request('http://localhost/api/admin/recycling/dispatch', {

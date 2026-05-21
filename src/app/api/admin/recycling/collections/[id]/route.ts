@@ -38,7 +38,7 @@ async function publishCollectionEvent(params: {
         id: number;
         requestId: number;
         driverId: number;
-        request: { supervisorId: number | null; regionId: number | null };
+        request: { supervisorId: number | null; pointId: number | null };
     };
     payload: Record<string, unknown>;
 }) {
@@ -54,7 +54,7 @@ async function publishCollectionEvent(params: {
         collectionId: params.existing.id,
         driverId: params.existing.driverId,
         supervisorId: params.existing.request.supervisorId ?? undefined,
-        pointId: params.existing.request.regionId ?? undefined,
+        pointId: params.existing.request.pointId ?? undefined,
         payload: params.payload as Prisma.InputJsonValue,
         notifyAdmins: false,
     });

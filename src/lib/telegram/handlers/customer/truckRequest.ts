@@ -49,7 +49,7 @@ export async function submitTruckRequest(
         data: {
             name: ses.name || ctx.from!.first_name || 'Nomalum',
             phone: ses.phone || '',
-            regionId: nearestPoint.id,
+            pointId: nearestPoint.id,
             pickupType: 'pickup',
             pickupLat: ses.lat || null,
             pickupLng: ses.lng || null,

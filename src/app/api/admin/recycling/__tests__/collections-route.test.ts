@@ -46,7 +46,7 @@ describe('PUT /api/admin/recycling/collections/[id]', () => {
             request: {
                 id: 11,
                 supervisorId: 2,
-                regionId: 9,
+                pointId: 9,
                 customerTgId: '1001',
             },
             driver: {

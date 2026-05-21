@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ export async function getStaff(filters: StaffFilters = {}) {
     };
 
     if (department) where.department = department;
-    if (role) where.role = role;
+    if (role) where.role = role as Prisma.UserWhereInput['role'];
     if (isActive !== undefined) where.isActive = isActive;
     if (search) {
         where.OR = [
@@ -126,7 +127,7 @@ export async function createStaff(data: {
             name: data.name,
             phone: data.phone,
             email: data.email || null,
-            role: data.role || 'staff',
+            role: (data.role as UserRole | undefined) ?? UserRole.staff,
             department: data.department || null,
             position: data.position || null,
             passwordHash,
@@ -153,7 +154,7 @@ export async function updateStaff(id: number, data: {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.email !== undefined) updateData.email = data.email;
-    if (data.role !== undefined) updateData.role = data.role;
+    if (data.role !== undefined) updateData.role = data.role as UserRole;
     if (data.department !== undefined) updateData.department = data.department;
     if (data.position !== undefined) updateData.position = data.position;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;

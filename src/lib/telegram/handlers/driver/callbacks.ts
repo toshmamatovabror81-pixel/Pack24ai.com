@@ -53,7 +53,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} ni qabul qildi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.point?.id ?? request.regionId,
+                    pointId: request.point?.id ?? request.pointId,
                 });
 
                 await ctx.answerCbQuery('✅');
@@ -105,7 +105,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} ni rad etdi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.point?.id ?? request.regionId,
+                    pointId: request.point?.id ?? request.pointId,
                 });
 
                 await ctx.answerCbQuery('❌');
@@ -146,7 +146,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} uchun yo'lga chiqdi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.regionId,
+                    pointId: request.pointId,
                 });
 
                 await ctx.answerCbQuery('🚚');
@@ -191,7 +191,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} joyiga yetib keldi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.regionId,
+                    pointId: request.pointId,
                 });
 
                 await ctx.answerCbQuery('📍');
@@ -274,7 +274,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     requestId: reqId,
                     collectionId: collection.id,
                     driverId: driver.id,
-                    pointId: request.point?.id ?? request.regionId,
+                    pointId: request.point?.id ?? request.pointId,
                     payload: {
                         actualWeight: ses.weight,
                         discountPercent: discount,
@@ -365,7 +365,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} ni qo'lda yakunladi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.regionId,
+                    pointId: request.pointId,
                 });
 
                 await ctx.answerCbQuery('✅');
@@ -401,7 +401,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                     message: `${driver.name} ariza #${reqId} ni bekor qildi.`,
                     requestId: reqId,
                     driverId: driver.id,
-                    pointId: request.regionId,
+                    pointId: request.pointId,
                 });
 
                 await ctx.answerCbQuery('🚫');

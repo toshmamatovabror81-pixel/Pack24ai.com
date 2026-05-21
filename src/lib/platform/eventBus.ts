@@ -78,6 +78,10 @@ class EventBus {
      * har 10 soniyada BotEvent jadvalini tekshiradi
      */
     private startDBPolling(): void {
+        const pollMs =
+            process.env.NODE_ENV === 'development'
+                ? 30_000
+                : 10_000;
         this.pollTimer = setInterval(async () => {
             if (this.clients.size === 0) return;
 
@@ -118,7 +122,7 @@ class EventBus {
             } catch {
                 // DB ulanish xatosi — o'tkazib yuborish, keyingi intervalda qayta urinish
             }
-        }, 10_000); // 10 soniyada bir
+        }, pollMs);
     }
 }
 

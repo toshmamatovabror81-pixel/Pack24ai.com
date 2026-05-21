@@ -1,0 +1,24 @@
+# Gitleaks konfiguratsiyasi — sirlar skani uchun
+# Hujjat: https://github.com/gitleaks/gitleaks
+
+title = "Pack24-web gitleaks config"
+
+[extend]
+useDefault = true
+
+# Audit hujjatlarida `xxx-secret-xxx` namuna sifatida ishlatilgan satrlarni qabul qilamiz
+[allowlist]
+description = "Allowlist for known safe patterns"
+paths = [
+  '''docs/security-action-required\.md''',
+  '''docs/schema-audit-2026\.md''',
+  '''\.env\.example''',
+  '''README\.md''',
+]
+regexes = [
+  '''your-32-char-random-secret-here''',
+  '''your-strong-admin-password''',
+  '''your-32-char-hmac-secret-here''',
+  '''your-32-char-driver-secret-here''',
+  '''ci-dummy-.*-secret''',
+]

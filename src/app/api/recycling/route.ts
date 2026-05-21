@@ -90,7 +90,9 @@ export async function POST(request: Request) {
         if (!PHONE_REGEX.test(body.phone.replace(/\s/g, ''))) {
             return NextResponse.json({ error: '+998XXXXXXXXX formatida kiriting' }, { status: 400 });
         }
-        if (!body.regionId) {
+        // P2.5: yangi nom `pointId`, eski klient `regionId` ham qabul qilinadi
+        const rawPointId = body.pointId ?? body.regionId;
+        if (!rawPointId) {
             return NextResponse.json({ error: 'Viloyatni tanlang' }, { status: 400 });
         }
 
@@ -101,11 +103,11 @@ export async function POST(request: Request) {
         }
 
         // ─── DB ga yozish ─────────────────────────────────────────────────
-        const regionId = Number(body.regionId);
+        const pointId = Number(rawPointId);
 
         // Nuqtani VA uning masul shaxsini bir vaqtda olish
         const point = await prisma.recyclePoint.findUnique({
-            where: { id: regionId },
+            where: { id: pointId },
             include: {
                 supervisors: {
                     where: { isActive: true },
@@ -122,7 +124,7 @@ export async function POST(request: Request) {
             data: {
                 name:              body.name.trim(),
                 phone:             body.phone.trim(),
-                regionId,
+                pointId,
                 material:          body.material || null,
                 volume:            body.volume ? Number(body.volume) : null,
                 pickupType,
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
             message: `${req.name} tomonidan yangi ariza #${req.id} yaratildi.`,
             requestId: req.id,
             supervisorId: supervisor?.id ?? undefined,
-            pointId: regionId,
+            pointId,
             userId: Number.isFinite(userId) ? userId : undefined,
             payload: {
                 pickupType,
@@ -184,7 +186,7 @@ export async function POST(request: Request) {
             `♻️ <b>Yangi Makulatura So'rovi #${req.id}</b>\n\n` +
             `👤 Mijoz: <b>${req.name}</b>\n` +
             `📞 Telefon: <a href="tel:${req.phone}">${req.phone}</a>\n` +
-            `📍 Viloyat: ${point?.regionUz ?? regionId}\n` +
+            `📍 Viloyat: ${point?.regionUz ?? pointId}\n` +
             `🚚 Usul: ${pickupLabel}\n` +
             addressLine + volumeLine + materialLine;
 
@@ -213,14 +215,14 @@ export async function POST(request: Request) {
                 // Admin chatiga qisqa log
                 await notifySalesChats(
                     `✅ Ariza <b>#${req.id}</b> → <b>${supervisor.name}</b> ga avtomatik yo'naltirildi\n` +
-                    `📍 ${point?.regionUz ?? regionId} | ${pickupLabel}`
+                    `📍 ${point?.regionUz ?? pointId} | ${pickupLabel}`
                 );
             } else {
                 // ══ FALLBACK: Supervisor yo'q — barchasi admin chatga ══
                 const adminMsg =
                     baseMsg +
                     `\n─────────────────────\n` +
-                    `⚠️ <b>${point?.regionUz ?? regionId}</b> uchun masul shaxs biriktirilmagan!\n` +
+                    `⚠️ <b>${point?.regionUz ?? pointId}</b> uchun masul shaxs biriktirilmagan!\n` +
                     `Admin paneldan qo'lda yo'naltiring.`;
 
                 await notifySalesChats(adminMsg);

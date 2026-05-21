@@ -7,6 +7,7 @@
  */
 import { NextResponse } from 'next/server';
 import { KNOWLEDGE_BASE, FALLBACK_RESPONSES } from '@/lib/ai-knowledge';
+import { rateLimit } from '@/lib/rateLimit';
 
 // ─── Types ────────────────────────────────────────────────────
 interface ChatMessage {
@@ -29,70 +30,9 @@ interface ChatRequest {
     };
 }
 
-// ─── Rate Limiting (in-memory, per IP + per user) ────────────
-interface RateLimitEntry {
-    count: number;
-    resetAt: number;
-}
-
-const rateLimitMap = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_IP = 30;         // IP uchun max so'rovlar
-const RATE_LIMIT_USER = 50;       // Autentifikatsiya qilingan foydalanuvchi uchun
-const RATE_WINDOW = 60_000;       // per minute
-
-/**
- * IP manzilni aniqlash — proxy, load balancer, CDN ortida ham to'g'ri ishlaydi
- */
-function extractClientIP(req: Request): string {
-    // Cloudflare
-    const cfIP = req.headers.get('cf-connecting-ip');
-    if (cfIP) return cfIP.trim();
-
-    // Standard proxy headers
-    const forwarded = req.headers.get('x-forwarded-for');
-    if (forwarded) {
-        // Birinchi IP — haqiqiy client IP
-        const firstIP = forwarded.split(',')[0]?.trim();
-        if (firstIP) return firstIP;
-    }
-
-    const realIP = req.headers.get('x-real-ip');
-    if (realIP) return realIP.trim();
-
-    // Vercel
-    const vercelIP = req.headers.get('x-vercel-forwarded-for');
-    if (vercelIP) return vercelIP.split(',')[0]?.trim() || 'unknown';
-
-    return 'unknown';
-}
-
-function checkRateLimit(identifier: string, limit: number = RATE_LIMIT_IP): boolean {
-    const now = Date.now();
-    const entry = rateLimitMap.get(identifier);
-
-    if (!entry || now > entry.resetAt) {
-        rateLimitMap.set(identifier, { count: 1, resetAt: now + RATE_WINDOW });
-        return true;
-    }
-
-    if (entry.count >= limit) return false;
-    entry.count++;
-    return true;
-}
-
-/**
- * Eskirgan yozuvlarni tozalash — memory leak oldini olish
- * Har 5 daqiqada bir marta
- */
-if (typeof globalThis !== 'undefined') {
-    const cleanup = () => {
-        const now = Date.now();
-        for (const [key, val] of rateLimitMap) {
-            if (now > val.resetAt) rateLimitMap.delete(key);
-        }
-    };
-    setInterval(cleanup, 300_000);
-}
+// Rate limit konfiguratsiyasi shared `rateLimit` helper'iga ko'chirildi (P1.4)
+const AI_RATE_LIMIT = 30;          // IP bo'yicha max so'rov
+const AI_RATE_WINDOW_MS = 60_000;  // per minute
 
 // ─── Analytics Tracker (shared module) ───────────────────────
 import { trackAnalytics } from '@/lib/ai-analytics';
@@ -295,15 +235,12 @@ async function geminiResponse(
 // ─── POST Handler ────────────────────────────────────────────
 export async function POST(req: Request) {
     try {
-        // Rate limiting — IP + user token
-        const ip = extractClientIP(req);
-
-        if (!checkRateLimit(`ip:${ip}`, RATE_LIMIT_IP)) {
-            return NextResponse.json(
-                { error: 'Too many requests. Please try again later.' },
-                { status: 429 }
-            );
-        }
+        const rl = await rateLimit(req, {
+            bucket: 'ai-chat',
+            limit: AI_RATE_LIMIT,
+            windowMs: AI_RATE_WINDOW_MS,
+        });
+        if (!rl.ok) return rl.response;
 
         const body: ChatRequest = await req.json();
         const { message, language = 'uz', context, history = [] } = body;

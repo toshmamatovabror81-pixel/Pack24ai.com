@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 jest.mock('@/lib/prisma', () => ({
     prisma: {
         botEvent: {
-            findMany: jest.fn().mockResolvedValue([]),
+            findMany: jest.fn().mockResolvedValue([] as never),
         },
     },
 }));

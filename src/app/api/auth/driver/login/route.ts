@@ -8,8 +8,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-driver-secret';
+import { getDriverTokenSecret } from '@/lib/auth/tokenSecrets';
 
 function normalizePhone(phone: string): string {
     let p = phone.replace(/[^\d+]/g, '');
@@ -19,7 +18,7 @@ function normalizePhone(phone: string): string {
 
 function generateDriverToken(driverId: number, identifier: string): string {
     const payload = JSON.stringify({ driverId, identifier, role: 'driver', ts: Date.now() });
-    const hmac = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
+    const hmac = crypto.createHmac('sha256', getDriverTokenSecret()).update(payload).digest('hex');
     return Buffer.from(payload).toString('base64') + '.' + hmac;
 }
 

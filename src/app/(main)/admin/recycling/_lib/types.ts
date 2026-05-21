@@ -21,7 +21,7 @@ export interface RecycleRequest {
     id: number;
     name: string;
     phone: string;
-    regionId: number;
+    pointId: number;
     point?: RecyclePoint;
     material: string | null;
     volume: number | null;
@@ -128,9 +128,9 @@ export const EMPTY_POINT: PointFormState = {
     color: 'bg-blue-500',
 };
 
-export function getPointName(points: RecyclePoint[], regionId: number): string {
-    const point = points.find(p => p.id === regionId);
-    return point ? point.regionUz : `#${regionId}`;
+export function getPointName(points: RecyclePoint[], pointId: number): string {
+    const point = points.find(p => p.id === pointId);
+    return point ? point.regionUz : `#${pointId}`;
 }
 
 export function computeRecyclingStats(points: RecyclePoint[], requests: RecycleRequest[]) {

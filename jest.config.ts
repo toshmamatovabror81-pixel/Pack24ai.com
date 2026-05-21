@@ -28,6 +28,10 @@ const config: Config = {
     // Jonli server talab qiladigan integration script — Jest emas
     testPathIgnorePatterns: [
         '<rootDir>/src/app/api/orders/__tests__/corporate-integration.test.ts',
+        // Playwright E2E (alohida runner: npm run test:e2e)
+        '<rootDir>/e2e/',
+        '<rootDir>/test-results/',
+        '<rootDir>/playwright-report/',
     ],
 
     // coverage

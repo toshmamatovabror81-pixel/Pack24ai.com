@@ -7,9 +7,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { getMobileUserTokenSecret } from '@/lib/auth/tokenSecrets';
+import { rateLimit } from '@/lib/rateLimit';
 
 const MAX_WRONG_ATTEMPTS = 5;
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-mobile-secret';
 
 function normalizePhone(phone: string): string {
     let p = phone.replace(/[^\d+]/g, '');
@@ -19,12 +20,20 @@ function normalizePhone(phone: string): string {
 
 function generateToken(userId: number, phone: string): string {
     const payload = JSON.stringify({ userId, phone, ts: Date.now() });
-    const hmac = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
+    const hmac = crypto.createHmac('sha256', getMobileUserTokenSecret()).update(payload).digest('hex');
     return Buffer.from(payload).toString('base64') + '.' + hmac;
 }
 
 export async function POST(request: Request) {
     try {
+        // OTP brute-force himoyasi — IP bo'yicha 10/5min
+        const rl = await rateLimit(request, {
+            bucket: 'mobile-verify-otp',
+            limit: 10,
+            windowMs: 5 * 60_000,
+        });
+        if (!rl.ok) return rl.response;
+
         const body = await request.json();
         const { phone, otp } = body as { phone?: string; otp?: string };
 

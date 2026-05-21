@@ -101,7 +101,7 @@ export default function DashboardTab({ points, requests, onOpenRequests }: Props
                                     {STATUS_LABELS[r.status] || r.status}
                                 </span>
                             </div>
-                            <p className="text-xs text-gray-400">{r.phone} • {getPointName(points, r.regionId)}</p>
+                            <p className="text-xs text-gray-400">{r.phone} • {getPointName(points, r.pointId)}</p>
                         </div>
                         <div className="text-right shrink-0">
                             <p className="text-xs font-bold text-gray-700">{r.volume ? `${r.volume} kg` : '—'}</p>

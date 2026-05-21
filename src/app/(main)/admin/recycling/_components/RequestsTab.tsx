@@ -73,7 +73,7 @@ export default function RequestsTab({
     const filteredRequests = useMemo(() => {
         return requests.filter((r) => {
             if (requestFilter !== 'all' && r.status !== requestFilter) return false;
-            if (selectedPointId && r.regionId !== selectedPointId) return false;
+            if (selectedPointId && r.pointId !== selectedPointId) return false;
             if (selectedSupervisorId && r.supervisorId !== selectedSupervisorId) return false;
             if (selectedDriverId && r.assignedDriverId !== selectedDriverId) return false;
             if (requestSearch.trim()) {
@@ -288,7 +288,7 @@ export default function RequestsTab({
                                 </div>
 
                                 <span className="text-xs text-gray-600 font-medium truncate">
-                                    📍 {getPointName(points, r.regionId)}
+                                    📍 {getPointName(points, r.pointId)}
                                 </span>
                                 <span className="text-xs text-gray-500 truncate">{r.material || '—'}</span>
                                 <span className="text-sm font-bold text-gray-700">

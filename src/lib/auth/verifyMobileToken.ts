@@ -6,8 +6,7 @@
  */
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
-
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-mobile-secret';
+import { getMobileUserTokenSecret } from '@/lib/auth/tokenSecrets';
 
 type TokenPayload = {
     userId: number;
@@ -55,14 +54,23 @@ export async function verifyMobileToken(authHeader: string | null): Promise<Veri
     }
 
     const expectedHmac = crypto
-        .createHmac('sha256', TOKEN_SECRET)
+        .createHmac('sha256', getMobileUserTokenSecret())
         .update(payloadStr)
         .digest('hex');
 
-    if (!crypto.timingSafeEqual(
-        Buffer.from(receivedHmac, 'hex'),
-        Buffer.from(expectedHmac, 'hex'),
-    )) {
+    // Length tekshiruv — timingSafeEqual length farqida exception tashlaydi
+    let receivedBuf: Buffer;
+    let expectedBuf: Buffer;
+    try {
+        receivedBuf = Buffer.from(receivedHmac, 'hex');
+        expectedBuf = Buffer.from(expectedHmac, 'hex');
+    } catch {
+        return { ok: false, error: 'Token imzosi formati noto\'g\'ri' };
+    }
+    if (receivedBuf.length !== expectedBuf.length) {
+        return { ok: false, error: 'Token imzosi noto\'g\'ri' };
+    }
+    if (!crypto.timingSafeEqual(receivedBuf, expectedBuf)) {
         return { ok: false, error: 'Token imzosi noto\'g\'ri' };
     }
 

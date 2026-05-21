@@ -9,7 +9,7 @@
  *   "prisma": { "seed": "tsx prisma/seed.ts" }
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -343,7 +343,7 @@ const ADMIN_USER = {
   email: 'admin@pack24.uz',
   // bcrypt hash of the local admin password from .env (rounds=10)
   passwordHash: '$2b$10$Zf5aOl8ie1KaxUv5R2faCew8XYIXNUv8MkAoFYtc1PKlZAGRKWD/C',
-  role: 'admin',
+  role: UserRole.admin,
 };
 
 async function main() {

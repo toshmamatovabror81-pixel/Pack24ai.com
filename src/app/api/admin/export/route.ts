@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
                     String(r.id),
                     r.name,
                     r.phone,
-                    r.point?.regionUz ?? String(r.regionId),
+                    r.point?.regionUz ?? String(r.pointId),
                     r.material ?? '',
                     String(r.volume ?? ''),
                     r.pickupType === 'pickup' ? 'Kuryer' : 'Baza',

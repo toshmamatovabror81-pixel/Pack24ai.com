@@ -199,7 +199,7 @@ export default function EcoDashboard() {
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       {new Date(req.createdAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
                       &bull;
-                      {req.regionId ? "Hudud id: " + req.regionId : "Mijoz xizmati"}
+                      {req.pointId ? "Hudud id: " + req.pointId : "Mijoz xizmati"}
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">

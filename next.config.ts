@@ -1,9 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ESLint — mavjud warninglar buildni to'xtatmasin
+  // Katta kutubxonalarni tezroq kompilatsiya qilish (admin dashboard, charts)
+  experimental: {
+    optimizePackageImports: [
+      'recharts',
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tabs',
+    ],
+  },
+
+  // ESLint — warning'lar buildni to'xtatmaydi, faqat error'lar to'xtatadi.
+  // P0.3 audit: hozir faqat warning'lar bor (audit 2026-05-21), shu sabab false qilindi.
+  // Emergency uchun `SKIP_LINT_BUILD=1 next build` bilan bypass qilish mumkin.
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.SKIP_LINT_BUILD === '1',
   },
 
   // Image optimization — trusted domains
@@ -28,6 +41,9 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // P0.4 audit: SVG faqat trusted remotePatterns'dan keladi (pack24.uz, supabase, cdninstagram).
+    // Upload route'da SVG MIME allowlist'da yo'q (src/app/api/upload/file/route.ts).
+    // contentDispositionType: 'attachment' SVG'ni inline render qilishni rad etadi (XSS mitigation).
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
   },

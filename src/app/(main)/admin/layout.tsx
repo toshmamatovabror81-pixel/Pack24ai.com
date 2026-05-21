@@ -72,7 +72,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             } catch { /* silent fail */ }
         };
         poll();
-        const interval = setInterval(poll, 30_000);
+        // Dev: Neon DB kechikishi — polling kamroq (60s). Prod: 30s.
+        const pollMs = process.env.NODE_ENV === 'development' ? 60_000 : 30_000;
+        const interval = setInterval(poll, pollMs);
         return () => { active = false; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
