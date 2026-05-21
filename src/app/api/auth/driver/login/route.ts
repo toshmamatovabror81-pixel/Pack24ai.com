@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { getDriverTokenSecret } from '@/lib/auth/tokenSecrets';
+import { rateLimit } from '@/lib/rateLimit';
 
 function normalizePhone(phone: string): string {
     let p = phone.replace(/[^\d+]/g, '');
@@ -24,6 +25,13 @@ function generateDriverToken(driverId: number, identifier: string): string {
 
 export async function POST(request: Request) {
     try {
+        const rl = await rateLimit(request, {
+            bucket: 'driver-login',
+            limit: 5,
+            windowMs: 60_000,
+        });
+        if (!rl.ok) return rl.response;
+
         const body = await request.json();
         const { phone, email, password, code } = body as {
             phone?: string;
@@ -32,7 +40,6 @@ export async function POST(request: Request) {
             code?: string; // Legacy registration code support
         };
 
-        // Identifikator: telefon yoki email
         const identifier = phone?.trim() || email?.trim();
         if (!identifier) {
             return NextResponse.json(

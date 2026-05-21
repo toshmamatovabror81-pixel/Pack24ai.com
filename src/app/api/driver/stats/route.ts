@@ -1,13 +1,17 @@
 /**
- * GET /api/driver/stats?driverId=X
+ * GET /api/driver/stats
+ * Authorization: Bearer <driver-token>
+ *
  * Haydovchi statistikasi: bugun, umumiy, haftalik
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireDriver } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
-    const driverId = parseInt(req.nextUrl.searchParams.get('driverId') || '0');
-    if (!driverId) return NextResponse.json({ error: 'driverId talab qilinadi' }, { status: 400 });
+    const guard = await requireDriver(req);
+    if (!guard.ok) return guard.response;
+    const driverId = guard.driverId;
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());

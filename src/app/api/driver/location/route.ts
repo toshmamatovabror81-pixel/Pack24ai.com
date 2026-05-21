@@ -1,21 +1,27 @@
 /**
  * POST /api/driver/location
- * Haydovchi GPS joylashuvini yangilash (30s interval)
+ * Authorization: Bearer <driver-token>
+ *
+ * Haydovchi GPS joylashuvini yangilash (30-60s interval)
  * SSE orqali admin xaritaga real-time broadcast qiladi
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { eventBus } from '@/lib/platform/eventBus';
+import { requireDriver, requireAdmin } from '@/lib/auth/guards';
 
 export async function POST(req: NextRequest) {
     try {
-        const { driverId, lat, lng } = await req.json();
-        if (!driverId || lat == null || lng == null) {
-            return NextResponse.json({ error: 'driverId, lat, lng talab qilinadi' }, { status: 400 });
+        const guard = await requireDriver(req);
+        if (!guard.ok) return guard.response;
+
+        const { lat, lng } = await req.json();
+        if (lat == null || lng == null) {
+            return NextResponse.json({ error: 'lat, lng talab qilinadi' }, { status: 400 });
         }
 
         const driver = await prisma.driver.update({
-            where: { id: Number(driverId) },
+            where: { id: guard.driverId },
             data: {
                 lastLat: Number(lat),
                 lastLng: Number(lng),
@@ -50,8 +56,11 @@ export async function POST(req: NextRequest) {
     }
 }
 
-/** GET /api/driver/location?supervisorId=X — Supervisor uchun barcha haydovchilar joylashuvi */
+/** GET /api/driver/location?supervisorId=X — admin-only, barcha haydovchilar joylashuvi */
 export async function GET(req: NextRequest) {
+    const adminGuard = await requireAdmin(req);
+    if (!adminGuard.ok) return adminGuard.response;
+
     const supervisorId = req.nextUrl.searchParams.get('supervisorId');
     const pointId = req.nextUrl.searchParams.get('pointId');
 

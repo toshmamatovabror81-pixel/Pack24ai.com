@@ -33,6 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             include: {
                 point: true,
                 user: { select: { id: true, name: true, phone: true } },
+                collections: { select: { actualWeight: true, totalAmount: true, createdAt: true } },
             }
         });
 

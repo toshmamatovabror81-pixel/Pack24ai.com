@@ -14,19 +14,31 @@ export async function GET(request: Request) {
         const category = searchParams.get('category');
         const status   = searchParams.get('status');
         const search   = searchParams.get('search');
+        const featured = searchParams.get('featured');
+        const onSale   = searchParams.get('onSale');
+        const limitRaw = searchParams.get('limit');
+        const sort     = searchParams.get('sort');
 
         const where: Prisma.ProductWhereInput = {};
 
         if (category && category !== 'all') where.category = category;
         if (status   && status   !== 'all') where.status   = status as any;
         if (search)                          where.name     = { contains: search, mode: 'insensitive' };
+        if (featured === '1') where.isFeatured = true;
+        if (onSale === '1') where.originalPrice = { not: null };
+
+        const limit = limitRaw ? Math.min(100, Math.max(1, parseInt(limitRaw))) : undefined;
+
+        let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+        if (sort === 'price-asc') orderBy = { price: 'asc' };
+        else if (sort === 'price-desc') orderBy = { price: 'desc' };
 
         const products = await prisma.product.findMany({
             where,
-            orderBy: { createdAt: 'desc' },
+            orderBy,
+            ...(limit ? { take: limit } : {}),
         });
 
-        // Type-safe JSON parse (gallery, specifications, tags — Prisma Json tipidan)
         return NextResponse.json(products.map(parseProduct));
     } catch (error) {
         console.error('[GET /api/products]', error);

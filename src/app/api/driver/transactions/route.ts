@@ -1,30 +1,18 @@
 /**
- * GET /api/driver/transactions — Tranzaksiyalar ro'yxati
+ * GET/POST /api/driver/transactions
+ * Authorization: Bearer <driver-token>
+ *
+ * Tranzaksiyalar ro'yxati va withdrawal yaratish.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
-
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-driver-secret';
-
-function parseToken(authHeader: string | null): { driverId: number } | null {
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const parts = authHeader.slice(7).split('.');
-    if (parts.length !== 2) return null;
-    try {
-        const payload = JSON.parse(Buffer.from(parts[0], 'base64').toString());
-        const hmac = crypto.createHmac('sha256', TOKEN_SECRET)
-            .update(JSON.stringify({ driverId: payload.driverId, identifier: payload.identifier, role: payload.role, ts: payload.ts }))
-            .digest('hex');
-        return parts[1] === hmac ? { driverId: payload.driverId } : null;
-    } catch { return null; }
-}
+import { requireDriver } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
-    const auth = parseToken(req.headers.get('authorization'));
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const guard = await requireDriver(req);
+    if (!guard.ok) return guard.response;
+    const auth = { driverId: guard.driverId };
 
-    // 1 ta query bilan barcha aggregatlarni olish (N+1 optimizatsiya)
     const [transactions, grouped] = await Promise.all([
         prisma.driverTransaction.findMany({
             where: { driverId: auth.driverId },
@@ -58,8 +46,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-    const auth = parseToken(req.headers.get('authorization'));
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const guard = await requireDriver(req);
+    if (!guard.ok) return guard.response;
+    const auth = { driverId: guard.driverId };
 
     const body = await req.json().catch(() => ({}));
     const { amount, cardId } = body;

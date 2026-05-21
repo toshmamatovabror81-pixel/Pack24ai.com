@@ -6,11 +6,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { updateRecycleRequest } from '@/lib/domain/recycling/requestService';
+import { requireDriver } from '@/lib/auth/guards';
 
 export async function POST(req: NextRequest) {
     try {
+        const guard = await requireDriver(req);
+        if (!guard.ok) return guard.response;
+        const driverId = guard.driverId;
+
         const body = await req.json();
-        const { requestId, driverId, status, actualWeight, discountPercent, pricePerKg, notes } = body;
+        const { requestId, status, actualWeight, discountPercent, pricePerKg, notes } = body;
 
         if (!requestId || !status) {
             return NextResponse.json({ error: 'requestId va status talab qilinadi' }, { status: 400 });
@@ -22,11 +27,17 @@ export async function POST(req: NextRequest) {
         });
         if (!request) return NextResponse.json({ error: 'Ariza topilmadi' }, { status: 404 });
 
+        if (request.assignedDriverId !== driverId) {
+            return NextResponse.json(
+                { error: 'Bu ariza sizga tayinlanmagan' },
+                { status: 403 }
+            );
+        }
+
         // requestService orqali status yangilash (eco-progress trigger ham ichida)
         await updateRecycleRequest(Number(requestId), { status });
 
-        // Agar yig'ish yakunlansa — RecycleCollection yaratish
-        if ((status === 'completed' || status === 'collected') && actualWeight && driverId) {
+        if ((status === 'completed' || status === 'collected') && actualWeight) {
             const effWeight = actualWeight * (1 - (discountPercent || 0) / 100);
             const pKg = pricePerKg || request.point?.pricePerKg || 800;
             const totalAmount = Math.round(effWeight * pKg);

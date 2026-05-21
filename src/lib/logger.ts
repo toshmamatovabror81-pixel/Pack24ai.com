@@ -44,7 +44,8 @@ const opts: LoggerOptions = {
     timestamp: pino.stdTimeFunctions.isoTime,
 };
 
-if (!isProd) {
+// pino-pretty worker thread Next.js instrumentation'da ishlamaydi — faqat PACK24_PRETTY_LOGS=1 da
+if (!isProd && process.env.PACK24_PRETTY_LOGS === '1') {
     opts.transport = {
         target: 'pino-pretty',
         options: {

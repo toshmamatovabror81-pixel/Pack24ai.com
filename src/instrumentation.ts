@@ -2,16 +2,22 @@
 export async function register() {
     if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
-    const { logger, logBotEvent } = await import('./lib/logger');
-    logger.info({ event: 'app_start', runtime: process.env.NEXT_RUNTIME }, 'pack24-web ishga tushdi');
+    console.log('[instrumentation] pack24-web ishga tushmoqda');
+
+    try {
+        const { initServerSentry } = await import('./lib/sentry');
+        initServerSentry();
+    } catch {
+        /* sentry optional — paket o'rnatilmagan bo'lishi mumkin */
+    }
 
     // ── DB dan bot sessiyalarni tiklash (production + dev) ───────
     try {
         const { restoreSessionsFromDB } = await import('./lib/telegram/sessionStore');
         await restoreSessionsFromDB();
-        logger.info('Telegram bot sessiyalari DB dan tiklandi');
+        console.log('[instrumentation] Telegram bot sessiyalari DB dan tiklandi');
     } catch (err) {
-        logger.warn({ err }, 'Sessiya tiklash xatosi');
+        console.warn('[instrumentation] Sessiya tiklash xatosi:', err);
     }
 
     if (process.env.NODE_ENV !== 'development') return;
@@ -29,11 +35,11 @@ export async function register() {
                 const { TELEGRAM_POLLING_BOT_ENTRIES } = await import('./lib/telegram/pollingBotsConfig');
 
                 if (isTelegramPollingStarted()) return;
-                logBotEvent('all-polling-bots', 'starting');
+                console.log('[telegram] Polling boshlanmoqda...');
                 const results = await startTelegramPolling(TELEGRAM_POLLING_BOT_ENTRIES);
-                logBotEvent('all-polling-bots', 'polling_started', { results });
+                console.log('[telegram] TELEGRAM_DEV_AUTO_POLL:', results);
             } catch (err) {
-                logBotEvent('all-polling-bots', 'error', { err: String(err) });
+                console.warn('[telegram] TELEGRAM_DEV_AUTO_POLL xato:', err);
             }
         })();
     }, delayMs);

@@ -26,6 +26,7 @@ import {
     validateAdminToken,
 } from '@/lib/adminAuthShared';
 import { getAdminSecret, MissingSecretError } from '@/lib/auth/tokenSecrets';
+import { verifyDriverToken } from '@/lib/auth/verifyDriverToken';
 
 export type UserGuardSuccess = {
     ok: true;
@@ -42,6 +43,18 @@ export type UserGuardSuccess = {
 export type AdminGuardSuccess = {
     ok: true;
     source: 'cookie' | 'header';
+};
+
+export type DriverGuardSuccess = {
+    ok: true;
+    driverId: number;
+    driver: {
+        id: number;
+        name: string;
+        phone: string;
+        pointId: number | null;
+        supervisorId: number | null;
+    };
 };
 
 export type GuardFailure = {
@@ -189,6 +202,40 @@ function extractCookieFromHeader(
         if (k === name) return rest.join('=');
     }
     return undefined;
+}
+
+/**
+ * Bearer driver tokenini tekshiradi.
+ *
+ * `Authorization: Bearer <base64(payload).hmac>` formatini kutadi.
+ * Token `/api/auth/driver/login` orqali chiqariladi va
+ * `verifyDriverToken` HMAC-SHA256 timing-safe tekshirilishini
+ * bajaradi.
+ */
+export async function requireDriver(
+    request: NextRequest | Request
+): Promise<DriverGuardSuccess | GuardFailure> {
+    const authHeader = request.headers.get('authorization');
+    const result = await verifyDriverToken(authHeader);
+
+    if (!result.ok) {
+        const code = result.error.includes('faol emas') ? 403 : 401;
+        return {
+            ok: false,
+            reason: code === 403 ? 'inactive' : 'no_session',
+            response: jsonError(
+                result.error,
+                code,
+                code === 403 ? 'DRIVER_INACTIVE' : 'DRIVER_AUTH_REQUIRED'
+            ),
+        };
+    }
+
+    return {
+        ok: true,
+        driverId: result.driverId,
+        driver: result.driver,
+    };
 }
 
 /**

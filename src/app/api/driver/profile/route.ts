@@ -1,40 +1,19 @@
 /**
  * GET/PUT /api/driver/profile
- * 
+ *
  * Haydovchi o'z profilini ko'rish va yangilash.
- * Token orqali autentifikatsiya.
+ * `requireDriver` guard orqali Bearer token tekshiriladi.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
-
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-driver-secret';
-
-function parseDriverToken(authHeader: string | null): { driverId: number } | null {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.slice(7);
-    const parts = token.split('.');
-    if (parts.length !== 2) return null;
-    try {
-        const payload = JSON.parse(Buffer.from(parts[0], 'base64').toString());
-        const expectedHmac = crypto.createHmac('sha256', TOKEN_SECRET)
-            .update(JSON.stringify({ driverId: payload.driverId, identifier: payload.identifier, role: payload.role, ts: payload.ts }))
-            .digest('hex');
-        if (parts[1] !== expectedHmac) return null;
-        return { driverId: payload.driverId };
-    } catch {
-        return null;
-    }
-}
+import { requireDriver } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
-    const auth = parseDriverToken(req.headers.get('authorization'));
-    if (!auth) {
-        return NextResponse.json({ error: 'Autentifikatsiya talab qilinadi' }, { status: 401 });
-    }
+    const guard = await requireDriver(req);
+    if (!guard.ok) return guard.response;
 
     const driver = await prisma.driver.findUnique({
-        where: { id: auth.driverId },
+        where: { id: guard.driverId },
         select: {
             id: true,
             name: true,
@@ -63,16 +42,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-    const auth = parseDriverToken(req.headers.get('authorization'));
-    if (!auth) {
-        return NextResponse.json({ error: 'Autentifikatsiya talab qilinadi' }, { status: 401 });
-    }
+    const guard = await requireDriver(req);
+    if (!guard.ok) return guard.response;
 
     try {
         const body = await req.json();
         const updateData: any = {};
 
-        // Haydovchi faqat ba'zi maydonlarni yangilay oladi
         if (body.name?.trim()) updateData.name = body.name.trim();
         if (body.vehicleInfo !== undefined) updateData.vehicleInfo = body.vehicleInfo?.trim() || null;
         if (body.isOnline !== undefined) updateData.isOnline = !!body.isOnline;
@@ -83,7 +59,7 @@ export async function PUT(req: NextRequest) {
         }
 
         const driver = await prisma.driver.update({
-            where: { id: auth.driverId },
+            where: { id: guard.driverId },
             data: updateData,
             select: {
                 id: true,
