@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
     const driver = await prisma.driver.findUnique({
         where: { id: guard.driverId },
         select: {
-            id: true, name: true, phone: true, telegramId: true, telegramName: true,
+            id: true, name: true, phone: true, email: true, telegramId: true, telegramName: true,
             vehicleInfo: true, status: true, isOnline: true,
+            acceptedMaterials: true,
             supervisor: { select: { name: true, phone: true } },
             point: { select: { regionUz: true, cityUz: true } },
         },

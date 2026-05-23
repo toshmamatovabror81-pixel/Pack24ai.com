@@ -154,15 +154,33 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
                     return;
                 }
 
-                const drivers = await prisma.driver.findMany({
-                    where: {
-                        isOnline: true,
-                        status: { in: ['active'] },
-                        ...(sup.pointId ? { pointId: sup.pointId } : {}),
-                    },
-                    orderBy: { lastSeenAt: 'desc' },
-                    take: 10,
-                });
+                const { mapLegacyMaterial } = await import('@/lib/tariffs');
+                const tariffId = mapLegacyMaterial(request.material);
+                const baseWhere = {
+                    isOnline: true,
+                    status: { in: ['active'] } as { in: ('active' | 'inactive')[] },
+                    ...(sup.pointId ? { pointId: sup.pointId } : {}),
+                };
+
+                let drivers = tariffId
+                    ? await prisma.driver.findMany({
+                        where: { ...baseWhere, acceptedMaterials: { has: tariffId } },
+                        orderBy: { lastSeenAt: 'desc' },
+                        take: 10,
+                    })
+                    : await prisma.driver.findMany({
+                        where: baseWhere,
+                        orderBy: { lastSeenAt: 'desc' },
+                        take: 10,
+                    });
+
+                if (drivers.length === 0 && tariffId) {
+                    drivers = await prisma.driver.findMany({
+                        where: baseWhere,
+                        orderBy: { lastSeenAt: 'desc' },
+                        take: 10,
+                    });
+                }
 
                 if (drivers.length === 0) {
                     await ctx.answerCbQuery('❌');

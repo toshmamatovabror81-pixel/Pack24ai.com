@@ -608,6 +608,7 @@ model RecyclePoint {
   requests                  RecycleRequest[]
   supervisors               Supervisor[]
   drivers                   Driver[]
+  invitedDrivers            Driver[]           @relation("DriverInvitedByPoint")
   botAccessRequests         BotAccessRequest[]
   intakeLogs                RecycleManualIntake[]
   pressLogs                 RecyclePressLog[]
@@ -635,6 +636,7 @@ model Supervisor {
   registeredAt     DateTime? // Botda ro'yxatdan o'tgan vaqti
 
   drivers                 Driver[]
+  invitedDrivers          Driver[]              @relation("DriverInvitedBy")
   requestedAccessRequests BotAccessRequest[]    @relation("RequestedSupervisorAccessRequests")
   approvedAccessRequests  BotAccessRequest[]    @relation("SupervisorApprovedAccessRequests")
   createdAccessRequests   BotAccessRequest[]    @relation("CreatedSupervisorAccessRequests")
@@ -698,8 +700,20 @@ model Driver {
   lastLat      Float? // Oxirgi GPS kenglik
   lastLng      Float? // Oxirgi GPS uzunlik
 
+  // Yandex Pro uslubidagi tariflar - haydovchi qabul qiladigan material turlari
+  // Mumkin qiymatlar: maklatura, sellofan, bakalashka, aluminiy, shisha, qurilish
+  acceptedMaterials String[] @default([])
+
   registrationCode String?   @unique // 5 raqamli kod (botda ro'yxatdan o'tish uchun)
   registeredAt     DateTime? // Botda ro'yxatdan o'tgan vaqti
+
+  // Bot orqali ro'yxatdan o'tganda kim va qaysi punkt taqdim etganligini audit qilish
+  invitedBySupervisorId Int?      // Tasdiqlash kodi/parolni bergan masul
+  invitedBySupervisor   Supervisor? @relation("DriverInvitedBy", fields: [invitedBySupervisorId], references: [id])
+  invitedByPointId      Int?      // Qaysi baza/punkt orqali kirgani
+  invitedByPoint        RecyclePoint? @relation("DriverInvitedByPoint", fields: [invitedByPointId], references: [id])
+  invitedAt             DateTime? // Taklif qilingan vaqt
+  passwordSetByBotAt    DateTime? // Bot tomonidan random parol o'rnatilgan vaqt
 
   collections           RecycleCollection[]
   assignedRequests      RecycleRequest[]

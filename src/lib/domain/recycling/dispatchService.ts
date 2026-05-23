@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { publishPlatformEvent } from '@/lib/platform/events';
 import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
+import { mapLegacyMaterial } from '@/lib/tariffs';
 
 export const DISPATCH_ACTIONS = [
     'dispatch_to_supervisor',
@@ -105,11 +106,29 @@ export async function dispatchToSupervisor(requestId: number, supervisorId: numb
             `🚚 Usul: ${pickupLabel}\n\n` +
             `👇 Haydovchi tayinlash uchun tugmani bosing:`;
 
-        const drivers = await prisma.driver.findMany({
-            where: { supervisorId: supervisor.id, status: 'active' },
-            orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
-            take: 8,
-        });
+        const tariffId = mapLegacyMaterial(request.material);
+        const baseWhere = { supervisorId: supervisor.id, status: 'active' as const };
+
+        let drivers = tariffId
+            ? await prisma.driver.findMany({
+                where: { ...baseWhere, acceptedMaterials: { has: tariffId } },
+                orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
+                take: 8,
+            })
+            : await prisma.driver.findMany({
+                where: baseWhere,
+                orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
+                take: 8,
+            });
+
+        if (drivers.length === 0) {
+            // Tarif bo'yicha haydovchi topilmasa fallback: barcha aktiv haydovchilarni ko'rsatish
+            drivers = await prisma.driver.findMany({
+                where: baseWhere,
+                orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
+                take: 8,
+            });
+        }
 
         const keyboard = drivers.length > 0
             ? [

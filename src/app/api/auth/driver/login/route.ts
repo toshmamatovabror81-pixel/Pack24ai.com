@@ -33,25 +33,41 @@ export async function POST(request: Request) {
         if (!rl.ok) return rl.response;
 
         const body = await request.json();
-        const { phone, email, password, code } = body as {
+        const { phone, email, password, code, telegramId } = body as {
             phone?: string;
             email?: string;
             password?: string;
             code?: string; // Legacy registration code support
+            telegramId?: string;
         };
 
-        const identifier = phone?.trim() || email?.trim();
+        const identifier = phone?.trim() || email?.trim() || telegramId?.trim();
         if (!identifier) {
             return NextResponse.json(
-                { error: 'Telefon yoki email kiritilishi shart' },
+                { error: 'Telefon, email yoki Telegram ID kiritilishi shart' },
                 { status: 400 }
             );
         }
 
         // Foydalanuvchini topish
         let driver;
-        
-        if (phone) {
+
+        if (telegramId) {
+            const cleanTgId = String(telegramId).replace(/\D/g, '');
+            if (!cleanTgId) {
+                return NextResponse.json(
+                    { error: 'Telegram ID noto\'g\'ri' },
+                    { status: 400 }
+                );
+            }
+            driver = await prisma.driver.findFirst({
+                where: { telegramId: cleanTgId },
+                include: {
+                    point: { select: { id: true, regionUz: true } },
+                    supervisor: { select: { id: true, name: true, phone: true } },
+                },
+            });
+        } else if (phone) {
             const cleanPhone = normalizePhone(phone);
             driver = await prisma.driver.findUnique({
                 where: { phone: cleanPhone },
@@ -85,8 +101,48 @@ export async function POST(request: Request) {
             );
         }
 
-        // Autentifikatsiya: parol yoki legacy registration code
-        if (password) {
+        // Autentifikatsiya: parol, legacy registration code yoki Telegram
+        if (telegramId) {
+            const cleanTgId = String(telegramId).replace(/\D/g, '');
+
+            if (code) {
+                if (!driver.registrationCode || driver.registrationCode !== code.trim()) {
+                    return NextResponse.json(
+                        { error: 'Noto\'g\'ri kod. Botdan olgan 5 raqamli kodni kiriting.' },
+                        { status: 401 }
+                    );
+                }
+            } else if (password) {
+                if (!driver.passwordHash) {
+                    return NextResponse.json(
+                        { error: 'Bu hisob uchun parol o\'rnatilmagan. Botdan kod oling yoki telefon/email bilan kiring.' },
+                        { status: 401 }
+                    );
+                }
+                const isPasswordValid = await bcrypt.compare(password, driver.passwordHash);
+                if (!isPasswordValid) {
+                    return NextResponse.json(
+                        { error: 'Parol noto\'g\'ri' },
+                        { status: 401 }
+                    );
+                }
+            } else if (driver.registeredAt) {
+                // Bot orqali allaqachon tasdiqlangan haydovchi — faqat Telegram ID yetarli
+            } else {
+                return NextResponse.json(
+                    { error: 'Botdan olgan 5 raqamli kodni kiriting yoki @pack24MX_bot orqali ro\'yxatdan o\'ting.' },
+                    { status: 400 }
+                );
+            }
+
+            // Telegram ID mos kelishini tasdiqlash
+            if (driver.telegramId !== cleanTgId) {
+                return NextResponse.json(
+                    { error: 'Telegram ID mos kelmadi' },
+                    { status: 401 }
+                );
+            }
+        } else if (password) {
             // Parol bilan kirish
             if (!driver.passwordHash) {
                 return NextResponse.json(
@@ -123,7 +179,7 @@ export async function POST(request: Request) {
             data: { lastSeenAt: new Date() },
         });
 
-        const token = generateDriverToken(driver.id, driver.phone);
+        const token = generateDriverToken(driver.id, driver.phone || driver.email || driver.telegramId || String(driver.id));
 
         return NextResponse.json({
             ok: true,

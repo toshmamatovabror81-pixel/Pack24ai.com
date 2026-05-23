@@ -76,6 +76,27 @@ async function getSalesChatIds() {
     return parseChatIds(config?.salesChatId);
 }
 
+async function logUndeliveredDM(
+    channel: 'driver' | 'admin' | 'pack24admin',
+    chatId: string,
+    err: unknown,
+) {
+    try {
+        const { createBotEvent } = await import('./botEvents');
+        await createBotEvent({
+            sourceBot: 'platform',
+            eventType: `${channel}.dm_undelivered`,
+            entityType: 'telegram_chat',
+            severity: 'warning',
+            title: `${channel} chatga xabar yetkazilmadi`,
+            message: `chatId=${chatId}: ${(err as Error)?.message || 'unknown'}`,
+            payload: { channel, chatId },
+        });
+    } catch (logErr) {
+        console.error('[Notifier] dm_undelivered audit yozilmadi:', logErr);
+    }
+}
+
 // ─── Mijozga xabar yuborish (Customer Bot orqali) ────────────────────────────
 export async function notifyCustomer(chatId: string, text: string, opts?: SendOptions) {
     try {
@@ -95,6 +116,7 @@ export async function notifyDriver(chatId: string, text: string, opts?: SendOpti
         await bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML', ...opts });
     } catch (err) {
         console.error('[Notifier] Haydovchiga xabar yuborishda xatolik:', err);
+        await logUndeliveredDM('driver', chatId, err);
     }
 }
 
@@ -106,6 +128,7 @@ export async function notifyAdmin(chatId: string, text: string, opts?: SendOptio
         await bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML', ...opts });
     } catch (err) {
         console.error('[Notifier] Masulga xabar yuborishda xatolik:', err);
+        await logUndeliveredDM('admin', chatId, err);
     }
 }
 
@@ -137,6 +160,7 @@ export async function notifyPack24Admin(chatId: string, text: string, opts?: Sen
         await bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML', ...opts });
     } catch (err) {
         console.error('[Notifier] HQ adminlarga xabar yuborishda xatolik:', err);
+        await logUndeliveredDM('pack24admin', chatId, err);
     }
 }
 

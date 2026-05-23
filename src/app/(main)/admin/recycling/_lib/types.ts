@@ -59,6 +59,7 @@ export type AdminRecyclingTab =
     | 'requests'
     | 'supervisors'
     | 'drivers'
+    | 'team'
     | 'collections'
     | 'finance'
     | 'payouts'

@@ -2,6 +2,8 @@ import { BotAccessRequest, Driver, RecyclePoint, Supervisor } from '@prisma/clie
 import { prisma } from '@/lib/prisma';
 import { createBotEvent } from './botEvents';
 import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
+import { generateReadablePassword, hashPassword, formatDriverCredentialsMessage } from './driverCredentials';
+import { notifyDriver, notifyAdmin } from './notifier';
 
 export type BotAccessRole = 'supervisor' | 'driver';
 export type BotAccessStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
@@ -191,6 +193,13 @@ export async function approveBotAccessRequest(
         where: { OR: phoneLookupVariants(request.phone).map((phone) => ({ phone })) },
     });
 
+    // Yangi haydovchilar uchun random parol generatsiya qilamiz
+    // (mavjud bo'lsa va parol o'rnatilgan bo'lsa, qayta yaratmaymiz)
+    const needsNewPassword = !existing?.passwordHash;
+    const plainPassword = needsNewPassword ? generateReadablePassword() : null;
+    const passwordHash = plainPassword ? await hashPassword(plainPassword) : null;
+    const now = new Date();
+
     const driver = existing
         ? await prisma.driver.update({
             where: { id: existing.id },
@@ -204,8 +213,14 @@ export async function approveBotAccessRequest(
                 vehicleInfo: request.vehicleInfo || existing.vehicleInfo,
                 status: 'active',
                 isOnline: Boolean(request.telegramId) || existing.isOnline,
-                registeredAt: existing.registeredAt ?? (request.telegramId ? new Date() : null),
+                registeredAt: existing.registeredAt ?? (request.telegramId ? now : null),
                 registrationCode: existing.registrationCode ?? registrationCode,
+                passwordHash: existing.passwordHash ?? passwordHash,
+                passwordSetByBotAt: existing.passwordSetByBotAt ?? (passwordHash ? now : null),
+                // Audit: kim taqdim etgan
+                invitedBySupervisorId: existing.invitedBySupervisorId ?? input.approvedBySupervisorId ?? supervisorId ?? null,
+                invitedByPointId: existing.invitedByPointId ?? pointId,
+                invitedAt: existing.invitedAt ?? now,
             },
             include: { point: true, supervisor: true },
         })
@@ -220,8 +235,14 @@ export async function approveBotAccessRequest(
                 vehicleInfo: request.vehicleInfo,
                 status: 'active',
                 isOnline: Boolean(request.telegramId),
-                registeredAt: request.telegramId ? new Date() : null,
+                registeredAt: request.telegramId ? now : null,
                 registrationCode,
+                passwordHash,
+                passwordSetByBotAt: passwordHash ? now : null,
+                // Audit: kim taqdim etgan
+                invitedBySupervisorId: input.approvedBySupervisorId ?? supervisorId ?? null,
+                invitedByPointId: pointId,
+                invitedAt: now,
             },
             include: { point: true, supervisor: true },
         });
@@ -248,7 +269,50 @@ export async function approveBotAccessRequest(
         supervisorId: driver.supervisorId ?? undefined,
         pointId: driver.pointId ?? undefined,
         notifyAdmins: true,
+        payload: {
+            invitedBySupervisorId: driver.invitedBySupervisorId,
+            invitedByPointId: driver.invitedByPointId,
+            registrationCode: driver.registrationCode,
+            passwordIssued: Boolean(plainPassword),
+        },
     });
+
+    // Tasdiqlangan haydovchiga bot orqali kirish ma'lumotlarini yuboramiz
+    // (faqat plainPassword bor bo'lsa — yangi yaratilgan parol)
+    if (plainPassword && driver.telegramId && driver.registrationCode) {
+        try {
+            const credMsg = formatDriverCredentialsMessage({
+                name: driver.name,
+                phone: driver.phone,
+                code: driver.registrationCode,
+                password: plainPassword,
+                supervisorName: driver.supervisor?.name ?? null,
+                pointRegion: driver.point?.regionUz ?? null,
+                pointCity: driver.point?.cityUz ?? null,
+            });
+            await notifyDriver(driver.telegramId, credMsg);
+        } catch (e) {
+            console.error('[approveBotAccessRequest] credentials DM failed:', e);
+        }
+    }
+
+    // Taklif qilgan mas'ulga eslatma
+    if (driver.invitedBySupervisorId) {
+        const inviter = await prisma.supervisor.findUnique({
+            where: { id: driver.invitedBySupervisorId },
+            select: { telegramId: true, name: true },
+        });
+        if (inviter?.telegramId) {
+            await notifyAdmin(
+                inviter.telegramId,
+                `✅ <b>Siz taklif qilgan haydovchi tasdiqlandi</b>\n\n` +
+                `👤 ${driver.name}\n` +
+                `📞 ${driver.phone}\n` +
+                `🏭 Punkt: ${driver.point?.regionUz || '—'}, ${driver.point?.cityUz || '—'}\n` +
+                `🕐 ${new Date().toLocaleString('ru-RU')}`,
+            );
+        }
+    }
 
     return { request: updatedRequest, driver };
 }

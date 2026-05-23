@@ -1,11 +1,12 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
-import { getDriver, generateUniqueDriverCode, sessions } from './helpers';
+import { getDriver, sessions } from './helpers';
 import { Lang, getText, formatText } from '../../i18n';
 import { btn, driverMainKeyboard, driverSharePhoneKeyboard, calcConfirmKeyboard } from '../../keyboards';
-import { notifyAdmin } from '../../notifier';
+import { notifyAdmin, notifyAllPack24Admins } from '../../notifier';
 import { createBotEvent } from '../../botEvents';
 import { createOrReuseBotAccessRequest } from '../../botAccessRequests';
+import { persistDriverCredentials, formatDriverCredentialsMessage } from '../../driverCredentials';
 import { fmtN } from './types';
 
 export function registerMessageHandlers(bot: Telegraf) {
@@ -95,19 +96,24 @@ export function registerMessageHandlers(bot: Telegraf) {
                 console.log(`[DriverBot] telegramId yangilanmoqda: ${driver.telegramId.trim()} → ${tgId}`);
             }
 
-            const code = await generateUniqueDriverCode();
-
+            // 1) Telegram ulanmasini saqlash + status active
             await prisma.driver.update({
                 where: { id: driver.id },
                 data: {
                     telegramId: tgId,
                     telegramName: ctx.from.username || ctx.from.first_name || null,
                     registeredAt: new Date(),
-                    registrationCode: code,
                     isOnline: true,
                     lastSeenAt: new Date(),
                     status: 'active',
                 },
+            });
+
+            // 2) Yangi parol va kod generatsiya qilish + audit yozish
+            //    (kim taqdim etgani: supervisor + point)
+            const credentials = await persistDriverCredentials(driver.id, {
+                issuedBySupervisorId: driver.supervisorId,
+                issuedByPointId: driver.pointId,
             });
 
             await createBotEvent({
@@ -117,39 +123,66 @@ export function registerMessageHandlers(bot: Telegraf) {
                 entityId: driver.id,
                 severity: 'success',
                 title: 'Haydovchi botga ro\'yxatdan o\'tdi',
-                message: `${driver.name} driver botga ulandi.`,
+                message: `${driver.name} driver botga ulandi (kod va parol berildi).`,
                 driverId: driver.id,
                 supervisorId: driver.supervisorId ?? undefined,
                 pointId: driver.pointId ?? undefined,
                 payload: {
                     phone: driver.phone,
-                    registrationCode: code,
+                    registrationCode: credentials.code,
+                    invitedBySupervisorId: driver.supervisorId,
+                    invitedByPointId: driver.pointId,
                 },
             });
 
             sessions.delete(tgId);
 
+            // 3) Haydovchiga to'liq kirish ma'lumotlari + kim taqdim etgani
             await ctx.reply(
-                formatText('drv_code_sent', 'uz', { name: driver.name, code }),
+                formatDriverCredentialsMessage({
+                    name: driver.name,
+                    phone: driver.phone,
+                    code: credentials.code,
+                    password: credentials.password,
+                    supervisorName: driver.supervisor?.name ?? null,
+                    pointRegion: driver.point?.regionUz ?? null,
+                    pointCity: driver.point?.cityUz ?? null,
+                }),
                 {
                     parse_mode: 'HTML',
                     reply_markup: driverMainKeyboard(true, 'uz'),
                 }
             );
 
+            // 4) Mas'ulga ham xabar (audit ko'rinish)
             if (driver.supervisor?.telegramId) {
                 await notifyAdmin(
                     driver.supervisor.telegramId,
                     `🆕 <b>Haydovchi ro'yxatdan o'tdi!</b>\n\n` +
                     `👤 ${driver.name}\n` +
                     `📞 ${driver.phone}\n` +
-                    `🏭 Punkt: ${driver.point?.regionUz || '—'}\n` +
-                    `🔑 Verifikatsion kod: <code>${code}</code>\n` +
+                    `🏭 Punkt: ${driver.point?.regionUz || '—'}, ${driver.point?.cityUz || '—'}\n` +
+                    `🔑 Kod: <code>${credentials.code}</code>\n` +
+                    `🔐 Parol: bot tomonidan berildi\n` +
                     `🕐 ${new Date().toLocaleString('ru-RU')}`
                 );
             }
 
-            console.log(`[DriverBot] ✅ Haydovchi ro'yxatdan o'tdi: ${driver.name} | Kod: ${code}`);
+            // 5) HQ adminlarga xabar
+            await notifyAllPack24Admins(
+                `🆕 <b>Yangi haydovchi ro'yxatdan o'tdi</b>\n\n` +
+                `👤 ${driver.name}\n` +
+                `📞 ${driver.phone}\n` +
+                `👨‍💼 Mas'ul: ${driver.supervisor?.name || '—'}\n` +
+                `🏭 Punkt: ${driver.point?.regionUz || '—'}, ${driver.point?.cityUz || '—'}\n` +
+                `🕐 ${new Date().toLocaleString('ru-RU')}`,
+            );
+
+            console.log(
+                `[DriverBot] ✅ Haydovchi ro'yxatdan o'tdi: ${driver.name} | ` +
+                `Kod: ${credentials.code} | Masul: ${driver.supervisor?.name || '—'} | ` +
+                `Punkt: ${driver.point?.regionUz || '—'}`
+            );
 
         } catch (err) {
             console.error('[DriverBot] Contact handler xatolik:', err);

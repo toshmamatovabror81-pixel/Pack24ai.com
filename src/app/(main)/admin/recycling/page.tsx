@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Recycle, Download } from 'lucide-react';
 import SupervisorsTab from './_components/SupervisorsTab';
 import DriversTab from './_components/DriversTab';
+import TeamReportTab from './_components/TeamReportTab';
 import CollectionsTab from './_components/CollectionsTab';
 import ComplaintsTab from './_components/ComplaintsTab';
 import MonthlyJournalTab from './_components/MonthlyJournalTab';
@@ -167,6 +168,7 @@ export default function AdminRecyclingPage() {
                     ['requests', '📋 Arizalar'],
                     ['supervisors', '👷 Masullar'],
                     ['drivers', '🚚 Haydovchilar'],
+                    ['team', '👥 Jamoa hisoboti'],
                     ['collections', '💰 Hisob-kitob'],
                     ['finance', '💹 Moliya'],
                     ['payouts', '💳 To\'lovlar'],
@@ -235,6 +237,7 @@ export default function AdminRecyclingPage() {
                     selectedDriverId={selectedDriverId}
                 />
             )}
+            {activeTab === 'team' && <TeamReportTab />}
             {activeTab === 'collections' && <CollectionsTab />}
             {activeTab === 'finance' && <FinanceTab />}
             {activeTab === 'payouts' && <PayoutsTab />}
