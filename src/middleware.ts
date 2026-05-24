@@ -5,6 +5,7 @@ import {
     ADMIN_AUTH_HEADER,
     validateAdminToken,
 } from '@/lib/adminAuthShared';
+import { WEBVIEW_SOURCE_HEADER, WEBVIEW_SOURCE_VALUE } from '@/lib/webview';
 
 const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_PATHS = ['/admin'];
@@ -128,8 +129,10 @@ export async function middleware(request: NextRequest) {
         // Admin token bilan kelgan so'rovlar — CSRF exempt
         const hasAdminToken = request.headers.get(ADMIN_AUTH_HEADER) ||
                               request.cookies.get(ADMIN_AUTH_COOKIE)?.value;
+        // Pack24 native app (WebView) so'rovlari — CSRF exempt
+        const isFromApp = request.headers.get(WEBVIEW_SOURCE_HEADER) === WEBVIEW_SOURCE_VALUE;
 
-        if (!originValid && !refererValid && !hasAuthToken && !hasAdminToken) {
+        if (!originValid && !refererValid && !hasAuthToken && !hasAdminToken && !isFromApp) {
             const denied = NextResponse.json(
                 { error: 'CSRF: Origin tekshiruvidan o\'tmadi' },
                 { status: 403 }
