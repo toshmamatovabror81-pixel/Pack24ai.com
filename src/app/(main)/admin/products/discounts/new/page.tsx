@@ -54,14 +54,14 @@ export default function NewDiscountPage() {
                     <Card className="p-6 rounded-[12px]">
                         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                             <span className="w-1 h-6 bg-[#064E3B] rounded-full block"></span>
-                            Asosiy ma'lumotlar
+                            Asosiy ma&apos;lumotlar
                         </h3>
 
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Chegirma nomi</label>
                                 <Input placeholder="Masalan: Yangi yil aksiyasi" className="bg-gray-50 border-gray-200" />
-                                <p className="text-xs text-gray-500 mt-1">Bu nom faqat admin panelda ko'rinadi.</p>
+                                <p className="text-xs text-gray-500 mt-1">Bu nom faqat admin panelda ko&apos;rinadi.</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -132,7 +132,7 @@ export default function NewDiscountPage() {
                             Mahsulotlarni tanlash
                         </h3>
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                            <p className="text-sm text-gray-500 mb-4">Qaysi mahsulotlarga chegirma qo'llanilishini tanlang</p>
+                            <p className="text-sm text-gray-500 mb-4">Qaysi mahsulotlarga chegirma qo&apos;llanilishini tanlang</p>
                             <Button variant="outline" className="bg-white">Mahsulotlarni tanlash (Select)</Button>
                         </div>
                     </Card>
@@ -166,7 +166,7 @@ export default function NewDiscountPage() {
 
                         <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 flex gap-2 items-start border border-blue-100">
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <p>Ushbu chegirma avtomatik ravishda tanlangan mahsulotlarning "Eski narx" maydonini to'ldiradi va yangi narxni hisoblaydi.</p>
+                            <p>Ushbu chegirma avtomatik ravishda tanlangan mahsulotlarning &quot;Eski narx&quot; maydonini to&apos;ldiradi va yangi narxni hisoblaydi.</p>
                         </div>
                     </Card>
                 </div>

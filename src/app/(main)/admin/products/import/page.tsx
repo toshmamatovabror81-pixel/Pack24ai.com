@@ -115,7 +115,7 @@ export default function BulkImportPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-extrabold text-gray-900">Excel / CSV Import</h1>
-                    <p className="text-sm text-gray-400 mt-0.5">Bir vaqtda 500 tagacha mahsulot qo'shing yoki yangilang</p>
+                    <p className="text-sm text-gray-400 mt-0.5">Bir vaqtda 500 tagacha mahsulot qo&apos;shing yoki yangilang</p>
                 </div>
                 <button
                     onClick={downloadTemplate}
@@ -171,7 +171,7 @@ export default function BulkImportPage() {
                         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                             <div className="p-4 border-b border-gray-50 flex items-center justify-between">
                                 <p className="text-sm font-bold text-gray-800">
-                                    Ko'rish ({Math.min(previewMax, rows.length)}/{rows.length} qator)
+                                    Ko&apos;rish ({Math.min(previewMax, rows.length)}/{rows.length} qator)
                                 </p>
                                 <span className="text-xs text-gray-400">{columns.length} ta ustun</span>
                             </div>

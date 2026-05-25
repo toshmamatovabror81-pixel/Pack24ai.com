@@ -38,7 +38,7 @@ export default function ChannelPostsPage() {
 
                 {/* Preview */}
                 <div>
-                    <h3 className="font-bold text-gray-900 mb-4">Natija (Ko'rinish)</h3>
+                    <h3 className="font-bold text-gray-900 mb-4">Natija (Ko&apos;rinish)</h3>
                     <div className="bg-[#f0f2f5] p-4 rounded-xl max-w-sm mx-auto border border-gray-200 shadow-sm">
                         <div className="bg-white rounded-lg overflow-hidden shadow-sm">
                             <div className="h-48 bg-gray-200 flex items-center justify-center">
@@ -49,7 +49,7 @@ export default function ChannelPostsPage() {
                                 <p className="text-sm text-gray-700 mb-2">
                                     Yuqori sifatli qadoqlash materiallari endi yanada arzon narxlarda!
                                     <br /><br />
-                                    💰 Narxi: <b>150 so'm</b> / dona
+                                    💰 Narxi: <b>150 so&apos;m</b> / dona
                                     <br />
                                     📦 Minimal buyurtma: 100 dona
                                 </p>

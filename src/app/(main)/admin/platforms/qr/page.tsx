@@ -72,7 +72,7 @@ export default function QrCatalogPage() {
                             </div>
                             <p className="text-2xl font-bold text-gray-900">{stats.totalScans.toLocaleString()}</p>
                             <span className="text-xs text-green-600 flex items-center mt-1">
-                                +{stats.weeklyGrowth}% o'sish
+                                +{stats.weeklyGrowth}% o&apos;sish
                             </span>
                         </Card>
                         <Card className="p-5 flex flex-col justify-center border border-gray-100 shadow-sm rounded-[12px]">
@@ -80,7 +80,7 @@ export default function QrCatalogPage() {
                                 <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
                                     <Eye className="w-5 h-5" />
                                 </div>
-                                <span className="text-sm font-medium">Ko'rishlar</span>
+                                <span className="text-sm font-medium">Ko&apos;rishlar</span>
                             </div>
                             <p className="text-2xl font-bold text-gray-900">{stats.uniqueVisitors.toLocaleString()}</p>
                         </Card>
@@ -105,7 +105,7 @@ export default function QrCatalogPage() {
 
                         {/* Target Selection */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-3">Yo'naltirish (Dynamic QR)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-3">Yo&apos;naltirish (Dynamic QR)</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <div
                                     onClick={() => setTargetType('bot')}
@@ -116,7 +116,7 @@ export default function QrCatalogPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-900">Telegram Bot</h3>
-                                        <p className="text-xs text-gray-500">Mijoz botga o'tadi</p>
+                                        <p className="text-xs text-gray-500">Mijoz botga o&apos;tadi</p>
                                     </div>
                                     {targetType === 'bot' && <div className="ml-auto bg-[#064E3B] text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
                                 </div>

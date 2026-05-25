@@ -175,7 +175,7 @@ function VideoSlot({
                                 onClick={onRemove}
                                 className="text-xs text-red-500 hover:text-red-700 font-medium"
                             >
-                                O'chirish
+                                O&apos;chirish
                             </button>
                         </div>
                     </div>
@@ -198,7 +198,7 @@ function VideoSlot({
                         <p className="text-sm font-medium text-gray-700">Mahsulot videosini yuklang</p>
                         <p className="text-xs text-gray-400 mt-1">MP4, MOV, AVI • max 100 MB</p>
                         <p className="text-xs text-purple-500 mt-1">
-                            pack24.ru dagidek mahsulot ko'rinishi uchun video qo'shing
+                            pack24.ru dagidek mahsulot ko&apos;rinishi uchun video qo&apos;shing
                         </p>
                     </div>
                     <span className="text-xs bg-purple-100 text-purple-600 font-semibold px-3 py-1 rounded-full group-hover:bg-purple-200 transition-colors">
@@ -396,7 +396,7 @@ export default function NewProductPage() {
                             <ArrowLeft className="w-5 h-5 text-gray-500" />
                         </Button>
                     </Link>
-                    <h1 className="text-2xl font-bold text-gray-900">Mahsulot qo'shish</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Mahsulot qo&apos;shish</h1>
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" className="bg-white" onClick={() => router.back()}>Bekor qilish</Button>
@@ -442,7 +442,7 @@ export default function NewProductPage() {
                             <div>
                                 <div className="flex justify-between items-center mb-1.5">
                                     <label className="text-sm font-medium text-gray-700 ml-1">
-                                        Ta'rif ({LANGUAGES.find(l => l.code === activeLang)?.label})
+                                        Ta&apos;rif ({LANGUAGES.find(l => l.code === activeLang)?.label})
                                     </label>
                                     <button className="text-xs flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-full hover:bg-purple-100 font-medium transition-colors border border-purple-100">
                                         <Wand2 className="w-3 h-3" /> Yaratish
@@ -498,7 +498,7 @@ export default function NewProductPage() {
                             >
                                 {isUrlUploading
                                     ? <Loader2 className="w-4 h-4 animate-spin" />
-                                    : <><Upload className="w-4 h-4 mr-1.5" /> Qo'shish</>
+                                    : <><Upload className="w-4 h-4 mr-1.5" /> Qo&apos;shish</>
                                 }
                             </Button>
                         </div>
@@ -519,7 +519,7 @@ export default function NewProductPage() {
 
                         <p className="text-xs text-gray-400 mb-5 flex items-start gap-1.5">
                             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                            Birinchi rasm asosiy rasm bo'ladi. 1600×1200 px (4:3), har biri 10 MB gacha. PNG, JPG, WEBP qo'llab-quvvatlanadi.
+                            Birinchi rasm asosiy rasm bo&apos;ladi. 1600×1200 px (4:3), har biri 10 MB gacha. PNG, JPG, WEBP qo&apos;llab-quvvatlanadi.
                         </p>
 
                         <div className="border-t border-gray-100 pt-5">
@@ -660,7 +660,7 @@ export default function NewProductPage() {
                     </Card>
 
                     <Card>
-                        <h3 className="font-medium text-gray-900 mb-4">Qo'shimcha</h3>
+                        <h3 className="font-medium text-gray-900 mb-4">Qo&apos;shimcha</h3>
                         <div className="space-y-3 mb-4">
                             {specs.map((spec) => (
                                 <div key={spec.id} className="flex gap-2 items-start">
@@ -693,7 +693,7 @@ export default function NewProductPage() {
                             className="w-full justify-start text-left text-sm font-normal flex items-center gap-2"
                             onClick={addSpec}
                         >
-                            <Plus size={14} /> Xarakteristika qo'shish
+                            <Plus size={14} /> Xarakteristika qo&apos;shish
                         </Button>
                     </Card>
                 </div>

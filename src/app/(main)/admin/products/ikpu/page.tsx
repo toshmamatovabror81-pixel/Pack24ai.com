@@ -70,7 +70,7 @@ export default function IKPUPage() {
                         IKPU / TASNIF Kodlari
                         <Badge variant="success" className="bg-emerald-100 text-emerald-700 border-none text-xs">PRO</Badge>
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">Soliq qo'mitasi tasniflash tizimi (MXIK)</p>
+                    <p className="text-sm text-gray-500 mt-1">Soliq qo&apos;mitasi tasniflash tizimi (MXIK)</p>
                 </div>
             </div>
 
@@ -171,7 +171,7 @@ export default function IKPUPage() {
                                 <tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
                                     <th className="py-4 pl-6 font-medium">IKPU Kodi</th>
                                     <th className="py-4 px-4 font-medium">Nomi</th>
-                                    <th className="py-4 px-4 font-medium">O'lchov birligi</th>
+                                    <th className="py-4 px-4 font-medium">O&apos;lchov birligi</th>
                                     <th className="py-4 px-4 font-medium">Holat</th>
                                     <th className="py-4 px-6 font-medium text-right">Harakat</th>
                                 </tr>

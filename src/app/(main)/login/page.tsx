@@ -235,7 +235,7 @@ export default function LoginPage() {
                                     onClick={() => { setTgStep('phone'); setOtp(''); setCountdown(0); }}
                                     className="w-full text-sm text-gray-500 hover:text-gray-700 py-1"
                                 >
-                                    ← Telefon raqamni o'zgartirish
+                                    ← Telefon raqamni o&apos;zgartirish
                                 </button>
                             </form>
                         )}
@@ -246,7 +246,7 @@ export default function LoginPage() {
                 {mode === 'password' && (
                     <form onSubmit={handlePasswordLogin} className="space-y-4">
                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700">
-                            💡 <strong>@Pack24AI_bot</strong> orqali ro'yxatdan o'tganlar{' '}
+                            💡 <strong>@Pack24AI_bot</strong> orqali ro&apos;yxatdan o&apos;tganlar{' '}
                             <strong>5 raqamli Telegram kodini</strong> parol sifatida kiriting.
                         </div>
                         <Input
@@ -279,12 +279,12 @@ export default function LoginPage() {
                 {/* Footer */}
                 <div className="mt-6 pt-5 border-t border-gray-100 space-y-3">
                     <div className="text-center text-sm">
-                        <span className="text-gray-500">Hisobingiz yo'qmi? </span>
+                        <span className="text-gray-500">Hisobingiz yo&apos;qmi? </span>
                         <Link
                             href={referralCode ? `/register?ref=${encodeURIComponent(referralCode)}` : '/register'}
                             className="text-[#064E3B] font-semibold hover:underline"
                         >
-                            Ro'yxatdan o'tish
+                            Ro&apos;yxatdan o&apos;tish
                         </Link>
                     </div>
                     <div className="text-center">
@@ -295,7 +295,7 @@ export default function LoginPage() {
                             className="inline-flex items-center gap-2 text-xs text-blue-600 hover:underline"
                         >
                             <Phone size={12} />
-                            Telegram orqali ro'yxatdan o'tish → @Pack24AI_bot
+                            Telegram orqali ro&apos;yxatdan o&apos;tish → @Pack24AI_bot
                         </a>
                     </div>
                 </div>

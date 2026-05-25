@@ -92,7 +92,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                     <div className="text-right">
                         <p className="text-2xl font-bold text-[#064E3B]">{product.price.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400">so'm / dona</p>
+                        <p className="text-xs text-gray-400">so&apos;m / dona</p>
                     </div>
                 </div>
 
@@ -147,7 +147,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     className="flex-1 bg-[#5D5FEF] text-white rounded-xl h-12 font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#5D5FEF]/30 active:scale-[0.98] transition-transform"
                 >
                     <ShoppingCart className="w-5 h-5" />
-                    Savatga qo'shish
+                    Savatga qo&apos;shish
                 </button>
             </div>
         </div>

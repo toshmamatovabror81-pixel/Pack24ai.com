@@ -102,7 +102,7 @@ export default function BranchesPage() {
                     </div>
                     <Button onClick={openAddModal} className="bg-[#064E3B] hover:bg-[#053d2e] shrink-0">
                         <Plus className="w-4 h-4 mr-2" />
-                        Filial qo'shish
+                        Filial qo&apos;shish
                     </Button>
                 </div>
             </div>

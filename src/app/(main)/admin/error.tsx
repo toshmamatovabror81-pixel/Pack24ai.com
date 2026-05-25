@@ -42,7 +42,7 @@ export default function AdminError({
                     </h1>
                     <p className="text-slate-500 text-sm mb-5 leading-relaxed">
                         Admin panel bu sahifani yuklay olmadi.<br />
-                        Qayta urilib ko'ring yoki dasturchilar bilan bog'laning.
+                        Qayta urilib ko&apos;ring yoki dasturchilar bilan bog&apos;laning.
                     </p>
 
                     {/* Error info */}

@@ -79,7 +79,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                         <div className="grid md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-emerald-600" /> Mijoz ma'lumotlari
+                                    <User className="w-4 h-4 text-emerald-600" /> Mijoz ma&apos;lumotlari
                                 </h3>
                                 <div className="bg-gray-50 p-4 rounded-xl space-y-3">
                                     <div className="flex justify-between">
@@ -161,7 +161,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                         </tr>
                                         <tr>
                                             <td colSpan={3} className="px-4 py-2 text-right text-gray-500">Yetkazib berish:</td>
-                                            <td className="px-4 py-2 text-right font-bold text-gray-900">20 000 so'm</td>
+                                            <td className="px-4 py-2 text-right font-bold text-gray-900">20 000 so&apos;m</td>
                                         </tr>
                                         <tr>
                                             <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-900 text-lg border-t border-gray-200">Yakuniy:</td>
@@ -260,7 +260,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
             <div className="hidden print:block p-4 font-mono text-xs w-[80mm] mx-auto">
                 <div className="text-center mb-4 border-b border-black pb-4">
                     <h1 className="text-xl font-bold mb-1">PACK24.UZ</h1>
-                    <p className="text-[10px]">O'zbekistondagi eng katta qadoqlash<br />mahsulotlari do'koni</p>
+                    <p className="text-[10px]">O&apos;zbekistondagi eng katta qadoqlash<br />mahsulotlari do&apos;koni</p>
                     <p className="mt-2 font-bold">Buyurtma #{order.id}</p>
                     <p className="text-[10px]">{order.date}</p>
                 </div>
@@ -300,10 +300,10 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                     </div>
                     <div className="flex justify-between">
                         <span>Yetkazib berish:</span>
-                        <span>20 000 so'm</span>
+                        <span>20 000 so&apos;m</span>
                     </div>
                     <div className="flex justify-between text-sm mt-2 pt-2 border-t border-black">
-                        <span>TO'LOV:</span>
+                        <span>TO&apos;LOV:</span>
                         <span>{order.finalTotal}</span>
                     </div>
                 </div>

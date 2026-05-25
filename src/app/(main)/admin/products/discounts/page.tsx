@@ -60,7 +60,7 @@ export default function DiscountsPage() {
             case 'pending':
                 return <Badge variant="warning" className="bg-amber-100 text-amber-700 border-none">Kutilmoqda</Badge>;
             case 'expired':
-                return <Badge variant="neutral" className="bg-gray-100 text-gray-700 border-none">Muddati o'tgan</Badge>;
+                return <Badge variant="neutral" className="bg-gray-100 text-gray-700 border-none">Muddati o&apos;tgan</Badge>;
             default:
                 return <Badge>{status}</Badge>;
         }
@@ -73,7 +73,7 @@ export default function DiscountsPage() {
                 <Link href="/admin/products/discounts/new">
                     <Button className="gap-2 bg-[#064E3B] hover:bg-[#053d2e] rounded-[10px]">
                         <Plus className="w-4 h-4" />
-                        Chegirma qo'shish
+                        Chegirma qo&apos;shish
                     </Button>
                 </Link>
             </div>

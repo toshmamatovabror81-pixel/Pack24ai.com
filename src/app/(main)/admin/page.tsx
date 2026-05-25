@@ -183,7 +183,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="font-bold text-gray-800">Daromad grafigi</p>
-                            <p className="text-xs text-gray-400">So'nggi 7 kun</p>
+                            <p className="text-xs text-gray-400">So&apos;nggi 7 kun</p>
                         </div>
                         <TrendingUp size={16} className="text-blue-500" />
                     </div>
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="font-bold text-gray-800">Buyurtmalar</p>
-                            <p className="text-xs text-gray-400">So'nggi 7 kun</p>
+                            <p className="text-xs text-gray-400">So&apos;nggi 7 kun</p>
                         </div>
                         <ShoppingCart size={16} className="text-emerald-500" />
                     </div>
@@ -236,9 +236,9 @@ export default function AdminDashboard() {
             {/* Recent Orders */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between p-5 border-b border-gray-50">
-                    <p className="font-bold text-gray-800">So'nggi buyurtmalar</p>
+                    <p className="font-bold text-gray-800">So&apos;nggi buyurtmalar</p>
                     <Link href="/admin/orders" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                        Barchasini ko'rish →
+                        Barchasini ko&apos;rish →
                     </Link>
                 </div>
                 {loading ? (
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
                 ) : !stats?.recentOrders?.length ? (
                     <div className="p-12 text-center text-gray-400">
                         <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
-                        <p className="text-sm">Buyurtmalar yo'q</p>
+                        <p className="text-sm">Buyurtmalar yo&apos;q</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-50">

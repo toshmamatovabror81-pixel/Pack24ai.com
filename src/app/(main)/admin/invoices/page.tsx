@@ -70,7 +70,7 @@ export default function InvoicesPage() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-extrabold text-gray-900">🧾 Hisob-fakturalar</h1>
-                <p className="text-sm text-gray-500 mt-1">Korporativ fakturalar, QQS va to'lovlar boshqaruvi</p>
+                <p className="text-sm text-gray-500 mt-1">Korporativ fakturalar, QQS va to&apos;lovlar boshqaruvi</p>
             </div>
 
             {/* Stats */}
@@ -82,20 +82,20 @@ export default function InvoicesPage() {
                     </div>
                     <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
                         <p className="text-[10px] font-bold text-gray-400 uppercase">Jami summa</p>
-                        <p className="text-xl font-extrabold text-blue-600 mt-1">{fmtMoney(stats.totalAmount)} <span className="text-[10px] font-normal">so'm</span></p>
+                        <p className="text-xl font-extrabold text-blue-600 mt-1">{fmtMoney(stats.totalAmount)} <span className="text-[10px] font-normal">so&apos;m</span></p>
                     </div>
                     <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">To'langan</p>
-                        <p className="text-xl font-extrabold text-emerald-600 mt-1">{fmtMoney(stats.totalPaid)} <span className="text-[10px] font-normal">so'm</span></p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">To&apos;langan</p>
+                        <p className="text-xl font-extrabold text-emerald-600 mt-1">{fmtMoney(stats.totalPaid)} <span className="text-[10px] font-normal">so&apos;m</span></p>
                     </div>
                     <div className={`bg-white rounded-2xl border p-4 shadow-sm ${outstanding > 0 ? 'border-red-200' : 'border-gray-100'}`}>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Qoldig'i</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Qoldig&apos;i</p>
                         <p className={`text-xl font-extrabold mt-1 ${outstanding > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                            {fmtMoney(outstanding)} <span className="text-[10px] font-normal">so'm</span>
+                            {fmtMoney(outstanding)} <span className="text-[10px] font-normal">so&apos;m</span>
                         </p>
                     </div>
                     <div className={`bg-white rounded-2xl border p-4 shadow-sm ${stats.overdue > 0 ? 'border-red-200' : 'border-gray-100'}`}>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Muddati o'tgan</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Muddati o&apos;tgan</p>
                         <p className={`text-2xl font-extrabold mt-1 ${stats.overdue > 0 ? 'text-red-600' : 'text-gray-400'}`}>{stats.overdue}</p>
                     </div>
                 </div>
@@ -138,7 +138,7 @@ export default function InvoicesPage() {
                                 <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Summa</th>
                                 <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">QQS</th>
                                 <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Jami</th>
-                                <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">To'langan</th>
+                                <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">To&apos;langan</th>
                                 <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Muddat</th>
                                 <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Status</th>
                                 <th className="w-24"></th>
@@ -254,7 +254,7 @@ function PaymentModal({ invoice, onClose, onPaid }: { invoice: Invoice; onClose:
             <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                     <div className="p-5 border-b border-gray-100">
-                        <h2 className="text-lg font-extrabold text-gray-900">💰 To'lov kiritish</h2>
+                        <h2 className="text-lg font-extrabold text-gray-900">💰 To&apos;lov kiritish</h2>
                         <p className="text-sm text-gray-500 mt-1">{invoice.invoiceNo} — {invoice.contract.companyName}</p>
                     </div>
                     <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -272,7 +272,7 @@ function PaymentModal({ invoice, onClose, onPaid }: { invoice: Invoice; onClose:
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">To'lov summasi (so'm)</label>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">To&apos;lov summasi (so&apos;m)</label>
                             <input
                                 type="number" value={amount} onChange={e => setAmount(e.target.value)}
                                 className="w-full border border-gray-200 rounded-xl px-3 py-3 text-lg font-bold focus:outline-none focus:border-emerald-400"
@@ -280,7 +280,7 @@ function PaymentModal({ invoice, onClose, onPaid }: { invoice: Invoice; onClose:
                             />
                             <button type="button" onClick={() => setAmount(remaining.toString())}
                                 className="text-xs text-emerald-600 font-bold mt-1.5 hover:underline">
-                                To'liq to'lash ({fmtMoney(remaining)} so'm)
+                                To&apos;liq to&apos;lash ({fmtMoney(remaining)} so&apos;m)
                             </button>
                         </div>
 

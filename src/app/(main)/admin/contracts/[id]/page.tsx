@@ -162,11 +162,11 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     <p className="text-[10px] text-gray-400 mt-0.5">{contract._count.invoices} ta faktura</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">To'langan</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">To&apos;langan</p>
                     <p className="text-xl font-extrabold text-emerald-600 mt-1">{fmtMoney(contract.totalPaid)}</p>
                 </div>
                 <div className={`bg-white rounded-2xl border p-4 shadow-sm ${contract.outstandingDebt > 0 ? 'border-red-200' : 'border-gray-100'}`}>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Qarz qoldig'i</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Qarz qoldig&apos;i</p>
                     <p className={`text-xl font-extrabold mt-1 ${contract.outstandingDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                         {fmtMoney(contract.outstandingDebt)}
                     </p>
@@ -177,7 +177,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 {/* Company info */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
                     <h2 className="font-bold text-gray-800 flex items-center gap-2">
-                        <Building2 size={15} className="text-emerald-600" /> Kompaniya ma'lumotlari
+                        <Building2 size={15} className="text-emerald-600" /> Kompaniya ma&apos;lumotlari
                     </h2>
                     <div className="space-y-2 text-sm">
                         {[
@@ -197,7 +197,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     </div>
 
                     <div className="border-t border-gray-100 pt-4">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Bog'liq mijoz</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Bog&apos;liq mijoz</p>
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
                                 {contract.user.name[0]}
@@ -225,7 +225,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                         </h2>
                         {outstandingInvoices.length > 0 && (
                             <span className="text-[10px] font-bold bg-red-50 text-red-600 px-2.5 py-1 rounded-full">
-                                {outstandingInvoices.length} ta to'lanmagan
+                                {outstandingInvoices.length} ta to&apos;lanmagan
                             </span>
                         )}
                     </div>
@@ -233,7 +233,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     {invoices.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
                             <FileText size={36} className="text-gray-200 mb-3" />
-                            <p className="text-gray-400 text-sm font-medium">Hali faktura yo'q</p>
+                            <p className="text-gray-400 text-sm font-medium">Hali faktura yo&apos;q</p>
                             {contract.status === 'active' && (
                                 <button
                                     onClick={() => setShowInvModal(true)}
@@ -250,7 +250,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                                     <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Faktura</th>
                                     <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Buyurtma</th>
                                     <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Jami</th>
-                                    <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">To'langan</th>
+                                    <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">To&apos;langan</th>
                                     <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Muddat</th>
                                     <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Status</th>
                                     <th className="w-8" />
@@ -400,7 +400,7 @@ function CreateInvoiceModal({
                                 <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={14} className="animate-spin" /> Yuklanmoqda...</div>
                             ) : orders.length === 0 ? (
                                 <p className="text-sm text-gray-400 bg-gray-50 rounded-xl p-3">
-                                    Bu mijozning "Jarayonda" statusdagi buyurtmalari topilmadi
+                                    Bu mijozning &quot;Jarayonda&quot; statusdagi buyurtmalari topilmadi
                                 </p>
                             ) : (
                                 <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl">

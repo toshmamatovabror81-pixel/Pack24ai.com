@@ -132,7 +132,7 @@ export default function DriversTab({
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Telegram</th>
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden lg:table-cell">Baza</th>
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase hidden xl:table-cell">Mashina / GPS</th>
-                                <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Yig'ishlar</th>
+                                <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Yig&apos;ishlar</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase hidden md:table-cell">Lavozim</th>
                                 <th className="px-4 py-3 w-24"></th>
                             </tr>
@@ -157,7 +157,7 @@ export default function DriversTab({
                                             ) : null}
                                             {d.lastLat && d.lastLng ? (
                                                 <a href={`https://maps.google.com/?q=${d.lastLat},${d.lastLng}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5">
-                                                    <MapPin size={9} />GPS ko'rish
+                                                    <MapPin size={9} />GPS ko&apos;rish
                                                 </a>
                                             ) : <span className="text-[10px] text-gray-300">GPS yo&apos;q</span>}
                                         </div>

@@ -64,7 +64,7 @@ export default function NewCampaignPage() {
                     Orqaga qaytish
                 </Link>
                 <h1 className="text-2xl font-bold text-gray-900">Yangi xabar yaratish</h1>
-                <p className="text-sm text-gray-500 mt-1">Mijozlarga yuboriladigan yangi kampaniya ma'lumotlarini kiriting</p>
+                <p className="text-sm text-gray-500 mt-1">Mijozlarga yuboriladigan yangi kampaniya ma&apos;lumotlarini kiriting</p>
             </div>
 
             <Card className="max-w-2xl mx-auto">
@@ -96,7 +96,7 @@ export default function NewCampaignPage() {
                             <option value="all">Barcha mijozlar</option>
                             <option value="active">Faol xaridorlar</option>
                             <option value="new">Yangi mijozlar (oxirgi 30 kun)</option>
-                            <option value="inactive">Faol bo'lmaganlar</option>
+                            <option value="inactive">Faol bo&apos;lmaganlar</option>
                         </select>
                     </div>
 
@@ -126,7 +126,7 @@ export default function NewCampaignPage() {
                             className="w-full"
                         />
                         <p className="text-xs text-gray-500">
-                            Agar bo'sh qoldirilsa, xabar <strong>darhol</strong> yuboriladi.
+                            Agar bo&apos;sh qoldirilsa, xabar <strong>darhol</strong> yuboriladi.
                         </p>
                     </div>
 

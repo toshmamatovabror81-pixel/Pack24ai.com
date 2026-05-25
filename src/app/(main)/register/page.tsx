@@ -54,7 +54,7 @@ export default function RegisterPage() {
                     <div className="w-14 h-14 rounded-2xl bg-[#064E3B] flex items-center justify-center mx-auto mb-3">
                         <UserPlus size={24} className="text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Ro'yxatdan o'tish</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Ro&apos;yxatdan o&apos;tish</h1>
                     <p className="text-gray-500 text-sm mt-1">Pack24 hisobingizni yarating</p>
                 </div>
 
@@ -93,10 +93,10 @@ export default function RegisterPage() {
                                     <MessageCircle size={18} className="text-white" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-blue-800 text-sm mb-1">Telegram bot orqali ro'yxatdan o'ting</p>
+                                    <p className="font-bold text-blue-800 text-sm mb-1">Telegram bot orqali ro&apos;yxatdan o&apos;ting</p>
                                     <p className="text-blue-600 text-xs leading-relaxed">
                                         Eng qulay usul — bot orqali telefon raqamingizni tasdiqlab hisob yarating.
-                                        Kirish kodi Telegram'ga yuboriladi.
+                                        Kirish kodi Telegram&apos;ga yuboriladi.
                                     </p>
                                 </div>
                             </div>
@@ -126,12 +126,12 @@ export default function RegisterPage() {
                             className="flex items-center justify-center gap-2 w-full bg-[#064E3B] hover:bg-[#053d2e] text-white font-bold py-3 rounded-xl transition-colors"
                         >
                             <MessageCircle size={18} />
-                            @Pack24AI_bot ga o'tish
+                            @Pack24AI_bot ga o&apos;tish
                             <ExternalLink size={14} />
                         </a>
 
                         <p className="text-center text-xs text-gray-400">
-                            Bot orqali ro'yxatdan o'tgach, saytga{' '}
+                            Bot orqali ro&apos;yxatdan o&apos;tgach, saytga{' '}
                             <Link href="/login" className="text-[#064E3B] font-semibold hover:underline">
                                 Telegram kodi
                             </Link>{' '}
@@ -172,7 +172,7 @@ export default function RegisterPage() {
                             disabled={isLoading}
                         >
                             {isLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
-                            Ro'yxatdan o'tish
+                            Ro&apos;yxatdan o&apos;tish
                         </Button>
                     </form>
                 )}

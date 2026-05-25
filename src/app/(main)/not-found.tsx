@@ -49,7 +49,7 @@ export default function NotFound() {
                     Sahifa topilmadi
                 </h1>
                 <p className="text-gray-500 text-sm mb-8 max-w-sm mx-auto leading-relaxed">
-                    Bu sahifa o'chirilgan, ko'chirilgan yoki hech qachon mavjud bo'lmagan.
+                    Bu sahifa o&apos;chirilgan, ko&apos;chirilgan yoki hech qachon mavjud bo&apos;lmagan.
                     Quyidagi havolalardan foydalaning.
                 </p>
 
@@ -67,14 +67,14 @@ export default function NotFound() {
                         className="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-8 py-3 rounded-xl text-sm transition-colors hover:bg-gray-50"
                     >
                         <Search size={15} />
-                        Katalogga o'tish
+                        Katalogga o&apos;tish
                     </Link>
                 </div>
 
                 {/* Quick links grid */}
                 <div className="border-t border-gray-100 pt-8">
                     <p className="text-[11px] text-gray-400 uppercase tracking-widest font-bold mb-4">
-                        Foydali bo'limlar
+                        Foydali bo&apos;limlar
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                         {QUICK_LINKS.map((link) => (

@@ -100,7 +100,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                         ))}
                         <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
                             <span className="font-medium">Jami</span>
-                            <span className="font-bold text-[#064E3B] text-lg">{order.totalAmount.toLocaleString()} so'm</span>
+                            <span className="font-bold text-[#064E3B] text-lg">{order.totalAmount.toLocaleString()} so&apos;m</span>
                         </div>
                     </div>
                 </div>

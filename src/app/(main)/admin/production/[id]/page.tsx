@@ -115,7 +115,7 @@ export default function ProductionDetailsPage() {
                             Jarayonda
                         </span>
                     </h1>
-                    <p className="text-slate-500 text-sm">To'liq ishlab chiqarish tarixi</p>
+                    <p className="text-slate-500 text-sm">To&apos;liq ishlab chiqarish tarixi</p>
                 </div>
             </div>
 
@@ -210,7 +210,7 @@ export default function ProductionDetailsPage() {
                                                     <div className="w-4 h-4 bg-slate-200 rounded-full flex items-center justify-center text-[8px] font-bold">
                                                         {step.operator.charAt(0)}
                                                     </div>
-                                                    Mask'ul: {step.operator}
+                                                    Mask&apos;ul: {step.operator}
                                                 </div>
                                             )}
                                         </div>

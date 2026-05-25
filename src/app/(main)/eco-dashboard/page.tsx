@@ -75,7 +75,7 @@ export default function EcoDashboard() {
             Sizning Eko-Hisobotingiz
           </h1>
           <p className="text-muted-foreground mt-1">
-            Tabiatni asrashga qo'shayotgan hissangiz uchun rahmat! Tizim orqali to'plagan ballaringiz va natijalaringiz bilan tanishing.
+            Tabiatni asrashga qo&apos;shayotgan hissangiz uchun rahmat! Tizim orqali to&apos;plagan ballaringiz va natijalaringiz bilan tanishing.
           </p>
         </div>
         <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-full border border-emerald-100 dark:border-emerald-900/50">
@@ -163,7 +163,7 @@ export default function EcoDashboard() {
             Siz tabiat qutqaruvchisiz!
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-emerald-100">
-            Har gal makulatura topshirganingizda siz nafaqat o'rmonlarimizni asrab qolmoqdasiz, balki atrof-muhit musaffoligiga katta hissa qo'shmoqdasiz. Buning uchun tizim qoidalariga ko'ra Eko-ballar bilan taqdirlanasiz! 
+            Har gal makulatura topshirganingizda siz nafaqat o&apos;rmonlarimizni asrab qolmoqdasiz, balki atrof-muhit musaffoligiga katta hissa qo&apos;shmoqdasiz. Buning uchun tizim qoidalariga ko&apos;ra Eko-ballar bilan taqdirlanasiz! 
           </p>
           <div className="mt-8 flex gap-4 flex-wrap justify-center">
             <Button variant="secondary" size="lg" className="rounded-full shadow-md font-semibold text-emerald-800 hover:bg-emerald-50">
@@ -182,7 +182,7 @@ export default function EcoDashboard() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <History className="h-5 w-5 text-emerald-600" />
-              <CardTitle>So'nggi faolliklaringiz</CardTitle>
+              <CardTitle>So&apos;nggi faolliklaringiz</CardTitle>
             </div>
             <CardDescription>
               Yaqin orada topshirgan makulatura arizalaringiz va ishlagan ballaringiz

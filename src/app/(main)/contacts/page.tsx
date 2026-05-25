@@ -27,7 +27,7 @@ export default function ContactsPage() {
                                 <div className="text-2xl mr-4">📍</div>
                                 <div>
                                     <h4 className="font-medium text-gray-900">Manzil (Address)</h4>
-                                    <p className="text-gray-500">Toshkent sh., Chilonzor tumani, Bunyodkor ko'chasi, 42</p>
+                                    <p className="text-gray-500">Toshkent sh., Chilonzor tumani, Bunyodkor ko&apos;chasi, 42</p>
                                 </div>
                             </div>
 

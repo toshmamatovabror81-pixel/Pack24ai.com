@@ -82,7 +82,7 @@ export default function NewsletterPage() {
                 {loading ? (
                     <div className="p-8 text-center text-gray-500">Yuklanmoqda...</div>
                 ) : campaigns.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">Hozircha hech qanday kampaniya yo'q</div>
+                    <div className="p-8 text-center text-gray-500">Hozircha hech qanday kampaniya yo&apos;q</div>
                 ) : (
                     <table className="w-full text-left">
                         <thead>

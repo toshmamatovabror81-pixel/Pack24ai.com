@@ -191,7 +191,7 @@ export default function WarehousePage() {
                             className="w-full md:w-auto text-[#064E3B] bg-emerald-50 hover:bg-emerald-100 border-emerald-100"
                         >
                             <ArrowRightLeft className="w-4 h-4 mr-2" />
-                            O'tkazish
+                            O&apos;tkazish
                         </Button>
                     </div>
                 </div>
@@ -218,7 +218,7 @@ export default function WarehousePage() {
                                 </tr>
                             ) : inventory.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-8 text-center text-gray-400">Ma'lumot topilmadi</td>
+                                    <td colSpan={6} className="py-8 text-center text-gray-400">Ma&apos;lumot topilmadi</td>
                                 </tr>
                             ) : inventory.map((item) => (
                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors group cursor-pointer">

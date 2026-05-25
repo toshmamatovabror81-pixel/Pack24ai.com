@@ -103,7 +103,7 @@ export default function AdminNewsPage() {
                     onClick={() => { setShowForm(!showForm); setEditing(null); setForm(EMPTY_FORM); }}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors"
                 >
-                    <Plus size={16} /> Yangi qo'shish
+                    <Plus size={16} /> Yangi qo&apos;shish
                 </button>
             </div>
 
@@ -229,9 +229,9 @@ export default function AdminNewsPage() {
             ) : news.length === 0 ? (
                 <div className="text-center py-20">
                     <Newspaper size={40} className="mx-auto text-gray-200 mb-3" />
-                    <p className="text-gray-400 font-medium">Yangiliklar yo'q</p>
+                    <p className="text-gray-400 font-medium">Yangiliklar yo&apos;q</p>
                     <button onClick={() => setShowForm(true)} className="text-blue-600 text-sm font-semibold mt-2 hover:underline">
-                        Birinchi yangilikni qo'shing →
+                        Birinchi yangilikni qo&apos;shing →
                     </button>
                 </div>
             ) : (

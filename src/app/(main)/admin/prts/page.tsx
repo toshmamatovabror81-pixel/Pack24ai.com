@@ -287,7 +287,7 @@ export default function AdminPRTSPage() {
                             <Leaf size={13} className="text-emerald-600" /> Platforma ESG
                         </h3>
                         <p className="text-[11px] text-gray-500 mb-3">
-                            Pack24 platformasi qo'shgan umumiy ekologik ta'sir:
+                            Pack24 platformasi qo&apos;shgan umumiy ekologik ta&apos;sir:
                         </p>
                         <div className="space-y-1.5 text-xs">
                             <div className="flex justify-between">

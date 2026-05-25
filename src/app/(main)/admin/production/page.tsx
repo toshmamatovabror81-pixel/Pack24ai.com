@@ -188,7 +188,7 @@ export default function ProductionDashboard() {
                     {isLoading ? (
                         <div className="p-8 text-center text-slate-400">Yuklanmoqda...</div>
                     ) : filteredOrders.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400">Hozirda faol buyurtmalar yo'q</div>
+                        <div className="p-8 text-center text-slate-400">Hozirda faol buyurtmalar yo&apos;q</div>
                     ) : (
                         filteredOrders.map((order) => (
                             <div key={order.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row items-center gap-4">
@@ -234,7 +234,7 @@ export default function ProductionDashboard() {
                                     </div>
                                     {/* Link to detail page (to be implemented) */}
                                     <Button size="sm" variant="ghost" className="bg-slate-100 hover:bg-slate-200 text-slate-600">
-                                        Ko'rish <ChevronRight size={14} className="ml-1" />
+                                        Ko&apos;rish <ChevronRight size={14} className="ml-1" />
                                     </Button>
                                 </div>
                             </div>

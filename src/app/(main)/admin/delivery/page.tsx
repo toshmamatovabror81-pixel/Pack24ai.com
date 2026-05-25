@@ -169,7 +169,7 @@ export default function DeliveryPage() {
                                     variant="outline"
                                 >
                                     <Plus className="w-4 h-4 mr-1" />
-                                    Qo'shish
+                                    Qo&apos;shish
                                 </Button>
                             )}
                         </Card>
@@ -199,7 +199,7 @@ export default function DeliveryPage() {
 
                             {!editingInternal.isFree && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Narx (so'm)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Narx (so&apos;m)</label>
                                     <Input type="number" placeholder="0" />
                                 </div>
                             )}
@@ -237,7 +237,7 @@ export default function DeliveryPage() {
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">{selectedExternal.name} integratsiyasi</h2>
-                                <p className="text-sm text-gray-500">Shartnoma ma'lumotlarini kiriting</p>
+                                <p className="text-sm text-gray-500">Shartnoma ma&apos;lumotlarini kiriting</p>
                             </div>
                         </div>
 

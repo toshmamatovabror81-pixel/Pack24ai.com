@@ -102,7 +102,7 @@ export default function AIControlPage() {
                         </span>
                     </div>
                     <p className="text-3xl font-extrabold text-slate-900">{data.total}</p>
-                    <p className="text-sm text-slate-500 mt-1">Jami so'rovlar</p>
+                    <p className="text-sm text-slate-500 mt-1">Jami so&apos;rovlar</p>
                 </div>
 
                 {/* Gemini Rate */}
@@ -144,7 +144,7 @@ export default function AIControlPage() {
                             : `${(data.avgResponseTimeMs / 1000).toFixed(1)}s`
                         }
                     </p>
-                    <p className="text-sm text-slate-500 mt-1">O'rtacha javob vaqti</p>
+                    <p className="text-sm text-slate-500 mt-1">O&apos;rtacha javob vaqti</p>
                 </div>
 
                 {/* Languages Count */}
@@ -249,7 +249,7 @@ export default function AIControlPage() {
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                         <Users size={18} className="text-indigo-600" />
-                        <h3 className="font-bold text-slate-900">Oxirgi so'rovlar</h3>
+                        <h3 className="font-bold text-slate-900">Oxirgi so&apos;rovlar</h3>
                     </div>
                     <div className="space-y-2 max-h-[200px] overflow-y-auto">
                         {data.recentEntries.map((e, i) => (

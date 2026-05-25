@@ -125,7 +125,7 @@ export default function CategoryProductsPage() {
                                         <h3 className="text-sm font-bold text-gray-800 leading-tight mb-1">
                                             {sub.name[language as keyof typeof sub.name] || sub.name.ru}
                                         </h3>
-                                        <p className="text-xs text-gray-400 font-medium">To'plam</p>
+                                        <p className="text-xs text-gray-400 font-medium">To&apos;plam</p>
                                     </div>
 
                                     {/* Arrow */}
@@ -161,7 +161,7 @@ export default function CategoryProductsPage() {
                                     <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-auto">{product.name}</h3>
                                     <div className="mt-2 pt-2 border-t border-gray-50 flex items-center justify-between">
                                         <span className="text-sm font-bold text-[#064E3B]">
-                                            {product.price.toLocaleString()} co'm
+                                            {product.price.toLocaleString()} co&apos;m
                                         </span>
                                         <div className="w-6 h-6 bg-[#5D5FEF] rounded-full flex items-center justify-center text-white text-xs">
                                             +

@@ -89,7 +89,7 @@ function VideoSlot({ url, uploading, onFile, onRemove }: {
                         <span className="text-xs text-purple-600 font-medium flex items-center gap-1"><Film size={12} /> Video yuklandi ✅</span>
                         <div className="flex gap-3">
                             <button type="button" onClick={() => ref.current?.click()} className="text-xs text-gray-500 hover:text-gray-700">Almashtirish</button>
-                            <button type="button" onClick={onRemove} className="text-xs text-red-500 hover:text-red-700">O'chirish</button>
+                            <button type="button" onClick={onRemove} className="text-xs text-red-500 hover:text-red-700">O&apos;chirish</button>
                         </div>
                     </div>
                 </div>

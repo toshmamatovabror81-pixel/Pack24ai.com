@@ -104,11 +104,11 @@ export default function ContractsPage() {
                 </div>
                 <div className="bg-white rounded-2xl border border-red-100 p-4 shadow-sm">
                     <p className="text-[10px] font-bold text-gray-400 uppercase">Jami qarz</p>
-                    <p className="text-2xl font-extrabold text-red-600 mt-1">{fmtMoney(stats.totalDebt)} <span className="text-xs font-normal">so'm</span></p>
+                    <p className="text-2xl font-extrabold text-red-600 mt-1">{fmtMoney(stats.totalDebt)} <span className="text-xs font-normal">so&apos;m</span></p>
                 </div>
                 <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
                     <p className="text-[10px] font-bold text-gray-400 uppercase">Jami kredit limiti</p>
-                    <p className="text-2xl font-extrabold text-blue-600 mt-1">{fmtMoney(stats.totalLimit)} <span className="text-xs font-normal">so'm</span></p>
+                    <p className="text-2xl font-extrabold text-blue-600 mt-1">{fmtMoney(stats.totalLimit)} <span className="text-xs font-normal">so&apos;m</span></p>
                 </div>
             </div>
 
@@ -373,7 +373,7 @@ function CreateContractModal({ onClose, onCreated }: { onClose: () => void; onCr
                                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400" />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">To'lov muddati (kun)</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">To&apos;lov muddati (kun)</label>
                                 <input type="number" value={form.paymentTermDays} onChange={e => setForm(f => ({ ...f, paymentTermDays: e.target.value }))}
                                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400" />
                             </div>
@@ -381,7 +381,7 @@ function CreateContractModal({ onClose, onCreated }: { onClose: () => void; onCr
 
                         <div>
                             <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                                <CreditCard size={10} className="inline mr-1" />Kredit limiti (so'm)
+                                <CreditCard size={10} className="inline mr-1" />Kredit limiti (so&apos;m)
                             </label>
                             <input type="number" value={form.creditLimit} onChange={e => setForm(f => ({ ...f, creditLimit: e.target.value }))}
                                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400"

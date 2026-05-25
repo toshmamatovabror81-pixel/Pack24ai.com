@@ -239,7 +239,7 @@ function OrdersContent() {
                                             </div>
                                         </td>
                                         <td className="py-3 px-4 font-bold text-gray-900 text-xs">
-                                            {fmt(order.totalAmount ?? 0)} so'm
+                                            {fmt(order.totalAmount ?? 0)} so&apos;m
                                         </td>
                                         <td className="py-3 px-4">
                                             <Badge className={`border text-[10px] px-2 py-0.5 font-semibold ${STATUS_STYLES[order.status] ?? STATUS_STYLES.draft}`}>
@@ -259,7 +259,7 @@ function OrdersContent() {
                                                     aria-label="Ko'rish"
                                                     className="h-7 px-2.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold flex items-center gap-1 transition-colors"
                                                 >
-                                                    <Eye size={11} /> Ko'r
+                                                    <Eye size={11} /> Ko&apos;r
                                                 </button>
                                                 <button
                                                     onClick={() => window.open(`/api/orders/${order.id}/invoice`, '_blank')}

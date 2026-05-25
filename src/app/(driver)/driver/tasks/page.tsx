@@ -198,10 +198,10 @@ function TaskCard({ task, tab, isUpdating, onStatusUpdate }: {
             {tab === 'completed' && task.collections.length > 0 && (
                 <div className="pt-2 border-t border-slate-800">
                     <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Yig'ildi:</span>
+                        <span className="text-slate-500">Yig&apos;ildi:</span>
                         <span className="text-emerald-400 font-bold">
                             {task.collections.reduce((s, c) => s + c.actualWeight, 0)} kg
-                            · {task.collections.reduce((s, c) => s + c.totalAmount, 0).toLocaleString()} so'm
+                            · {task.collections.reduce((s, c) => s + c.totalAmount, 0).toLocaleString()} so&apos;m
                         </span>
                     </div>
                 </div>

@@ -156,8 +156,8 @@ export default function PromoCodesPage() {
                                     </td>
                                     <td className="py-4 px-4">
                                         {item.status === 'active' && <Badge variant="success" className="bg-emerald-100 text-emerald-700 border-none">Faol</Badge>}
-                                        {item.status === 'paused' && <Badge variant="warning" className="bg-amber-100 text-amber-700 border-none">To'xtatilgan</Badge>}
-                                        {item.status === 'expired' && <Badge variant="error" className="bg-red-50 text-red-600 border-red-100">Muddati o'tgan</Badge>}
+                                        {item.status === 'paused' && <Badge variant="warning" className="bg-amber-100 text-amber-700 border-none">To&apos;xtatilgan</Badge>}
+                                        {item.status === 'expired' && <Badge variant="error" className="bg-red-50 text-red-600 border-red-100">Muddati o&apos;tgan</Badge>}
                                     </td>
                                     <td className="py-4 px-6 text-right">
                                         <div className="flex items-center justify-end gap-2">
@@ -248,7 +248,7 @@ export default function PromoCodesPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Min. Xarid</label>
-                                        <Input type="number" placeholder="0" rightElement={<span className="text-gray-500 text-sm">so'm</span>} />
+                                        <Input type="number" placeholder="0" rightElement={<span className="text-gray-500 text-sm">so&apos;m</span>} />
                                     </div>
                                 </div>
                             </div>

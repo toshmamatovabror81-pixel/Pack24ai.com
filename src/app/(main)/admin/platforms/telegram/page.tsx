@@ -124,7 +124,7 @@ export default function TelegramBotPage() {
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
             <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
-                <p className="text-sm text-gray-500">Bot ma'lumotlari yuklanmoqda...</p>
+                <p className="text-sm text-gray-500">Bot ma&apos;lumotlari yuklanmoqda...</p>
             </div>
         </div>
     );
@@ -203,7 +203,7 @@ export default function TelegramBotPage() {
                 <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                     <Clock3 className="text-amber-500 shrink-0" size={18} />
                     <p className="text-sm text-amber-800 font-medium">
-                        <strong>{stats.pendingCollections}</strong> ta yig'ish to'lovni kutmoqda — bot orqali to'lash uchun /tolash
+                        <strong>{stats.pendingCollections}</strong> ta yig&apos;ish to&apos;lovni kutmoqda — bot orqali to&apos;lash uchun /tolash
                     </p>
                 </div>
             )}
@@ -251,7 +251,7 @@ export default function TelegramBotPage() {
                                 className="font-mono text-sm"
                             />
                             <p className="text-xs text-gray-500 mt-1.5">
-                                BotFather'dan: /newbot → /mybots → API Token
+                                BotFather&apos;dan: /newbot → /mybots → API Token
                             </p>
                         </div>
 
@@ -275,7 +275,7 @@ export default function TelegramBotPage() {
                                 </button>
                             </div>
                             <p className="text-xs text-gray-500 mt-1.5">
-                                Botni guruhga qo'shing va /start yuboring. Vergul bilan bir nechta ID kiritish mumkin.
+                                Botni guruhga qo&apos;shing va /start yuboring. Vergul bilan bir nechta ID kiritish mumkin.
                             </p>
                         </div>
                     </Card>
@@ -309,7 +309,7 @@ export default function TelegramBotPage() {
                     {/* Setup guide */}
                     <Card className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
-                            <h3 className="font-bold text-gray-900">Sozlash bo'yicha qo'llanma</h3>
+                            <h3 className="font-bold text-gray-900">Sozlash bo&apos;yicha qo&apos;llanma</h3>
                         </div>
                         <ol className="p-6 space-y-4">
                             {[
@@ -354,7 +354,7 @@ export default function TelegramBotPage() {
                 {/* ── Right: iPhone Preview ────────────────────── */}
                 <div className="hidden xl:block">
                     <div className="sticky top-6">
-                        <p className="text-center text-gray-400 text-[11px] uppercase font-bold tracking-widest mb-4">Botni ko'rinishi</p>
+                        <p className="text-center text-gray-400 text-[11px] uppercase font-bold tracking-widest mb-4">Botni ko&apos;rinishi</p>
                         <div className="border-[10px] border-gray-900 rounded-[3rem] overflow-hidden shadow-2xl bg-gray-100">
                             {/* Notch */}
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-gray-900 rounded-b-xl z-20" />

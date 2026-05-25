@@ -55,7 +55,7 @@ export default function OrderHistoryPage() {
                 {loading ? (
                     <div>Yuklanmoqda...</div>
                 ) : orders.filter(o => o.status !== 'draft').length === 0 ? (
-                    <div className="text-center py-10 text-gray-400">Buyurtmalar yo'q</div>
+                    <div className="text-center py-10 text-gray-400">Buyurtmalar yo&apos;q</div>
                 ) : (
                     orders.filter(o => o.status !== 'draft').map(order => (
                         <div
@@ -92,7 +92,7 @@ export default function OrderHistoryPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="font-bold text-[#064E3B]">{order.totalAmount.toLocaleString()} so'm</span>
+                                    <span className="font-bold text-[#064E3B]">{order.totalAmount.toLocaleString()} so&apos;m</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </div>
                             </div>

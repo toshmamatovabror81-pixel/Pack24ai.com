@@ -36,7 +36,7 @@ export default function SpecialOffersPage() {
                             <h2 className="text-3xl font-bold mb-2">Bayram Qadoqlari</h2>
                             <p className="mb-4 text-pink-100">Yangi yil va bayramlar uchun eksklyuziv dizaynlar.</p>
                             <button className="bg-white text-pink-500 font-bold py-2 px-4 rounded-full shadow hover:bg-gray-100 transition">
-                                Ko'rish
+                                Ko&apos;rish
                             </button>
                         </div>
                         <div className="absolute right-0 bottom-0 opacity-20 transform translate-x-10 translate-y-10">

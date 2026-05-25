@@ -13,7 +13,7 @@ export default function TerminalLoginPage() {
                     </div>
                     <h1 className="text-3xl font-black text-white tracking-tight">Pack24 Terminal</h1>
                 </div>
-                <p className="text-slate-400">Ishni boshlash uchun o'z seximizni tanlang</p>
+                <p className="text-slate-400">Ishni boshlash uchun o&apos;z seximizni tanlang</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
@@ -41,7 +41,7 @@ export default function TerminalLoginPage() {
                             <Printer className="text-blue-400 group-hover:text-white w-8 h-8" />
                         </div>
                         <h2 className="text-xl font-bold text-white mb-1">Pechat & Dizayn</h2>
-                        <p className="text-sm text-slate-400 group-hover:text-blue-100">Chop etish va bo'yoq</p>
+                        <p className="text-sm text-slate-400 group-hover:text-blue-100">Chop etish va bo&apos;yoq</p>
                     </div>
                 </Link>
 
@@ -54,8 +54,8 @@ export default function TerminalLoginPage() {
                         <div className="w-16 h-16 bg-slate-700 group-hover:bg-white/20 rounded-2xl flex items-center justify-center mb-4 transition-colors">
                             <Box className="text-amber-400 group-hover:text-white w-8 h-8" />
                         </div>
-                        <h2 className="text-xl font-bold text-white mb-1">Yig'uv & Qadoqlash</h2>
-                        <p className="text-sm text-slate-400 group-hover:text-amber-100">Kleylash va bog'lash</p>
+                        <h2 className="text-xl font-bold text-white mb-1">Yig&apos;uv & Qadoqlash</h2>
+                        <p className="text-sm text-slate-400 group-hover:text-amber-100">Kleylash va bog&apos;lash</p>
                     </div>
                 </Link>
 

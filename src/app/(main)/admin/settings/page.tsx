@@ -50,14 +50,14 @@ export default function SettingsPage() {
     return (
         <div className="p-6 bg-[#F9FAFB] min-h-screen space-y-8 pb-24">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">Do'kon Sozlamalari</h1>
-                <p className="text-sm text-gray-500 mt-1">Asosiy ma'lumotlar, ish tartibi va aloqa kanallari</p>
+                <h1 className="text-2xl font-bold text-gray-900">Do&apos;kon Sozlamalari</h1>
+                <p className="text-sm text-gray-500 mt-1">Asosiy ma&apos;lumotlar, ish tartibi va aloqa kanallari</p>
             </div>
 
             {/* 1. General Info & Logo */}
             <Card className="p-6 border border-gray-200 shadow-sm rounded-[12px] bg-white">
                 <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Info className="w-5 h-5 text-gray-400" /> Umumiy ma'lumotlar
+                    <Info className="w-5 h-5 text-gray-400" /> Umumiy ma&apos;lumotlar
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
                     <div>
@@ -76,7 +76,7 @@ export default function SettingsPage() {
                                 )}
                             </div>
                             <div className="text-sm text-gray-500 max-w-xs">
-                                <p>Tavsiya etilgan o'lcham: 500x500px.</p>
+                                <p>Tavsiya etilgan o&apos;lcham: 500x500px.</p>
                                 <p>Format: PNG, JPG.</p>
                             </div>
                         </div>
@@ -110,7 +110,7 @@ export default function SettingsPage() {
                         <div className="flex gap-4">
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="main_lang" className="w-4 h-4 text-[#064E3B] focus:ring-[#064E3B]" defaultChecked />
-                                <span className="text-sm text-gray-700">O'zbek</span>
+                                <span className="text-sm text-gray-700">O&apos;zbek</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="main_lang" className="w-4 h-4 text-[#064E3B] focus:ring-[#064E3B]" />
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                     <select aria-labelledby="currency-label" className="w-full max-w-xs bg-white border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-[#064E3B] focus:border-[#064E3B]">
                         {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">Valyuta o'zgarganda barcha narxlar qayta hisoblanadi.</p>
+                    <p className="text-xs text-gray-500 mt-1">Valyuta o&apos;zgarganda barcha narxlar qayta hisoblanadi.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -247,7 +247,7 @@ export default function SettingsPage() {
                 </Button>
                 <Button className="bg-[#064E3B] hover:bg-[#053d2e] shadow-lg shadow-emerald-900/20">
                     <Check className="w-4 h-4 mr-2" />
-                    O'zgarishlarni saqlash
+                    O&apos;zgarishlarni saqlash
                 </Button>
             </div>
         </div>

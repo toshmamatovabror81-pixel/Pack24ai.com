@@ -387,7 +387,7 @@ export default function LogisticsMap() {
                                     <div className="space-y-1.5 text-xs">
                                         <p className="flex items-center gap-2">📞 {p.phone}</p>
                                         {p.address && <p className="flex items-center gap-2 text-gray-500">📍 {p.address}</p>}
-                                        <p className="flex items-center gap-2">💰 {p.pricePerKg.toLocaleString()} so'm/kg</p>
+                                        <p className="flex items-center gap-2">💰 {p.pricePerKg.toLocaleString()} so&apos;m/kg</p>
                                         <div className="flex gap-3 mt-2 pt-2 border-t">
                                             <span className="text-[11px] font-bold" style={{ color: hex }}>📦 {p._count.requests} ariza</span>
                                             <span className="text-[11px] font-bold text-indigo-600">🚚 {p._count.drivers} haydovchi</span>

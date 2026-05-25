@@ -82,10 +82,10 @@ export default function ReferralDashboard() {
           <Share2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
         </div>
         <h1 className="text-4xl font-extrabold tracking-tight text-emerald-800 dark:text-emerald-400">
-          Tarmog'ingizni quring va ulush oling!
+          Tarmog&apos;ingizni quring va ulush oling!
         </h1>
         <p className="max-w-2xl mx-auto text-lg text-muted-foreground">
-          Tabiatni asrashga hissa qo'shish bilan birga, har bir taklif qilgan do'stingiz (yoki maktabingiz) orqali yig'ilgan makulatura hajmidan doimiy <b>Referal Eko-ballar</b> qo'lga kiriting. Eko-ballarni cash yoki vaucherlarga almashtiring!
+          Tabiatni asrashga hissa qo&apos;shish bilan birga, har bir taklif qilgan do&apos;stingiz (yoki maktabingiz) orqali yig&apos;ilgan makulatura hajmidan doimiy <b>Referal Eko-ballar</b> qo&apos;lga kiriting. Eko-ballarni cash yoki vaucherlarga almashtiring!
         </p>
       </div>
 
@@ -96,7 +96,7 @@ export default function ReferralDashboard() {
           <Card className="border-emerald-200 shadow-lg bg-white overflow-hidden hover:shadow-xl transition-shadow">
             <CardHeader className="bg-emerald-50 border-b border-emerald-100 pb-6">
               <CardTitle className="text-xl text-emerald-800 font-bold">Sizning shaxsiy havolangiz</CardTitle>
-              <CardDescription>Bu havolani do'stlaringizga yuborib tizimga taklif qiling</CardDescription>
+              <CardDescription>Bu havolani do&apos;stlaringizga yuborib tizimga taklif qiling</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
               <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-2">
@@ -136,8 +136,8 @@ export default function ReferralDashboard() {
                 <h3 className="font-extrabold text-lg text-emerald-900 mb-2">Qanday ishlaydi?</h3>
                 <ol className="space-y-2.5 text-sm text-gray-600 font-medium">
                   <li className="flex gap-2 items-center"><div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</div> Havolani nusxalang va ulashing</li>
-                  <li className="flex gap-2 items-center"><div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div> Do'stingiz tizimdan ro'yxatdan o'tadi</li>
-                  <li className="flex gap-2 items-start"><div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">3</div> <span className="pt-0.5">U makulatura topshirganda qimmatli <span className="text-emerald-600 font-extrabold">Eko-ballar</span> doimiy sizga qo'shilib boradi!</span></li>
+                  <li className="flex gap-2 items-center"><div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div> Do&apos;stingiz tizimdan ro&apos;yxatdan o&apos;tadi</li>
+                  <li className="flex gap-2 items-start"><div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">3</div> <span className="pt-0.5">U makulatura topshirganda qimmatli <span className="text-emerald-600 font-extrabold">Eko-ballar</span> doimiy sizga qo&apos;shilib boradi!</span></li>
                 </ol>
               </div>
               <Gift className="w-24 h-24 text-emerald-50 hidden sm:block rotate-12 drop-shadow-sm" />
@@ -154,7 +154,7 @@ export default function ReferralDashboard() {
                 <CardTitle className="font-bold">Tarmoq hamkorlari</CardTitle>
               </div>
               <CardDescription>
-                Sizning havolangiz orqali qo'shilganlar jadvali
+                Sizning havolangiz orqali qo&apos;shilganlar jadvali
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
@@ -165,7 +165,7 @@ export default function ReferralDashboard() {
                       <div>
                         <p className="font-bold text-sm text-gray-800 group-hover:text-emerald-700 transition-colors">{ref.name}</p>
                         <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 mt-0.5">
-                          {new Date(ref.createdAt).toLocaleDateString('uz-UZ')} da qo'shildi
+                          {new Date(ref.createdAt).toLocaleDateString('uz-UZ')} da qo&apos;shildi
                         </p>
                       </div>
                       <div className="bg-emerald-100/80 text-emerald-800 px-3 py-1 rounded-full text-xs font-black font-mono">
@@ -180,7 +180,7 @@ export default function ReferralDashboard() {
                     <Users className="h-8 w-8 text-gray-400" />
                   </div>
                   <p className="text-sm font-bold text-gray-700">Hali hech kimni taklif qilmadingiz</p>
-                  <p className="text-[13px] text-gray-500 mt-1 max-w-[200px]">Hozirzoq havolangizni ulashing va tarmog'ingizni qurishni boshlang!</p>
+                  <p className="text-[13px] text-gray-500 mt-1 max-w-[200px]">Hozirzoq havolangizni ulashing va tarmog&apos;ingizni qurishni boshlang!</p>
                 </div>
               )}
             </CardContent>

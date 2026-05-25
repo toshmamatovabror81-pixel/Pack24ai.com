@@ -37,8 +37,8 @@ export default function Error({
                     Xatolik yuz berdi
                 </h1>
                 <p className="text-gray-500 text-sm mb-2 leading-relaxed">
-                    Sahifani yuklashda texnik muammo bo'ldi.<br />
-                    Bir necha daqiqa kutib, qayta urinib ko'ring.
+                    Sahifani yuklashda texnik muammo bo&apos;ldi.<br />
+                    Bir necha daqiqa kutib, qayta urinib ko&apos;ring.
                 </p>
 
                 {/* Error digest */}
@@ -74,7 +74,7 @@ export default function Error({
                     <p className="text-xs text-gray-400 mb-3">Muammo davom etsa:</p>
                     <div className="flex items-center justify-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors">
                         <Link href="/contacts" className="flex items-center gap-1 hover:underline">
-                            Qo'llab-quvvatlash <ChevronRight size={12} />
+                            Qo&apos;llab-quvvatlash <ChevronRight size={12} />
                         </Link>
                     </div>
                 </div>

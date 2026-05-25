@@ -25,7 +25,7 @@ export default function MobileProfilePage() {
                         <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
                             <Headset className="w-6 h-6" />
                         </div>
-                        <span className="font-bold text-sm">Operator bilan bog'lanish</span>
+                        <span className="font-bold text-sm">Operator bilan bog&apos;lanish</span>
                     </div>
                     <svg className="w-5 h-5 text-gray-400 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

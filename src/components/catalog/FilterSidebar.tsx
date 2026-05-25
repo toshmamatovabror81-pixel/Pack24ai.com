@@ -37,7 +37,7 @@ export function FilterSidebar({
             {/* Price Filter */}
             <div>
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center justify-between">
-                    Narx oralig'i
+                    Narx oralig&apos;i
                     <span className="text-xs font-normal text-gray-500">RUB</span>
                 </h3>
                 <Slider

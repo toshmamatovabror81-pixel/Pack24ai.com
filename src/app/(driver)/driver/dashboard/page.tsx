@@ -67,7 +67,7 @@ export default function DriverDashboardPage() {
                 {/* Weekly bar chart */}
                 {stats?.weekly && (
                     <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
-                        <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wide">Haftalik yig'ish (kg)</p>
+                        <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wide">Haftalik yig&apos;ish (kg)</p>
                         <WeeklyChart data={stats.weekly} />
                     </div>
                 )}
@@ -89,8 +89,8 @@ export default function DriverDashboardPage() {
                         </div>
                     ) : activeTasks.length === 0 ? (
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
-                            <p className="text-slate-500 text-sm">Hozircha faol vazifa yo'q</p>
-                            <p className="text-slate-600 text-xs mt-1">Online bo'ling, yangi buyurtmalar keladi</p>
+                            <p className="text-slate-500 text-sm">Hozircha faol vazifa yo&apos;q</p>
+                            <p className="text-slate-600 text-xs mt-1">Online bo&apos;ling, yangi buyurtmalar keladi</p>
                         </div>
                     ) : (
                         <div className="space-y-3">

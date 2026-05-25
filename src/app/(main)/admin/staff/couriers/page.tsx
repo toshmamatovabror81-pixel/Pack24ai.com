@@ -27,7 +27,7 @@ export default function CouriersPage() {
                     <p className="text-sm text-gray-500">Yetkazib beruvchilar va ularning statistikasi</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)} className="bg-[#064E3B]">
-                    + Kuryer qo'shish
+                    + Kuryer qo&apos;shish
                 </Button>
             </div>
 
@@ -92,7 +92,7 @@ export default function CouriersPage() {
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Balans:</span>
-                                <span className="font-bold text-gray-900">{courier.balance} so'm</span>
+                                <span className="font-bold text-gray-900">{courier.balance} so&apos;m</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Yetkazilgan:</span>
@@ -115,7 +115,7 @@ export default function CouriersPage() {
                             <X className="w-5 h-5" />
                         </button>
 
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Yangi kuryer qo'shish</h2>
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Yangi kuryer qo&apos;shish</h2>
 
                         <div className="space-y-4">
                             <div>
@@ -135,7 +135,7 @@ export default function CouriersPage() {
                                     <option>MyTaxi</option>
                                     <option>UzPost</option>
                                     <option>Fargo</option>
-                                    <option>Internal Delivery (O'zimizniki)</option>
+                                    <option>Internal Delivery (O&apos;zimizniki)</option>
                                 </select>
                                 <p className="text-xs text-gray-500 mt-1">Kuryer qaysi xizmat turiga tegishli ekanligini belgilang.</p>
                             </div>

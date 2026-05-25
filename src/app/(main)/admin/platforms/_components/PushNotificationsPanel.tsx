@@ -125,7 +125,7 @@ export default function PushNotificationsPanel() {
                             npm install web-push @types/web-push
                         </code>
                         <p className="text-xs text-amber-600 mt-2">
-                            Keyin <code>.env</code> ga VAPID kalitlarini qo'ying. VAPID generatsiya:
+                            Keyin <code>.env</code> ga VAPID kalitlarini qo&apos;ying. VAPID generatsiya:
                         </p>
                         <code className="block mt-1 bg-amber-100 text-amber-900 text-xs rounded-lg px-3 py-2 font-mono">
                             npx web-push generate-vapid-keys

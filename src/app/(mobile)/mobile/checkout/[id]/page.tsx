@@ -122,7 +122,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                                     className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#5D5FEF]/20"
                                 />
                             </div>
-                            <p className="text-xs text-gray-400 mt-2">Kuryer siz bilan bog'lanishi uchun</p>
+                            <p className="text-xs text-gray-400 mt-2">Kuryer siz bilan bog&apos;lanishi uchun</p>
                         </div>
                     </div>
                 )}

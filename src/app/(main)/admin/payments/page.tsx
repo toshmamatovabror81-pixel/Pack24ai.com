@@ -135,8 +135,8 @@ export default function PaymentMethodsPage() {
     return (
         <div className="p-6 bg-[#F9FAFB] min-h-screen">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">To'lov usullari</h1>
-                <p className="text-sm text-gray-500 mt-1">To'lov tizimlarini boshqarish va sozlash</p>
+                <h1 className="text-2xl font-bold text-gray-900">To&apos;lov usullari</h1>
+                <p className="text-sm text-gray-500 mt-1">To&apos;lov tizimlarini boshqarish va sozlash</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -200,7 +200,7 @@ export default function PaymentMethodsPage() {
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900">{selectedMethod.name} Sozlamalari</h2>
-                                <p className="text-sm text-gray-500">Integratsiya ma'lumotlarini kiriting</p>
+                                <p className="text-sm text-gray-500">Integratsiya ma&apos;lumotlarini kiriting</p>
                             </div>
                         </div>
 
@@ -218,13 +218,13 @@ export default function PaymentMethodsPage() {
                                     <div className="bg-blue-50 p-3 rounded-lg flex gap-2 border border-blue-100">
                                         <Info className="w-5 h-5 text-blue-600 shrink-0" />
                                         <p className="text-xs text-blue-700">
-                                            Ushbu ma'lumotlarni {selectedMethod.name} shaxsiy kabinetidan olishingiz mumkin.
+                                            Ushbu ma&apos;lumotlarni {selectedMethod.name} shaxsiy kabinetidan olishingiz mumkin.
                                         </p>
                                     </div>
                                 </>
                             ) : (
                                 <div className="text-center py-4">
-                                    <p className="text-sm text-gray-600">Ushbu to'lov usulini faollashtirish uchun tasdiqlash tugmasini bosing.</p>
+                                    <p className="text-sm text-gray-600">Ushbu to&apos;lov usulini faollashtirish uchun tasdiqlash tugmasini bosing.</p>
                                 </div>
                             )}
 
@@ -232,7 +232,7 @@ export default function PaymentMethodsPage() {
                                 <div className="bg-amber-50 p-3 rounded-lg flex gap-2 border border-amber-100">
                                     <Info className="w-5 h-5 text-amber-600 shrink-0" />
                                     <p className="text-xs text-amber-700">
-                                        Fiskal ma'lumotlarni to'g'ri kiritish soliq qonunchiligiga rioya qilish uchun muhimdir.
+                                        Fiskal ma&apos;lumotlarni to&apos;g&apos;ri kiritish soliq qonunchiligiga rioya qilish uchun muhimdir.
                                     </p>
                                 </div>
                             )}

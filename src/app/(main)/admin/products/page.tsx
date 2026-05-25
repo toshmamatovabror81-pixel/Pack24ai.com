@@ -105,7 +105,7 @@ export default function ProductsPage() {
 
                 <div className="flex gap-2">
                     <Button variant="ghost" onClick={handleBulkUpdate} className="text-gray-600">
-                        % Narxlarni o'zgartirish
+                        % Narxlarni o&apos;zgartirish
                     </Button>
                 </div>
             </div>
@@ -140,7 +140,7 @@ export default function ProductsPage() {
                         <Link href="/admin/products/new">
                             <Button className="gap-2 bg-[#064E3B] hover:bg-[#053d2e]">
                                 <Plus className="w-4 h-4" />
-                                Qo'shish
+                                Qo&apos;shish
                             </Button>
                         </Link>
                     </div>

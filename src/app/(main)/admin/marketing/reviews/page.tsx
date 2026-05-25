@@ -89,7 +89,7 @@ export default function ReviewsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-800 tracking-tight">Mijozlar Sharhlari</h1>
-                    <p className="text-slate-500 text-sm mt-1">Mahsulotlar bo'yicha fikr-mulohazalar moderatsiyasi</p>
+                    <p className="text-slate-500 text-sm mt-1">Mahsulotlar bo&apos;yicha fikr-mulohazalar moderatsiyasi</p>
                 </div>
                 <div className="flex gap-2">
                     <div className="relative">
@@ -155,7 +155,7 @@ export default function ReviewsPage() {
                                 {review.status === 'approved' && <Badge variant="success" className="ml-2">Tasdiqlangan</Badge>}
                                 {review.status === 'rejected' && <Badge variant="error" className="ml-2">Rad etilgan</Badge>}
                             </div>
-                            <p className="text-slate-700 text-sm leading-relaxed">"{review.content}"</p>
+                            <p className="text-slate-700 text-sm leading-relaxed">&quot;{review.content}&quot;</p>
                         </div>
 
                         {/* Actions */}
@@ -211,7 +211,7 @@ export default function ReviewsPage() {
                     <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 border-dashed">
                         <MessageSquare className="mx-auto text-gray-300 mb-3" size={48} />
                         <h3 className="text-slate-800 font-bold">Sharhlar topilmadi</h3>
-                        <p className="text-slate-500 text-sm">Filtrni o'zgartirib ko'ring yoki yangi sharhlarni kuting.</p>
+                        <p className="text-slate-500 text-sm">Filtrni o&apos;zgartirib ko&apos;ring yoki yangi sharhlarni kuting.</p>
                     </div>
                 )}
             </div>

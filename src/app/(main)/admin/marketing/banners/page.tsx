@@ -108,7 +108,7 @@ export default function BannersPage() {
                     onClick={openAdd}
                     className="flex items-center gap-2 bg-[#0c2340] hover:bg-[#102a45] text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors shadow-sm"
                 >
-                    <Plus size={16} /> Banner qo'shish
+                    <Plus size={16} /> Banner qo&apos;shish
                 </button>
             </div>
 
@@ -178,11 +178,11 @@ export default function BannersPage() {
                             {/* Highlight text */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Ajratilgan so'z (UZ)</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Ajratilgan so&apos;z (UZ)</label>
                                     <input value={form.highlightText.uz} onChange={e => f('highlightText', 'uz', e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400" placeholder="kolleksiya" />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Ajratilgan so'z (RU)</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Ajratilgan so&apos;z (RU)</label>
                                     <input value={form.highlightText.ru} onChange={e => f('highlightText', 'ru', e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400" placeholder="коллекция" />
                                 </div>
                             </div>
@@ -249,7 +249,7 @@ export default function BannersPage() {
             <div className="grid gap-4">
                 {sortedBanners.length === 0 && (
                     <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center text-gray-400 text-sm">
-                        Banner topilmadi. Yangi banner qo'shish uchun yuqoridagi tugmani bosing.
+                        Banner topilmadi. Yangi banner qo&apos;shish uchun yuqoridagi tugmani bosing.
                     </div>
                 )}
                 {sortedBanners.map((banner) => (
@@ -290,12 +290,12 @@ export default function BannersPage() {
                                     <Edit size={13} /> Tahrirlash
                                 </button>
                                 <button onClick={() => toggleActive(banner.id)} className={`flex items-center gap-1.5 font-semibold text-xs px-3 py-2 rounded-xl transition-colors border ${banner.isActive ? 'border-orange-100 bg-orange-50 text-orange-700 hover:bg-orange-100' : 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
-                                    {banner.isActive ? <><EyeOff size={13} /> O'chirish</> : <><Eye size={13} /> Yoqish</>}
+                                    {banner.isActive ? <><EyeOff size={13} /> O&apos;chirish</> : <><Eye size={13} /> Yoqish</>}
                                 </button>
                                 <button onClick={() => reorder(banner.id, 'up')} className="p-2 border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-xl transition-colors" title="Yuqoriga"><ArrowUp size={13} /></button>
                                 <button onClick={() => reorder(banner.id, 'down')} className="p-2 border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-xl transition-colors" title="Pastga"><ArrowDown size={13} /></button>
                                 <button onClick={() => deleteBanner(banner.id)} className="flex items-center gap-1.5 border border-red-100 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs px-3 py-2 rounded-xl transition-colors ml-auto">
-                                    <Trash2 size={13} /> O'chirish
+                                    <Trash2 size={13} /> O&apos;chirish
                                 </button>
                             </div>
                         </div>
@@ -306,7 +306,7 @@ export default function BannersPage() {
             {/* Live preview hint */}
             <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center gap-3 text-sm text-blue-700">
                 <Eye size={16} className="shrink-0" />
-                <span>O'zgarishlar darhol <Link href="/" target="_blank" className="font-bold underline">bosh sahifa</Link> da ko'rinadi — sahifani yangilang.</span>
+                <span>O&apos;zgarishlar darhol <Link href="/" target="_blank" className="font-bold underline">bosh sahifa</Link> da ko&apos;rinadi — sahifani yangilang.</span>
             </div>
         </div>
     );

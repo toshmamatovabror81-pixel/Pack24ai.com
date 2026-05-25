@@ -356,19 +356,19 @@ export default function ChatPage() {
                             </div>
                             <Button size="sm" className="w-full mt-3 bg-white text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs h-8">
                                 <ShoppingBag size={14} className="mr-2" />
-                                Buyurtmani ko'rish
+                                Buyurtmani ko&apos;rish
                             </Button>
                         </div>
                     ) : (
                         <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center mb-6">
                             <ShoppingBag className="mx-auto text-gray-300 mb-2" size={24} />
-                            <p className="text-xs text-slate-400">Faol buyurtma yo'q</p>
+                            <p className="text-xs text-slate-400">Faol buyurtma yo&apos;q</p>
                         </div>
                     )}
 
                     {/* Quick Info */}
                     <div className="space-y-4">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ma'lumotlar</h4>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ma&apos;lumotlar</h4>
 
                         <div className="flex items-center justify-between text-sm group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
                             <span className="text-slate-500 flex items-center gap-2">

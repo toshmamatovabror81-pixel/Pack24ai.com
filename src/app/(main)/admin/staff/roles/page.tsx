@@ -45,7 +45,7 @@ export default function RolesPage() {
                         </div>
                     ))}
                     <Button variant="outline" className="w-full border-dashed border-gray-300 text-gray-500 hover:border-[#064E3B] hover:text-[#064E3B]">
-                        + Yangi rol qo'shish
+                        + Yangi rol qo&apos;shish
                     </Button>
                 </div>
 

@@ -21,7 +21,7 @@ export default function CallCenterPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-3">
                     <h1 className="text-2xl font-black text-slate-800 tracking-tight">Call Center (Aloqa Markazi)</h1>
-                    <p className="text-slate-500 text-sm mt-1">Bugungi ko'rsatkichlar: 24 ta qo'ng'iroq, 95% javob berish darajasi</p>
+                    <p className="text-slate-500 text-sm mt-1">Bugungi ko&apos;rsatkichlar: 24 ta qo&apos;ng&apos;iroq, 95% javob berish darajasi</p>
                 </div>
                 <div className="bg-emerald-500 rounded-2xl p-4 text-white flex items-center justify-between shadow-lg shadow-emerald-500/20">
                     <div>
@@ -47,7 +47,7 @@ export default function CallCenterPage() {
                 <div className="flex items-center gap-2">
                     <Button variant="outline">
                         <PhoneMissed className="w-4 h-4 mr-2 text-red-500" />
-                        O'tkazib yuborilgan
+                        O&apos;tkazib yuborilgan
                     </Button>
                     <Button variant="outline">
                         <SlidersHorizontal className="w-4 h-4 mr-2" />
