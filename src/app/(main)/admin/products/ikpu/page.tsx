@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Search, Plus, Trash2, CheckCircle2, AlertCircle, Save, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';import { Search, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 
 // Mock Data for Saved Codes
 const SAVED_CODES = [
@@ -29,7 +28,7 @@ export default function IKPUPage() {
     const [error, setError] = useState('');
 
     // Validation Logic
-    const validateIKPU = (code: string) => {
+    const _validateIKPU = (code: string) => {
         // Remove non-digits
         const cleanCode = code.replace(/\D/g, '');
         if (cleanCode.length !== 17 && cleanCode.length > 0) {

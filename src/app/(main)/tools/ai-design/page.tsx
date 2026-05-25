@@ -1,13 +1,10 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, ContactShadows, Environment } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';import { OrbitControls } from '@react-three/drei';
 import { useBoxModel } from '@/lib/hooks/useBoxModel';
-import { materials } from '@/lib/materials';
 import { availableModels, defaultModel } from '@/lib/models';
-import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { Sparkles, RefreshCw, Wand2, Copy, AlertCircle, ChevronRight, Settings, Download, FileText, Layers, Package, ShoppingBag, Wine, Trash2 } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/LanguageContext';import { Sparkles, RefreshCw, Wand2, ChevronRight, Download, FileText, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import * as THREE from 'three';
@@ -64,15 +61,15 @@ export default function AIDesignPage() {
         model,
         setModel,
         material,
-        setMaterial,
+        _setMaterial,
         inputs,
         handleInputChange,
         dims,
-        validation
+        _validation
     } = useBoxModel({ initialModel: defaultModel });
 
     const [fold, setFold] = useState(0.5);
-    const [quantity, setQuantity] = useState(100);
+    const [quantity, _setQuantity] = useState(100);
     
     // AI State
     const [prompt, setPrompt] = useState('');
@@ -81,7 +78,7 @@ export default function AIDesignPage() {
     const [textureUrl, setTextureUrl] = useState<string | undefined>(undefined);
     const [aiVariants, setAiVariants] = useState<Array<{ index: number; seed: number; dataUrl: string }>>([]);
     const [selectedVariant, setSelectedVariant] = useState<number>(0);
-    const [error, setError] = useState<string | null>(null);
+    const [_error, setError] = useState<string | null>(null);
 
     const t_local = (uz: string, ru: string) => language === 'ru' ? ru : uz;
 

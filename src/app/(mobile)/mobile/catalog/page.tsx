@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 // Define Category interface locally or import if available
-interface Category {
+interface _Category {
     name: string;
     // Add other properties if needed
 }
@@ -29,7 +29,7 @@ export default function MobileCatalogPage() {
     }, []);
 
     // Static mapping for images (since categories in DB might not have images yet)
-    const getCategoryImage = (name: string) => {
+    const _getCategoryImage = (name: string) => {
         const map: Record<string, string> = {
             'Polietilen paketlar': '/icons/poly.png',
             'Karton qutilar': '/icons/box.png',

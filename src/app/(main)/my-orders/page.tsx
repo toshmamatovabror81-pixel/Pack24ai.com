@@ -375,7 +375,7 @@ export default function MyOrdersPage() {
                 {/* Orders list */}
                 {!loading && filtered.length > 0 && (
                     <div className="space-y-4">
-                        {visibleOrders.map((order, idx) => {
+                        {visibleOrders.map((order, _idx) => {
                             const statusCfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.new;
                             const StatusIcon = statusCfg.icon;
                             const date = new Date(order.createdAt);

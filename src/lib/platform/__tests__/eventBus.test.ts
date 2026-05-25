@@ -1,8 +1,4 @@
-/**
- * EventBus Unit Tests
- * Platform: src/lib/platform/eventBus.ts
- */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 
 // Mock Prisma for DB polling
 jest.mock('@/lib/prisma', () => ({

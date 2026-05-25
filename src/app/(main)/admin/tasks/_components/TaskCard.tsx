@@ -2,8 +2,7 @@
 
 import { Package, Truck, Factory, Wrench, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import type { TaskStatus, TaskPriority, TaskDepartment } from '@/lib/domain/taskConstants';
+import { CSS } from '@dnd-kit/utilities';import type { TaskPriority, TaskDepartment } from '@/lib/domain/taskConstants';
 
 export interface TaskCardData {
     id: number;

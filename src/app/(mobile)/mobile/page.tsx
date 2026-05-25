@@ -17,7 +17,7 @@ export default function MobileHomePage() {
     const { language } = useLanguage();
 
     // Icon mapper
-    const IconMap: any = {
+    const _IconMap: any = {
         Percent, ShoppingBag, Box, Ticket, Layers, Package, Printer, ScrollText,
         PackageOpen, Mail, Archive, Croissant, Utensils, Footprints, Square, FileText,
         TrendingDown, Moon, StickyNote, Maximize, GripHorizontal, Scan, Shield, Sliders,

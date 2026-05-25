@@ -19,7 +19,7 @@ export function initServerSentry() {
     if (!dsn || sentryInstance) return;
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+         
         const requireSoft: NodeRequire = (Function('return require'))();
         const Sentry = requireSoft('@sentry/nextjs');
         Sentry.init({

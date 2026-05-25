@@ -4,12 +4,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { useRouter } from 'next/navigation';
-import {
-    CreditCard, Smartphone, Truck, MapPin, User,
-    Phone, ChevronRight, Shield, CheckCircle, Loader2,
-    Package, ArrowLeft
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';import { CreditCard, Truck, MapPin, User, Phone, Shield, CheckCircle, Loader2, Package, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import type { Language } from '@/lib/translations';

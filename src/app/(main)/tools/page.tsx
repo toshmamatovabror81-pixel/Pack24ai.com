@@ -1,11 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLanguage } from '@/lib/contexts/LanguageContext';
-import {
-    Box, Cpu, Scissors, Sparkles, Image, ChevronRight,
-    ArrowRight, Star, Zap, Globe, Package
-} from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/LanguageContext';import { Box, Cpu, Scissors, Sparkles, Image, ArrowRight, Star, Zap, Globe, Package } from 'lucide-react';
 
 // ─── Tool Card ───────────────────────────────────────────────────
 const TOOLS = [

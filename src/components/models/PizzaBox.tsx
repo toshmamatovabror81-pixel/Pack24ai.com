@@ -1,7 +1,5 @@
 import React from 'react';
 import { BoxModel, BoxModelProps, BoxDimensions } from '../../lib/types';
-import jsPDF from 'jspdf';
-import { useTexture } from '@react-three/drei';
 
 // ------------------------------------------------------------------
 // GEOMETRY & CALCULATIONS

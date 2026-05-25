@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: Request) {
     try {
@@ -31,7 +30,7 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json(orders);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to fetch production orders' }, { status: 500 });
     }
 }

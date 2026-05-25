@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, SlidersHorizontal, Box, Search, ChevronRight } from 'lucide-react';
+import Link from 'next/link';import { ArrowLeft, SlidersHorizontal, Box, ChevronRight } from 'lucide-react';
 import { useCategoryStore, Category } from '@/lib/store/useCategoryStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 

@@ -44,7 +44,7 @@ const WASTE_TYPES = [
 type TabId = 'dashboard' | 'pickup' | 'rewards';
 
 export default function PRTSPage() {
-    const { t, language } = useLanguage();
+    const { t, _language } = useLanguage();
     const [activeTab, setActiveTab] = useState<TabId>('dashboard');
     const [stats, setStats] = useState<EcoStats | null>(null);
     const [chartData, setChartData] = useState<MonthlyData[]>([]);

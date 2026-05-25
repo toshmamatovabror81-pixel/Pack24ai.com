@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Camera, QrCode } from 'lucide-react';
+import { useRouter } from 'next/navigation';import { ArrowLeft, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
 
@@ -63,7 +62,7 @@ export default function MobileScannerPage() {
                         // detection frame error — skip
                     }
                 }, 300);
-            } catch (err) {
+            } catch (_err) {
                 toast.error("Kamerani ochishda xato. Ruxsat berilganligini tekshiring.");
             }
         };

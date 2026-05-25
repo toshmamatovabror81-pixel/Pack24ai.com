@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
-import { CheckCircle, XCircle, Clock, Banknote, CreditCard, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';import { CheckCircle, XCircle, Banknote, CreditCard, RefreshCw } from 'lucide-react';
 
 interface Driver {
     id: number;
@@ -90,7 +89,7 @@ export default function PayoutsTab() {
     }
 
     const pendingCount = payouts.filter(p => p.status === 'pending').length;
-    const completedCount = payouts.filter(p => p.status === 'completed').length;
+    const _completedCount = payouts.filter(p => p.status === 'completed').length;
 
     return (
         <div className="space-y-6">

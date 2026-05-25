@@ -1,12 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import {
-    Bell,
-    Search,
-    ChevronDown,
-    Box,
-} from 'lucide-react';
+import { usePathname } from 'next/navigation';import { Bell, Search, ChevronDown } from 'lucide-react';
 import { navItems } from './adminNavConfig';
 
 interface AdminHeaderProps {

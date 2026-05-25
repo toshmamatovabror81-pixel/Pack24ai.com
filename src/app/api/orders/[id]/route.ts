@@ -62,7 +62,7 @@ export async function GET(
 
         // gallery endi Prisma Json tipida — parse kerak emas
         return NextResponse.json(order);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -3,18 +3,12 @@
 import { useProductStore } from '@/lib/store/useProductStore';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
-import {
-    ArrowLeft, Star, ShoppingCart, Truck, ShieldCheck, Minus, Plus,
-    Heart, ChevronRight, Box, Check, ZoomIn, ChevronLeft, Package,
-    Phone, Share2, MessageSquare, Send, ThumbsUp, Film
-} from 'lucide-react';
+import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';import { Star, ShoppingCart, Truck, ShieldCheck, Minus, Plus, Heart, ChevronRight, Box, Check, ZoomIn, ChevronLeft, Package, Phone, Share2, MessageSquare, Send, ThumbsUp, Film } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { trackEvent } from '@/components/GoogleAnalytics';
-import { translateProductName, translateCategory, getProductUI } from '@/lib/product-translations';
+import { trackEvent } from '@/components/GoogleAnalytics';import { translateProductName, translateCategory } from '@/lib/product-translations';
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 function ProductSkeleton() {

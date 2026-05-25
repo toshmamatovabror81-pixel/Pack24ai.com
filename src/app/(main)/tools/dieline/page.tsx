@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { useState } from 'react';
-import { ChevronRight, Settings, Download, FileText, Layers, Package, Grid3x3 } from 'lucide-react';
+import { useState } from 'react';import { ChevronRight, Settings, Download, FileText, Layers } from 'lucide-react';
 
 // ─── Template kategoriyalari ───────────────────────────────────────
 const DIELINE_CATEGORIES = [

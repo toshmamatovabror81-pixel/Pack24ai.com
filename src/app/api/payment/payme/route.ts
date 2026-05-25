@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 
 // ─── Payme (PayCom) to'lov integratsiyasi ───────────────────────────────────
 // Hujjatlar: https://developer.paycom.uz/
 
 const PAYME_MERCHANT_ID  = process.env.PAYME_MERCHANT_ID  ?? '';
-const PAYME_SECRET_KEY   = process.env.PAYME_SECRET_KEY   ?? '';
-const PAYME_TEST_SECRET  = process.env.PAYME_TEST_SECRET  ?? '';
+const _PAYME_SECRET_KEY   = process.env.PAYME_SECRET_KEY   ?? '';
+const _PAYME_TEST_SECRET  = process.env.PAYME_TEST_SECRET  ?? '';
 const IS_TEST = process.env.NODE_ENV !== 'production';
 
 const PAYME_URL = IS_TEST
@@ -17,7 +16,7 @@ const PAYME_URL = IS_TEST
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { orderId, amount, description } = body;
+        const { orderId, amount, _description } = body;
 
         if (!orderId || !amount) {
             return NextResponse.json({ error: 'orderId va amount majburiy' }, { status: 400 });

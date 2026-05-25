@@ -354,7 +354,7 @@ export async function GET(request: Request) {
             include: { items: { include: { product: true } } },
         });
         return NextResponse.json(orders);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

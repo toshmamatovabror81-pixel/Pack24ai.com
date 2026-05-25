@@ -5,8 +5,7 @@ import {
   kgToNextLevel,
   levelProgress,
   calcEcoPoints,
-} from '@/lib/eco/levels';
-import type { EcoLevel, EcoLevelKey } from '@/lib/eco/levels';
+} from '@/lib/eco/levels';import type { EcoLevelKey } from '@/lib/eco/levels';
 
 // ─── ECO_LEVELS constant ────────────────────────────────────────────
 describe('ECO_LEVELS', () => {

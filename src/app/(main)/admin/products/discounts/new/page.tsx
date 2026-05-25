@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
-import { ArrowLeft, Calendar, Save, Calculator, Check, AlertCircle } from 'lucide-react';
+import { Card } from '@/components/ui/Card';import { ArrowLeft, Calendar, Save, Calculator, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function NewDiscountPage() {

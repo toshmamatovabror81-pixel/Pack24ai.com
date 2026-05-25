@@ -5,7 +5,7 @@
 
 // ── Yordamchi funksiyalar (route mantiqidan ajratilgan) ──────────────────────
 type OrderStatus = 'draft' | 'new' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+type _PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     draft:      ['new', 'cancelled'],

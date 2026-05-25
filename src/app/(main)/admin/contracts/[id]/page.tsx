@@ -1,10 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import {
-    Building2, ArrowLeft, FileText, DollarSign, AlertTriangle,
-    Loader2, CheckCircle, Clock, X, Plus
-} from 'lucide-react';
+import { useState, useEffect, use } from 'react';import { Building2, ArrowLeft, FileText, AlertTriangle, Loader2, CheckCircle, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 

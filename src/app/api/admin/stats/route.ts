@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 
 // ─── GET /api/admin/stats — Dashboard uchun real statistika ──────────────────
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     try {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

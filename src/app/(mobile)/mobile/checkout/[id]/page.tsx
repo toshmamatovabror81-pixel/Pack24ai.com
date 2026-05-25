@@ -34,7 +34,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             });
             if (!res.ok) throw new Error();
             return true;
-        } catch (error) {
+        } catch (_error) {
             toast.error("Xatolik yuz berdi");
             return false;
         } finally {

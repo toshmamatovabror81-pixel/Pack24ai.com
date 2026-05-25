@@ -98,7 +98,7 @@ class EventBus {
                 });
 
                 for (const dbEvent of newEvents) {
-                    const realtimeEvent: RealtimeEvent = {
+                    const _realtimeEvent: RealtimeEvent = {
                         type: dbEvent.eventType,
                         title: dbEvent.title,
                         message: dbEvent.message ?? '',

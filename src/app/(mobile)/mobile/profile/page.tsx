@@ -1,11 +1,8 @@
-'use client';
-
-import Link from 'next/link';
-import { User, LogOut, Phone, Instagram, Send, MapPin, Globe, Settings, Info, Youtube, Bot, Headset } from 'lucide-react';
+'use client';import { LogOut, Phone, Instagram, Send, Globe, Settings, Info, Youtube, Headset } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function MobileProfilePage() {
-    const router = useRouter();
+    const _router = useRouter();
     return (
         <div className="bg-[#F9FAFB] min-h-screen flex flex-col">
             {/* Header */}

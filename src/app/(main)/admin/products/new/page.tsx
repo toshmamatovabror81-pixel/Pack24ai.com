@@ -4,12 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Switch } from '@/components/ui/Switch';
-import {
-    ArrowLeft, Sparkles, Wand2, Upload, Info, Plus, X,
-    Loader2, Image as ImageIcon, Trash2, Video, Film, ChevronDown
-} from 'lucide-react';
+import { Switch } from '@/components/ui/Switch';import { ArrowLeft, Sparkles, Wand2, Upload, Info, Plus, X, Loader2, Image as ImageIcon, Video, Film, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useProductStore } from '@/lib/store/useProductStore';
@@ -219,7 +214,7 @@ export default function NewProductPage() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSubCategory, setSelectedSubCategory] = useState('');
     const router = useRouter();
-    const addProduct = useProductStore(state => state.addProduct);
+    const _addProduct = useProductStore(state => state.addProduct);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
 

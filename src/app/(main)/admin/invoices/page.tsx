@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { FileText, Search, Download, DollarSign, AlertTriangle, Loader2, CheckCircle, Clock, Plus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';import { FileText, Download, DollarSign, AlertTriangle, Loader2, CheckCircle, Clock, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Invoice {

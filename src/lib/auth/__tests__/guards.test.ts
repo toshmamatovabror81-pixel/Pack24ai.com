@@ -35,8 +35,6 @@ jest.mock('next/server', () => ({
         },
     },
 }));
-
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { validateAdminToken } from '@/lib/adminAuthShared';
 import { getAdminSecret, MissingSecretError } from '@/lib/auth/tokenSecrets';

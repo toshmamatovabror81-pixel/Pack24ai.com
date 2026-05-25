@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { Play, Square, CheckCircle2, AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-react';
+import { useState } from 'react';import { Play, Square, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';

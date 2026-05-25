@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Box, ChevronRight, Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';import { ArrowLeft, ChevronRight, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 

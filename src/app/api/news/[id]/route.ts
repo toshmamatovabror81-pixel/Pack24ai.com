@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const news = await prisma.news.findUnique({ where: { id: Number(id) } });
         if (!news) return NextResponse.json({ error: 'Topilmadi' }, { status: 404 });
         return NextResponse.json(news);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
         });
         return NextResponse.json(news);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -44,7 +44,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     try {
         await prisma.news.delete({ where: { id: Number(id) } });
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

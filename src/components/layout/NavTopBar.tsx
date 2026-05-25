@@ -1,6 +1,4 @@
 'use client';
-
-import Link from 'next/link';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { FlagIcon } from '@/components/FlagIcon';
 import { Language, LANGUAGE_NAMES } from '@/lib/translations';

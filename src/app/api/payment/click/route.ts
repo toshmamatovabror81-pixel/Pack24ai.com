@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 const CLICK_SERVICE_ID       = process.env.CLICK_SERVICE_ID       ?? '';
 const CLICK_MERCHANT_ID      = process.env.CLICK_MERCHANT_ID      ?? '';
 const CLICK_SECRET_KEY       = process.env.CLICK_SECRET_KEY       ?? '';
-const CLICK_MERCHANT_USER_ID = process.env.CLICK_MERCHANT_USER_ID ?? '';
+const _CLICK_MERCHANT_USER_ID = process.env.CLICK_MERCHANT_USER_ID ?? '';
 
 /** Click MD5 imzosi */
 function clickSign(parts: string[]): string {
@@ -52,12 +52,12 @@ export async function GET(req: NextRequest) {
 
     const clickTransId    = searchParams.get('click_trans_id') ?? '';
     const serviceId       = searchParams.get('service_id') ?? '';
-    const clickPaydocId   = searchParams.get('click_paydoc_id') ?? '';
+    const _clickPaydocId   = searchParams.get('click_paydoc_id') ?? '';
     const merchantTransId = searchParams.get('merchant_trans_id') ?? ''; // orderId
     const amount          = parseFloat(searchParams.get('amount') ?? '0');
     const action          = searchParams.get('action') ?? '0'; // '0' = PREPARE, '1' = COMPLETE
     const error           = searchParams.get('error') ?? '0';
-    const errorNote       = searchParams.get('error_note') ?? '';
+    const _errorNote       = searchParams.get('error_note') ?? '';
     const signTime        = searchParams.get('sign_time') ?? '';
     const signString      = searchParams.get('sign_string') ?? '';
 

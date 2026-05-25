@@ -7,13 +7,10 @@ import { useBoxModel } from '../lib/hooks/useBoxModel';
 import { materials } from '../lib/materials';
 import { availableModels, defaultModel } from '../lib/models'; // Import registry
 import { useLanguage } from '../lib/contexts/LanguageContext';
-import { Language } from '../lib/translations';
-
-import { FlagIcon } from './FlagIcon';
 import AIConsultant from './AIConsultant';
 
 export default function BoxConfigurator() {
-  const { t, tm, language, setLanguage } = useLanguage();
+  const { t, tm, language, _setLanguage } = useLanguage();
 
   const {
     model,
@@ -28,7 +25,7 @@ export default function BoxConfigurator() {
 
   const [fold, setFold] = useState(0.5);
   const [quantity, setQuantity] = useState(100);
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [_langMenuOpen, _setLangMenuOpen] = useState(false);
   const [textureUrl, setTextureUrl] = useState<string | undefined>(undefined);
   const [isGenerating, setIsGenerating] = useState(false);
 

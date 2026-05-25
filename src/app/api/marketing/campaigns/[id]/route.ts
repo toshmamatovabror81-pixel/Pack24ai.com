@@ -16,7 +16,7 @@ export async function GET(
         }
 
         return NextResponse.json(campaign);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to fetch campaign' }, { status: 500 });
     }
 }
@@ -42,7 +42,7 @@ export async function PUT(
         });
 
         return NextResponse.json(campaign);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to update campaign' }, { status: 500 });
     }
 }
@@ -58,7 +58,7 @@ export async function DELETE(
         });
 
         return NextResponse.json({ message: 'Campaign deleted successfully' });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to delete campaign' }, { status: 500 });
     }
 }

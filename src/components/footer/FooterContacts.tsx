@@ -11,7 +11,7 @@ interface FooterContactsProps {
     lbl: (l: Partial<Record<Language, string>>) => string;
 }
 
-export default function FooterContacts({ language, ui, lbl }: FooterContactsProps) {
+export default function FooterContacts({ _language, ui, lbl }: FooterContactsProps) {
     return (
         <div className="lg:col-span-2">
             <div className="mb-4">

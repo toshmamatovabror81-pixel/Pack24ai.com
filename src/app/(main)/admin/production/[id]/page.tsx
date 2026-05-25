@@ -1,19 +1,6 @@
 'use client';
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-    ArrowLeft,
-    CheckCircle2,
-    Circle,
-    Clock,
-    AlertTriangle,
-    Truck,
-    Printer,
-    Layers,
-    Box,
-    FileText,
-    Camera
-} from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';import { ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle, Truck, Printer, Layers, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';

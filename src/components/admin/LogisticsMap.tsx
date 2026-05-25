@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { MapPin, User, Phone, PackageSearch, Truck, RefreshCw, Navigation, Building2, Locate } from "lucide-react";
+import L from "leaflet";import { MapPin, User, Phone, PackageSearch, Truck, RefreshCw, Navigation, Building2 } from "lucide-react";
 
 /* ═══════════════════ Types ═══════════════════ */
 
@@ -186,7 +185,7 @@ export default function LogisticsMap() {
     const driversWithGPS = useMemo(() => drivers.filter(d => d.lastLat && d.lastLng), [drivers]);
 
     // Hudud bo'yicha statistika
-    const regionStats = useMemo(() => {
+    const _regionStats = useMemo(() => {
         const map = new Map<number, { name: string; color: string; requests: number; drivers: number }>();
         points.forEach(p => {
             map.set(p.id, {

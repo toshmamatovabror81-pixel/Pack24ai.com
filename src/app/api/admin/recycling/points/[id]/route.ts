@@ -22,7 +22,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             }
         });
         return NextResponse.json(point);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -34,7 +34,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
             where: { id: Number(id) }
         });
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

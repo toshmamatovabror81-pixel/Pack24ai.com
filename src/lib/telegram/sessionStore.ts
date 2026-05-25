@@ -137,7 +137,7 @@ export async function restoreSessionsFromDB(): Promise<void> {
             },
         });
 
-        const stores = getGlobalStores();
+        const _stores = getGlobalStores();
         const now = Date.now();
 
         for (const event of events) {

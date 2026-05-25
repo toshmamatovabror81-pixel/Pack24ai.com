@@ -7,13 +7,7 @@ import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
-import {
-    LogOut, Package, User as UserIcon, Settings, Heart,
-    ShoppingCart, ChevronRight, MapPin, Star, Loader2, Clock,
-    Phone, Shield, Bell, Gift, TrendingUp, MessageCircle,
-    KeyRound, Copy, CheckCircle2, type LucideIcon
-} from 'lucide-react';
+import Link from 'next/link';import { LogOut, Package, User as UserIcon, Settings, ShoppingCart, ChevronRight, Loader2, Clock, Phone, Shield, Bell, Gift, MessageCircle, KeyRound, Copy, CheckCircle2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 
@@ -32,7 +26,7 @@ type TabKey = 'orders' | 'cart' | 'settings';
 type OnStatsReady = (stats: { totalSpent: number; orderCount: number }) => void;
 
 export default function ProfilePage() {
-    const { user, isAuthenticated, logout, orders } = useAuthStore();
+    const { user, _isAuthenticated, logout, orders } = useAuthStore();
     const { status } = useSession();
     const cartItems = useCartStore(s => s.items);
     const { language } = useLanguage();
@@ -401,7 +395,7 @@ export default function ProfilePage() {
 }
 
 // ── Profile Orders Sub-component — DB'dan fetch qiladi ──────────
-function ProfileOrdersList({ user, language, format, t, onStatsReady }: {
+function ProfileOrdersList({ _user, _language, format, t, onStatsReady }: {
     user: { phone: string };
     language: string;
     format: (n: number) => string;

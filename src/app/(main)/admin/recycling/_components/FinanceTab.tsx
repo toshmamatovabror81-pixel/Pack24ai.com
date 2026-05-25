@@ -4,12 +4,7 @@ import { toast } from 'sonner';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Legend,
-} from 'recharts';
-import {
-    DollarSign, Scale, TrendingUp, Clock, Truck, MapPin,
-    Package, ArrowUpRight, ArrowDownRight, Banknote, Wallet,
-    Download, Calendar,
-} from 'lucide-react';
+} from 'recharts';import { DollarSign, Scale, TrendingUp, Clock, Truck, MapPin, Package, ArrowUpRight, Banknote, Wallet, Download, Calendar } from 'lucide-react';
 
 interface FinanceData {
     summary: {

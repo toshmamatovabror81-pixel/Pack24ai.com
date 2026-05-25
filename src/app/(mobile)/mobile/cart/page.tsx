@@ -1,7 +1,6 @@
 'use client';
 
-import { useCartStore } from '@/lib/store/useCartStore';
-import { Trash2, AlertCircle, ShoppingBag, ArrowRight } from 'lucide-react';
+import { useCartStore } from '@/lib/store/useCartStore';import { Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

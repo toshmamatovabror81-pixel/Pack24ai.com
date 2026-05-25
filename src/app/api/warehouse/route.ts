@@ -25,7 +25,7 @@ export async function GET() {
         }
 
         return NextResponse.json(warehouses);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to fetch warehouses' }, { status: 500 });
     }
 }
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(warehouse, { status: 201 });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to create warehouse' }, { status: 500 });
     }
 }

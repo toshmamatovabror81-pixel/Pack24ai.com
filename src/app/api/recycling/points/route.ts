@@ -21,7 +21,7 @@ export async function GET() {
             }
         });
         return NextResponse.json(points);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

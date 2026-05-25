@@ -1,11 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-    X, User, Phone, Mail, Building2, Shield, MessageCircle,
-    Bell, BellOff, Copy, CheckCheck, ClipboardCopy, Link2,
-    Briefcase, Clock, Send,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';import { X, Phone, Mail, Building2, Shield, MessageCircle, Bell, Copy, CheckCheck, Link2, Briefcase, Clock, Send } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface StaffDetail {

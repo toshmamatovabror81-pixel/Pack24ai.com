@@ -1,10 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-    Leaf, Trophy, Users, TreePine, Wind, Droplets,
-    Loader2, RefreshCw, Download, Medal, Zap, TrendingUp
-} from 'lucide-react';
+import { useState, useEffect } from 'react';import { Leaf, Trophy, Users, TreePine, Wind, Loader2, RefreshCw, Download, Medal, Zap, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LeaderEntry {

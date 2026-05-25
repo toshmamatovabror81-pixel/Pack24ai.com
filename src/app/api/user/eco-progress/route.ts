@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         if (!user) return NextResponse.json({ error: 'Topilmadi' }, { status: 404 });
 
         return NextResponse.json(user);
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

@@ -4,9 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Switch } from '@/components/ui/Switch';
-import { Search, Plus, Download, GripVertical, Calendar, Percent, Tag, Clock, Trash2, Pencil } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';import { Search, Plus, Calendar, Percent, Tag, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 // Mock Data for Discounts

@@ -37,7 +37,7 @@ export default function ImportProductModal({ isOpen, onClose }: ImportProductMod
                 setPreviewData(data);
                 toast.success('Ma\'lumotlar yuklandi!');
             }
-        } catch (e) {
+        } catch (_e) {
             toast.error("Xatolik yuz berdi");
         } finally {
             setIsLoading(false);

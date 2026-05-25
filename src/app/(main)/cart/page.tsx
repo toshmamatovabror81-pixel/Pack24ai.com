@@ -32,7 +32,7 @@ export default function CartPage() {
 
     const subtotal = totalAmount();
     const discount = promoApplied ? Math.round(subtotal * 0.05) : 0;
-    const delivery = subtotal > 500000 ? 0 : 0; // Free delivery shown as TBD
+    const _delivery = subtotal > 500000 ? 0 : 0; // Free delivery shown as TBD
     const total = subtotal - discount;
 
     const handleRemove = (id: number) => {

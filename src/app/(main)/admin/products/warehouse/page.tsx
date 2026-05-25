@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Search, Plus, Filter, ArrowRightLeft, Download, FileSpreadsheet, AlertTriangle, ArrowRight, Home, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';import { Search, Plus, ArrowRightLeft, Download, AlertTriangle, ArrowRight, Home, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function WarehousePage() {
@@ -93,7 +92,7 @@ export default function WarehousePage() {
             } else {
                 toast.error(data.error || "Xatolik yuz berdi");
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Tizim xatosi");
         } finally {
             setIsSubmitting(false);

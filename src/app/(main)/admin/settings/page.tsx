@@ -4,24 +4,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
-import {
-    Upload,
-    RefreshCcw,
-    Globe,
-    Phone,
-    Instagram,
-    Send,
-    Facebook,
-    Youtube,
-    Clock,
-    MapPin,
-    Info,
-    Check,
-    Plus,
-    X
-} from 'lucide-react';
+import { Input } from '@/components/ui/Input';import { Upload, RefreshCcw, Globe, Phone, Instagram, Send, Facebook, Youtube, Clock, MapPin, Info, Check } from 'lucide-react';
 
 const WEEKDAYS = [
     { id: 'mon', name: 'Dushanba' },
@@ -36,7 +19,7 @@ const WEEKDAYS = [
 const CURRENCIES = ['UZS', 'USD'];
 
 export default function SettingsPage() {
-    const [logo, setLogo] = useState<string | null>(null);
+    const [logo, _setLogo] = useState<string | null>(null);
     const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string }>>({
         mon: { active: true, start: '09:00', end: '18:00' },
         tue: { active: true, start: '09:00', end: '18:00' },

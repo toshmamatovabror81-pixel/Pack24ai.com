@@ -1,5 +1,4 @@
 import { BoxModel, BoxModelProps, BoxDimensions } from '../../lib/types';
-import { useTexture } from '@react-three/drei';
 import jsPDF from 'jspdf';
 
 // Helper for geometry constants

@@ -2,9 +2,6 @@
 
 import { Slider } from '@/components/ui/Slider';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Button } from '@/components/ui/Button';
-import { X, Search } from 'lucide-react';
-import { useState } from 'react';
 
 interface FilterSidebarProps {
     availableFilters: any;
