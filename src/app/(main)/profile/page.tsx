@@ -424,6 +424,7 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
         } finally {
             setLoading(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);

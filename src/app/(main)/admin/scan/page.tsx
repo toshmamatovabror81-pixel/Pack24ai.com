@@ -77,6 +77,7 @@ export default function MobileScannerPage() {
                 streamRef.current = null;
             }
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isScanning]);
 
     const handleResult = (scanData: string) => {

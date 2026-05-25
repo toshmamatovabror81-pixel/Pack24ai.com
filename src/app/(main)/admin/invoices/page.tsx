@@ -60,6 +60,7 @@ export default function InvoicesPage() {
         finally { setLoading(false); }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load(); }, [statusFilter]);
 
     const outstanding = (stats?.totalAmount ?? 0) - (stats?.totalPaid ?? 0);

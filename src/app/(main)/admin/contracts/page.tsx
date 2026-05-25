@@ -62,6 +62,7 @@ export default function ContractsPage() {
         finally { setLoading(false); }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load(); }, [statusFilter]);
 
     const handleSearch = (e: React.FormEvent) => {

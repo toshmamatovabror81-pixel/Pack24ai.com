@@ -149,6 +149,7 @@ export default function AIDesignPage() {
         } finally {
             setIsGenerating(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prompt, selectedStyle, activeTypeItem, language]);
 
     // Texture Loader for Simple Shapes

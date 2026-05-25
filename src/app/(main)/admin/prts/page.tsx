@@ -57,6 +57,7 @@ export default function AdminPRTSPage() {
         finally { setLoading(false); }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load(); }, [period]);
 
     return (

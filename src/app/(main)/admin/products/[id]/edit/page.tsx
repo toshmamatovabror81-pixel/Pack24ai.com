@@ -202,6 +202,7 @@ export default function EditProductPage() {
             })
             .catch(() => toast.error('Yuklashda xatolik'))
             .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, categories]);
 
     const addSpec = () => setSpecs([...specs, { id: Date.now().toString(), key: '', value: '' }]);

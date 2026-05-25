@@ -65,6 +65,7 @@ export default function WarehousePage() {
 
     useEffect(() => {
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedWarehouseId, searchTerm]);
 
     const handleTransfer = async () => {

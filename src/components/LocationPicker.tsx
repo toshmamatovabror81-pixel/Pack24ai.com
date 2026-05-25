@@ -173,6 +173,7 @@ export default function LocationPicker({
 
         // Map resize fix
         setTimeout(() => map.invalidateSize(), 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialLocation]);
 
     useEffect(() => {
@@ -205,6 +206,7 @@ export default function LocationPicker({
         onLocationSelect(loc);
 
         m.setView([lat, lng], Math.max(m.getZoom(), MARKER_ZOOM), { animate: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onLocationSelect]);
 
     const setupMarkerDrag = (marker: L.Marker) => {

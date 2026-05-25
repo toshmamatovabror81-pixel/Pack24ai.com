@@ -95,6 +95,7 @@ function OrdersContent() {
         if (status === 'all') params.delete('status'); else params.set('status', status);
         router.replace(`?${params.toString()}`, { scroll: false });
         setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status]);
 
     const handleStatusUpdate = async (id: number, newStatus: string) => {

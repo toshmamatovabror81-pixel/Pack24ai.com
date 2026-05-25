@@ -383,12 +383,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
     useEffect(() => {
         if (products.length === 0) fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (product) {
             trackEvent('view_item', { item_name: product.name, item_id: product.id, price: product.price });
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [product?.id]);
 
     const translatedName = translateProductName(product?.name ?? '', language);

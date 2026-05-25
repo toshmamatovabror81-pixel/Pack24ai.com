@@ -38,6 +38,7 @@ export default function ProductsPage() {
 
     React.useEffect(() => {
         fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const filteredProducts = products.filter(p => {

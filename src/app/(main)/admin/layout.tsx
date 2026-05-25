@@ -52,6 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 duration: event.severity === 'error' ? 8000 : 5000,
             });
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const { connected } = useRealtimeEvents(handleRealtimeEvent);

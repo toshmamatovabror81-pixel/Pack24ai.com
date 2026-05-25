@@ -48,6 +48,7 @@ export default function CategoryPage() {
     useEffect(() => {
         setHasMounted(true);
         fetchProducts({ status: 'active' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Reset sub-filter when slug changes

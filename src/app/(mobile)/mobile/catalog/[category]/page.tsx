@@ -58,6 +58,7 @@ export default function CategoryProductsPage() {
         } else {
             setLoading(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [slug, categories]);
 
     const title = currentCategory
