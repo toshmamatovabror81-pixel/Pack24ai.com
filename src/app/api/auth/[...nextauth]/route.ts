@@ -21,7 +21,7 @@ async function handler(req: NextRequest) {
         });
         if (!limited.ok) return limited.response;
     }
-    return authHandler(req, {} as never);
+    return authHandler(req);
 }
 
 export { handler as GET, handler as POST };

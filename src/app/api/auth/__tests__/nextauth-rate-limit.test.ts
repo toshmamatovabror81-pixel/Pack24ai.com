@@ -2,9 +2,11 @@
 
 import { setRateLimitStore, type RateLimitStore } from '@/lib/rateLimit';
 
+const mockAuthHandler = jest.fn(async () => new Response('ok'));
+
 jest.mock('next-auth', () => ({
     __esModule: true,
-    default: jest.fn(() => jest.fn(async () => new Response('ok'))),
+    default: jest.fn(() => mockAuthHandler),
 }));
 
 jest.mock('@/lib/auth', () => ({
@@ -42,6 +44,7 @@ function makeLoginRequest(): Request {
 
 describe('NextAuth credentials rate limiting', () => {
     beforeEach(() => {
+        mockAuthHandler.mockClear();
         resetRateLimitStore();
     });
 
@@ -52,6 +55,8 @@ describe('NextAuth credentials rate limiting', () => {
             const response = await POST(makeLoginRequest() as never);
             expect(response.status).not.toBe(429);
         }
+
+        expect(mockAuthHandler).toHaveBeenLastCalledWith(expect.any(Request));
 
         const blocked = await POST(makeLoginRequest() as never);
         expect(blocked.status).toBe(429);
