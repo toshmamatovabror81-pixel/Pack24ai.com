@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, TrendingUp, Package, Tag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -212,7 +213,7 @@ export function SmartSearch() {
                                         >
                                             <div className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
                                                 {product.image && product.image !== '/placeholder.png' ? (
-                                                    <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
+                                                    <Image src={product.image} alt={product.name} className="w-full h-full object-contain" width={300} height={300} />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-lg">📦</div>
                                                 )}

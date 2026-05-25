@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -35,7 +36,7 @@ function ImageSlot({
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(index, f); }} />
             {url ? (
                 <>
-                    <img src={url} alt={`Rasm ${index + 1}`} className="w-full h-full object-cover" />
+                    <Image src={url} alt={`Rasm ${index + 1}`} className="w-full h-full object-cover" width={300} height={300} />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <button type="button" onClick={() => ref.current?.click()}
                             className="bg-white/90 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white">

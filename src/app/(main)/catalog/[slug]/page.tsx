@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
 import Link from 'next/link';
@@ -73,10 +74,10 @@ function ProductCardGrid({
             <Link href={`/product/${product.id}`}>
                 <div className="h-44 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
                     {product.image ? (
-                        <img
+                        <Image
                             src={product.image}
                             alt={product.name}
-                            className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" width={300} height={300}
                         />
                     ) : (
                         <ShoppingCart size={36} className="text-gray-200" />
@@ -154,7 +155,7 @@ function ProductCardList({
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all p-4 flex items-center gap-4">
                 <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
                     {product.image
-                        ? <img src={product.image} alt={product.name} className="w-full h-full object-contain p-1" />
+                        ? <Image src={product.image} alt={product.name} className="w-full h-full object-contain p-1" width={300} height={300} />
                         : <ShoppingCart size={28} className="text-gray-200 m-auto mt-7" />
                     }
                 </div>

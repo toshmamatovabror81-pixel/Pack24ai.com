@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Heart, Share2, Star, Minus, Plus, ShoppingCart } from 'lucide-react';
@@ -70,10 +71,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         <Heart className="w-5 h-5" />
                     </button>
                 </div>
-                <img
+                <Image
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-full object-contain mix-blend-multiply"
+                    className="w-full h-full object-contain mix-blend-multiply" width={300} height={300}
                 />
             </div>
 

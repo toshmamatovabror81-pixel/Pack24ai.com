@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useCallback, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';import { OrbitControls } from '@react-three/drei';
 import { useBoxModel } from '@/lib/hooks/useBoxModel';
@@ -285,7 +286,7 @@ export default function AIDesignPage() {
                                                 : 'border-white/10 hover:border-white/30'
                                         }`}
                                     >
-                                        <img src={v.dataUrl} alt={`Variant ${v.index}`} className="w-full h-20 object-cover" />
+                                        <Image src={v.dataUrl} alt={`Variant ${v.index}`} className="w-full h-20 object-cover" width={300} height={300} />
                                         <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
                                             selectedVariant === i ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                         }`}>

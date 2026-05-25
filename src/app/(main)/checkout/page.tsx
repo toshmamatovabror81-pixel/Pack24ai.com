@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
@@ -356,7 +357,7 @@ export default function CheckoutPage() {
                                     <div key={i} className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
                                             {item.image
-                                                ? <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                                                ? <Image src={item.image} alt={item.name} className="w-full h-full object-contain" width={300} height={300} />
                                                 : <Package size={14} className="m-auto mt-2 text-gray-300" />
                                             }
                                         </div>

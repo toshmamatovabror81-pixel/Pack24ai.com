@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import {
     Search, Percent, ShoppingBag, Box, Ticket, Layers, Package, Printer, ScrollText,
     PackageOpen, Mail, Archive, Croissant, Utensils, Footprints, Square, FileText,
@@ -84,10 +85,10 @@ export default function MobileHomePage() {
                             {/* Image Container */}
                             <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 mr-4 flex-shrink-0 relative">
                                 {/* Using distinct colored backgrounds for placeholders if needed, or just the image */}
-                                <img
+                                <Image
                                     src={imageUrl}
                                     alt={cat.name[language as keyof typeof cat.name] || cat.name.ru}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover" width={300} height={300}
                                 />
                             </div>
 

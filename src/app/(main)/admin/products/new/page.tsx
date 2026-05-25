@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -60,7 +61,7 @@ function ImageSlot({
 
             {url ? (
                 <>
-                    <img src={url} alt={`Rasm ${index + 1}`} className="w-full h-full object-cover" />
+                    <Image src={url} alt={`Rasm ${index + 1}`} className="w-full h-full object-cover" width={300} height={300} />
                     {/* Overlay */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <button

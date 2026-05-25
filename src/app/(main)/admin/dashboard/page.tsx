@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend
@@ -331,7 +332,7 @@ export default function AdminDashboard() {
                                 <div key={p.productId} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
                                     <span className={`w-5 text-[11px] font-extrabold ${i < 3 ? 'text-amber-500' : 'text-gray-400'}`}>{i + 1}</span>
                                     <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
-                                        {p.image ? <img src={p.image} alt="" className="w-full h-full object-contain" /> : <Box size={14} className="text-gray-300" />}
+                                        {p.image ? <Image src={p.image} alt="" className="w-full h-full object-contain" width={300} height={300} /> : <Box size={14} className="text-gray-300" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>

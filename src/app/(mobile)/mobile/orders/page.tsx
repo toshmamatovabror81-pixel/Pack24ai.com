@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';import { ArrowLeft, ChevronRight, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -82,7 +83,7 @@ export default function OrderHistoryPage() {
                                     <div className="flex -space-x-2">
                                         {order.items.slice(0, 3).map((item: UnsafeAny) => (
                                             <div key={item.id} className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white overflow-hidden">
-                                                <img src={item.product?.image} alt={item.product?.name || 'Mahsulot'} className="w-full h-full object-cover" />
+                                                <Image src={item.product?.image} alt={item.product?.name || 'Mahsulot'} className="w-full h-full object-cover" width={300} height={300} />
                                             </div>
                                         ))}
                                     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 // Fixed accessibility issues (Axe diagnostics) in this file by adding aria-labels
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -48,7 +49,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-4">
                             <div className="w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center relative group cursor-pointer hover:bg-gray-100 transition-colors">
                                 {logo ? (
-                                    <img src={logo} alt="Logo" className="w-full h-full object-contain p-2" />
+                                    <Image src={logo} alt="Logo" className="w-full h-full object-contain p-2" width={300} height={300} />
                                 ) : (
                                     <Upload className="w-8 h-8 text-gray-400" />
                                 )}

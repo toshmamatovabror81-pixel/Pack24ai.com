@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -168,7 +169,7 @@ export default function ProductsPage() {
                                     </td>
                                     <td className="py-3 pl-2">
                                         <div className="flex items-center gap-3">
-                                            <img src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200" />
+                                            <Image src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200" width={300} height={300} />
                                             <div>
                                                 <span className="font-medium text-gray-900 block max-w-xs truncate" title={product.name}>{product.name}</span>
                                                 {product.sku && <span className="text-xs text-gray-400">SKU: {product.sku}</span>}

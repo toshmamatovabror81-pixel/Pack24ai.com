@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -224,7 +225,7 @@ export default function WarehousePage() {
                                     <td className="py-4 pl-6">
                                         <div className="flex items-center gap-3">
                                             {item.product.image && (
-                                                <img src={item.product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200" />
+                                                <Image src={item.product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200" width={300} height={300} />
                                             )}
                                             <span className="font-medium text-gray-900 group-hover:text-[#064E3B] transition-colors">{item.product.name}</span>
                                         </div>

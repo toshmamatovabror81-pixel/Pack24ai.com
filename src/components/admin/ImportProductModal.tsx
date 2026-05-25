@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -109,7 +110,7 @@ export default function ImportProductModal({ isOpen, onClose }: ImportProductMod
                 ) : (
                     <div className="space-y-6">
                         <div className="flex gap-4">
-                            <img src={previewData.image} alt="" className="w-32 h-32 object-contain rounded-lg border border-gray-200 bg-white" />
+                            <Image src={previewData.image} alt="" className="w-32 h-32 object-contain rounded-lg border border-gray-200 bg-white" width={300} height={300} />
                             <div className="flex-1 space-y-2">
                                 <h3 className="font-bold text-gray-800 text-lg leading-tight">{previewData.name}</h3>
 

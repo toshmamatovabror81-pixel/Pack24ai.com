@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
@@ -426,7 +427,7 @@ export default function OrderTrackingPage() {
                                         <Link href={`/product/${item.product?.id ?? '#'}`} className="shrink-0">
                                             <div className="w-14 h-14 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
                                                 {item.product?.image
-                                                    ? <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain" />
+                                                    ? <Image src={item.product.image} alt={item.product.name} className="w-full h-full object-contain" width={300} height={300} />
                                                     : <Box size={20} className="m-auto mt-3 text-gray-300" />
                                                 }
                                             </div>

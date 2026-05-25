@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
@@ -124,7 +125,7 @@ export default function CartPage() {
                                         <Link href={`/product/${item.productId}`} className="flex-shrink-0">
                                             <div className="w-20 h-20 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden hover:border-blue-200 transition-colors">
                                                 {item.image
-                                                    ? <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                                                    ? <Image src={item.image} alt={item.name} className="w-full h-full object-contain" width={300} height={300} />
                                                     : <Box size={28} className="text-gray-200 m-auto mt-5" />
                                                 }
                                             </div>

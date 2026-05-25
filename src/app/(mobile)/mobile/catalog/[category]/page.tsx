@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';import { ArrowLeft, SlidersHorizontal, Box, ChevronRight } from 'lucide-react';
@@ -112,10 +113,10 @@ export default function CategoryProductsPage() {
                                 >
                                     {/* Image Container */}
                                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 mr-4 flex-shrink-0 relative">
-                                        <img
+                                        <Image
                                             src={imageUrl}
                                             alt={sub.name[language as keyof typeof sub.name] || sub.name.ru}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover" width={300} height={300}
                                         />
                                     </div>
 
@@ -151,10 +152,10 @@ export default function CategoryProductsPage() {
                                     onClick={() => router.push(`/mobile/product/${product.id}`)}
                                 >
                                     <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl overflow-hidden">
-                                        <img
+                                        <Image
                                             src={product.image}
                                             alt={product.name}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover" width={300} height={300}
                                         />
                                     </div>
                                     <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-auto">{product.name}</h3>

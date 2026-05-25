@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
@@ -180,7 +181,7 @@ export default function ProfilePage() {
                                         {cartItems.map((item, i) => (
                                             <div key={i} className="flex items-center gap-4 p-4">
                                                 <div className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
-                                                    {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-contain" /> : <Package size={18} className="m-auto mt-2 text-gray-300" />}
+                                                    {item.image ? <Image src={item.image} alt={item.name} className="w-full h-full object-contain" width={300} height={300} /> : <Package size={18} className="m-auto mt-2 text-gray-300" />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-semibold text-gray-800 truncate">{item.name}</p>
@@ -468,7 +469,7 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
                             {(order.items ?? []).slice(0, 2).map((item: UnsafeAny, j: number) => (
                                 <div key={j} className="flex items-center gap-3 py-1.5">
                                     <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
-                                        {item.product?.image ? <img src={item.product.image} alt="" className="w-full h-full object-contain" /> : <Package size={12} className="m-auto mt-2 text-gray-300" />}
+                                        {item.product?.image ? <Image src={item.product.image} alt="" className="w-full h-full object-contain" width={300} height={300} /> : <Package size={12} className="m-auto mt-2 text-gray-300" />}
                                     </div>
                                     <p className="text-sm text-gray-700 truncate flex-1">{item.product?.name ?? 'Mahsulot'}</p>
                                     <p className="text-xs font-bold text-gray-900 shrink-0">{format(item.price * item.quantity)}</p>

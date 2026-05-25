@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCartStore } from '@/lib/store/useCartStore';
@@ -429,7 +430,7 @@ export default function MyOrdersPage() {
                                                             title={item.product?.name}
                                                         >
                                                             {item.product?.image
-                                                                ? <img src={item.product.image} alt="" className="w-full h-full object-contain" />
+                                                                ? <Image src={item.product.image} alt="" className="w-full h-full object-contain" width={300} height={300} />
                                                                 : <Box size={14} className="m-auto mt-2 text-gray-300" />
                                                             }
                                                         </div>

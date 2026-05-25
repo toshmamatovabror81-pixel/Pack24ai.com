@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useProductStore } from '@/lib/store/useProductStore';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
@@ -89,10 +90,10 @@ function ImageGallery({ images, name }: { images: string[]; name: string }) {
                 className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden h-80 flex items-center justify-center group cursor-zoom-in"
                 onClick={() => setLightbox(true)}
             >
-                <img
+                <Image
                     src={current}
                     alt={name}
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" width={300} height={300}
                 />
                 <button
                     aria-label="Kattalashtirish"
@@ -142,7 +143,7 @@ function ImageGallery({ images, name }: { images: string[]; name: string }) {
                                 i === selected ? 'border-blue-500 shadow-md shadow-blue-100' : 'border-gray-100 hover:border-gray-300'
                             }`}
                         >
-                            <img src={img} alt="" className="w-full h-full object-contain" />
+                            <Image src={img} alt="" className="w-full h-full object-contain" width={300} height={300} />
                         </button>
                     ))}
                 </div>
@@ -179,9 +180,11 @@ function ImageGallery({ images, name }: { images: string[]; name: string }) {
                             </button>
                         </>
                     )}
-                    <img
+                    <Image
                         src={current}
                         alt={name}
+                        width={900}
+                        height={900}
                         className="max-h-[85vh] max-w-[85vw] object-contain"
                         onClick={e => e.stopPropagation()}
                     />
@@ -744,7 +747,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                                                     </span>
                                                 )}
                                                 {rp.image
-                                                    ? <img src={rp.image} alt={rp.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                                                    ? <Image src={rp.image} alt={rp.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" width={300} height={300} />
                                                     : <Box size={32} className="text-gray-200" />
                                                 }
                                             </div>

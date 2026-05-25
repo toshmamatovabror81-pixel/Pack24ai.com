@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState, use } from 'react';import { ArrowLeft, MapPin, Phone, Package, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -86,7 +87,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                         {order.items.map((item: UnsafeAny) => (
                             <div key={item.id} className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
                                 <div className="w-12 h-12 bg-gray-50 rounded-lg overflow-hidden shrink-0">
-                                    <img src={item.product?.image} alt={item.product?.name || 'Item'} className="w-full h-full object-cover" />
+                                    <Image src={item.product?.image} alt={item.product?.name || 'Item'} className="w-full h-full object-cover" width={300} height={300} />
                                 </div>
                                 <div className="flex-1">
                                     <h4 className="text-sm font-medium text-gray-900 line-clamp-2">{item.product?.name}</h4>

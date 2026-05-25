@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCartStore } from '@/lib/store/useCartStore';import { Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -74,7 +75,7 @@ export default function CartPage() {
                 {items.map((item) => (
                     <div key={item.productId} className="bg-white p-3 rounded-2xl flex gap-3 shadow-sm">
                         <div className="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden shrink-0">
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            <Image src={item.image ?? '/placeholder.png'} alt={item.name} className="w-full h-full object-cover" width={300} height={300} />
                         </div>
                         <div className="flex-1 flex flex-col">
                             <div className="flex justify-between items-start mb-1">
