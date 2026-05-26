@@ -168,9 +168,9 @@ export default function PaymentMethodsPage() {
                             <button
                                 onClick={() => toggleMethod(method)}
                                 aria-label={method.status === 'active' ? "O'chirish" : "Yoqish"}
-                                className="text-gray-400 hover:text-[#064E3B] transition-colors"
+                                className="text-gray-400 hover:text-brand-green transition-colors"
                             >
-                                {method.status === 'active' ? <ToggleRight className="w-8 h-8 text-[#064E3B]" /> : <ToggleLeft className="w-8 h-8" />}
+                                {method.status === 'active' ? <ToggleRight className="w-8 h-8 text-brand-green" /> : <ToggleLeft className="w-8 h-8" />}
                             </button>
                         </div>
 
@@ -241,7 +241,7 @@ export default function PaymentMethodsPage() {
 
                         <div className="flex gap-3 pt-6">
                             <Button variant="secondary" onClick={() => setIsSettingsOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 border-transparent text-gray-700">Bekor qilish</Button>
-                            <Button onClick={handleSaveSettings} className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">
+                            <Button onClick={handleSaveSettings} className="flex-1 bg-brand-green hover:bg-[#053d2e]">
                                 <Check className="w-4 h-4 mr-2" />
                                 Saqlash va Yoqish
                             </Button>

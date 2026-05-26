@@ -1,7 +1,7 @@
 // Cart page loading skeleton
 export default function CartLoading() {
     return (
-        <div className="min-h-screen bg-[#f5f6fa] animate-pulse">
+        <div className="min-h-screen bg-surface-page animate-pulse">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div className="h-3 bg-gray-200 rounded-full w-32 mb-6" />
                 <div className="h-7 bg-gray-200 rounded-full w-36 mb-6" />

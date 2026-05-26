@@ -14,7 +14,7 @@ import { trackEvent } from '@/components/GoogleAnalytics';import { translateProd
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 function ProductSkeleton() {
     return (
-        <div className="min-h-screen bg-[#f5f6fa] animate-pulse">
+        <div className="min-h-screen bg-surface-page animate-pulse">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div className="h-4 bg-gray-200 rounded-full w-64 mb-6" />
             </div>
@@ -502,7 +502,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     );
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
 
             {/* Breadcrumb */}
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">

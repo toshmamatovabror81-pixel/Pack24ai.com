@@ -81,7 +81,7 @@ export default function NewsletterPage() {
                     <p className="text-sm text-gray-500 mt-1">Mijozlarga ommaviy xabar yuborish va tarixni kuzatish</p>
                 </div>
                 <Link href="/admin/marketing/newsletter/new">
-                    <Button className="bg-[#064E3B] hover:bg-[#053d2e]">
+                    <Button className="bg-brand-green hover:bg-[#053d2e]">
                         <Plus className="w-4 h-4 mr-2" />
                         Yangi xabar yaratish
                     </Button>

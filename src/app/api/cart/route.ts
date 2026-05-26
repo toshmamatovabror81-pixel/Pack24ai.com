@@ -5,6 +5,7 @@
  * POST — savatni saqlash/sync (items array → draft order yaratish/yangilash)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 import { verifyMobileToken } from '@/lib/auth/verifyMobileToken';
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ items, total, orderId: draftOrder.id });
     } catch (error) {
-        console.error('[GET /api/cart]', error);
+        logger.error({ error }, 'GET /api/cart');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -85,6 +86,10 @@ export async function POST(req: NextRequest) {
 
         if (!Array.isArray(items)) {
             return NextResponse.json({ error: 'items majburiy (array)' }, { status: 400 });
+        }
+
+        if (items.length > 50) {
+            return NextResponse.json({ error: 'Savatda 50 dan ortiq mahsulot bo\'lishi mumkin emas' }, { status: 400 });
         }
 
         // Validatsiya: productId va quantity tekshirish
@@ -129,16 +134,18 @@ export async function POST(req: NextRequest) {
         let order;
         if (existingDraft) {
             // Mavjud draft — eski items tozalab, yangilarini qo'shish
-            await prisma.orderItem.deleteMany({ where: { orderId: existingDraft.id } });
-            order = await prisma.order.update({
-                where: { id: existingDraft.id },
-                data: {
-                    totalAmount: total,
-                    items: { create: orderItems },
-                },
-                include: {
-                    items: { include: { product: { select: { name: true } } } },
-                },
+            order = await prisma.$transaction(async (tx) => {
+                await tx.orderItem.deleteMany({ where: { orderId: existingDraft.id } });
+                return tx.order.update({
+                    where: { id: existingDraft.id },
+                    data: {
+                        totalAmount: total,
+                        items: { create: orderItems },
+                    },
+                    include: {
+                        items: { include: { product: { select: { name: true } } } },
+                    },
+                });
             });
         } else {
             // Yangi draft yaratish
@@ -162,7 +169,7 @@ export async function POST(req: NextRequest) {
             itemCount: order.items.length,
         });
     } catch (error) {
-        console.error('[POST /api/cart]', error);
+        logger.error({ error }, 'POST /api/cart');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

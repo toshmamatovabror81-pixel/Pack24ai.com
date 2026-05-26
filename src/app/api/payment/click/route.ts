@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { toNumber } from '@/lib/money';
+import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
 
 // ─── Click Uzbekistan to'lov integratsiyasi ─────────────────────────────────
@@ -18,11 +22,22 @@ function clickSign(parts: string[]): string {
 // ─── POST /api/payment/click — to'lov URL yaratish ───────────────────────────
 export async function POST(req: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Auth kerak' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { orderId, amount, returnUrl } = body;
 
         if (!orderId || !amount) {
             return NextResponse.json({ error: 'orderId va amount majburiy' }, { status: 400 });
+        }
+
+        // Buyurtma egasini tekshirish
+        const order = await prisma.order.findUnique({ where: { id: parseInt(orderId) } });
+        if (!order || order.userId !== parseInt(session.user.id)) {
+            return NextResponse.json({ error: 'Buyurtma topilmadi yoki ruxsat yo\'q' }, { status: 403 });
         }
 
         // Summani tiyin ga o'tkazish (1 so'm = 100 tiyin)
@@ -40,7 +55,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ payUrl: clickPayUrl, orderId, amount });
     } catch (error) {
-        console.error('[API/payment/click POST]', error);
+        logger.error({ error }, '[API/payment/click POST]');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -97,6 +112,11 @@ export async function GET(req: NextRequest) {
 
     // ── COMPLETE (action=1) ──────────────────────────────────────────────────
     if (action === '1') {
+        // Summa tekshirish
+        if (Math.abs(toNumber(order.totalAmount) * 100 - amount * 100) > 1) {
+            return NextResponse.json({ error: -2, error_note: 'AMOUNT MISMATCH' });
+        }
+
         if (parseInt(error) < 0) {
             // To'lov bekor qilindi
             await prisma.order.update({

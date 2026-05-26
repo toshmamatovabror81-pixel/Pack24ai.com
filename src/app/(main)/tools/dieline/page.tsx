@@ -51,7 +51,7 @@ export default function DielinePage() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Header */}
             <div className="bg-white border-b border-gray-100 py-6">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">

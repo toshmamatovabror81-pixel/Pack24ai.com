@@ -136,7 +136,7 @@ export default function NewCampaignPage() {
                         </Link>
                         <Button
                             type="submit"
-                            className="bg-[#064E3B] hover:bg-[#053d2e] min-w-[120px]"
+                            className="bg-brand-green hover:bg-[#053d2e] min-w-[120px]"
                             disabled={loading}
                         >
                             {loading ? 'Yuborilmoqda...' : (

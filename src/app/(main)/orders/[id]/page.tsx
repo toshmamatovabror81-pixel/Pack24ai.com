@@ -208,7 +208,7 @@ export default function OrderTrackingPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
+            <div className="min-h-screen bg-surface-page flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
                     <Loader2 size={32} className="animate-spin text-blue-500" />
                     <p className="text-sm text-gray-400">{t('loading', language)}</p>
@@ -219,7 +219,7 @@ export default function OrderTrackingPage() {
 
     if (error || !order) {
         return (
-            <div className="min-h-screen bg-[#f5f6fa] flex flex-col items-center justify-center p-8 text-center">
+            <div className="min-h-screen bg-surface-page flex flex-col items-center justify-center p-8 text-center">
                 <Package size={52} className="text-gray-200 mb-4" />
                 <h1 className="text-xl font-extrabold text-gray-900 mb-2">{t('notFound', language)}</h1>
                 <Link href="/my-orders" className="mt-4 text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
@@ -237,7 +237,7 @@ export default function OrderTrackingPage() {
     const canReorder = ['delivered', 'cancelled'].includes(order.status);
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Cancel Confirmation Modal */}
             {cancelModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4">

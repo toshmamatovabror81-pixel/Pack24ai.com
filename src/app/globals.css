@@ -1,11 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --brand-navy:   #0c2340;
+    --brand-dark:   #102a45;
+    --brand-deeper: #0c1a2e;
+    --brand-red:    #e33326;
+    --brand-accent: #1a4a7c;
+    --surface-page: #f5f6fa;
+    --surface-card: #ffffff;
+    --surface-hover:#fef7f6;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
-  background: white;
+  background: var(--surface-page);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* Banner slider progress bar */

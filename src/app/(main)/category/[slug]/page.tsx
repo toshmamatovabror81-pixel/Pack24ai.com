@@ -146,7 +146,7 @@ export default function CategoryPage() {
     });
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Header strip */}
             <div className="bg-white border-b border-gray-100 py-5">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -239,8 +239,8 @@ export default function CategoryPage() {
                                 onClick={() => setSubFilter(null)}
                                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
                                     !subFilter
-                                        ? 'bg-[#e33326] text-white border-[#e33326] shadow-sm'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#e33326] hover:text-[#e33326]'
+                                        ? 'bg-brand-red text-white border-brand-red shadow-sm'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-brand-red hover:text-brand-red'
                                 }`}
                             >
                                 {t("Barchasi", "Все", "All")} ({filtered.length})

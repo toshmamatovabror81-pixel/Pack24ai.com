@@ -86,7 +86,7 @@ export default async function Home() {
     const initialProducts = await getInitialProducts();
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* SEO: JSON-LD Structured Data */}
             <OrganizationLd />
             <WebSiteLd />

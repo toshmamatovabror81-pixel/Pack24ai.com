@@ -23,12 +23,12 @@ export default function ChannelPostsPage() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Mahsulotni tanlang</label>
-                                <select aria-label="Mahsulotni tanlash" className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-[#064E3B]/20 border-[#064E3B]">
+                                <select aria-label="Mahsulotni tanlash" className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-brand-green/20 border-brand-green">
                                     <option>Polietilen paket (Mayka)</option>
                                     <option>Pizza qutisi 30sm</option>
                                 </select>
                             </div>
-                            <Button className="w-full bg-[#064E3B] hover:bg-[#053d2e]">
+                            <Button className="w-full bg-brand-green hover:bg-[#053d2e]">
                                 <ImageIcon className="w-4 h-4 mr-2" />
                                 Rasmni yangilash
                             </Button>
@@ -45,7 +45,7 @@ export default function ChannelPostsPage() {
                                 <span className="text-gray-400 text-sm">Product Image Placeholder</span>
                             </div>
                             <div className="p-3">
-                                <p className="font-bold text-[#064E3B] mb-1">🔥 {selectedProduct}</p>
+                                <p className="font-bold text-brand-green mb-1">🔥 {selectedProduct}</p>
                                 <p className="text-sm text-gray-700 mb-2">
                                     Yuqori sifatli qadoqlash materiallari endi yanada arzon narxlarda!
                                     <br /><br />

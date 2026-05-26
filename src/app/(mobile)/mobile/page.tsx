@@ -49,7 +49,7 @@ export default function MobileHomePage() {
                     <input
                         type="text"
                         placeholder="Mahsulotlar va toifalarni qidirish"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#5D5FEF]/20"
+                        className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-brand-purple/20"
                     />
                 </div>
             </div>

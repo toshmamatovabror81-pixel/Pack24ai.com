@@ -217,7 +217,7 @@ export default function DeliveryPage() {
 
                             <div className="flex gap-3 pt-4">
                                 <Button variant="secondary" onClick={() => setIsInternalModalOpen(false)} className="flex-1">Bekor qilish</Button>
-                                <Button onClick={saveInternal} className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">Saqlash</Button>
+                                <Button onClick={saveInternal} className="flex-1 bg-brand-green hover:bg-[#053d2e]">Saqlash</Button>
                             </div>
                         </div>
                     </div>
@@ -254,7 +254,7 @@ export default function DeliveryPage() {
 
                             <div className="flex gap-3 pt-4">
                                 <Button variant="secondary" onClick={() => setIsExternalModalOpen(false)} className="flex-1">Bekor qilish</Button>
-                                <Button onClick={connectExternal} className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">Ulash</Button>
+                                <Button onClick={connectExternal} className="flex-1 bg-brand-green hover:bg-[#053d2e]">Ulash</Button>
                             </div>
                         </div>
                     </div>

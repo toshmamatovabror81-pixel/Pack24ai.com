@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm ci",
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/api/telegram/webhook/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}

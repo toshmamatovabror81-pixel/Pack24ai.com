@@ -51,7 +51,7 @@ export default function NavUserActions() {
                 <div className="relative" ref={dropdownRef}>
                     <button
                         onClick={() => setCurrencyOpen(!currencyOpen)}
-                        className="flex items-center gap-1 text-[13px] font-bold text-gray-700 hover:text-[#e33326] transition-colors"
+                        className="flex items-center gap-1 text-[13px] font-bold text-gray-700 hover:text-brand-red transition-colors"
                         aria-label="Valyuta tanlash"
                     >
                         <span>{cfg.flag}</span>
@@ -73,14 +73,14 @@ export default function NavUserActions() {
                                         onClick={() => { setCurrency(code); setCurrencyOpen(false); }}
                                         className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors ${
                                             isActive
-                                                ? 'bg-[#e33326]/5 text-[#e33326] font-bold'
+                                                ? 'bg-brand-red/5 text-brand-red font-bold'
                                                 : 'hover:bg-gray-50 text-gray-700'
                                         }`}
                                     >
                                         <span className="text-base">{c.flag}</span>
                                         <span className="font-semibold">{code}</span>
                                         <span className="text-gray-400 text-xs ml-auto">{c.symbol}</span>
-                                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#e33326] flex-shrink-0" />}
+                                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-brand-red flex-shrink-0" />}
                                     </button>
                                 );
                             })}
@@ -114,9 +114,9 @@ export default function NavUserActions() {
                     <User
                         size={24}
                         strokeWidth={1.5}
-                        className="group-hover:text-[#e33326] transition-colors"
+                        className="group-hover:text-brand-red transition-colors"
                     />
-                    <span className="text-[10px] mt-1 group-hover:text-[#e33326] transition-colors leading-none">
+                    <span className="text-[10px] mt-1 group-hover:text-brand-red transition-colors leading-none">
                         {loginLabel}
                     </span>
                 </Link>
@@ -133,12 +133,12 @@ export default function NavUserActions() {
                     strokeWidth={1.5}
                     className={`transition-colors ${
                         hasMounted && wishlistCount > 0
-                            ? 'text-[#e33326] fill-[#e33326]'
-                            : 'group-hover:text-[#e33326]'
+                            ? 'text-brand-red fill-brand-red'
+                            : 'group-hover:text-brand-red'
                     }`}
                 />
                 {hasMounted && wishlistCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-[#e33326] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold animate-in zoom-in">
+                    <span className="absolute -top-1.5 -right-1.5 bg-brand-red text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold animate-in zoom-in">
                         {wishlistCount}
                     </span>
                 )}
@@ -154,10 +154,10 @@ export default function NavUserActions() {
                     <ShoppingCart
                         size={24}
                         strokeWidth={1.5}
-                        className="group-hover:text-[#e33326] transition-colors"
+                        className="group-hover:text-brand-red transition-colors"
                     />
                     {hasMounted && cartCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-[#e33326] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold animate-in zoom-in">
+                        <span className="absolute -top-1.5 -right-1.5 bg-brand-red text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold animate-in zoom-in">
                             {cartCount}
                         </span>
                     )}

@@ -30,7 +30,7 @@ export default function CatalogSidebar() {
     return (
         <nav className="w-[260px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden self-start sticky top-[80px]">
             {/* Header */}
-            <div className="flex items-center gap-2.5 px-4 py-3.5 bg-[#0c2340] text-white">
+            <div className="flex items-center gap-2.5 px-4 py-3.5 bg-brand-navy text-white">
                 <LayoutGrid size={16} className="shrink-0" />
                 <span className="font-bold text-sm tracking-wide uppercase">
                     {ui('allCategories')}
@@ -129,7 +129,7 @@ export default function CatalogSidebar() {
                 <div className="px-3 py-2.5 border-t border-gray-100">
                     <Link
                         href="/catalog"
-                        className="flex items-center justify-center gap-2 w-full py-2 bg-[#0c2340] hover:bg-[#102a45] text-white rounded-xl text-xs font-bold transition-colors"
+                        className="flex items-center justify-center gap-2 w-full py-2 bg-brand-navy hover:bg-brand-dark text-white rounded-xl text-xs font-bold transition-colors"
                     >
                         <LayoutGrid size={12} />
                         {ui('fullCatalog')}

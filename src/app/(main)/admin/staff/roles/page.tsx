@@ -35,16 +35,16 @@ export default function RolesPage() {
                 {/* Roles List */}
                 <div className="lg:col-span-1 space-y-3">
                     {ROLES.map(role => (
-                        <div key={role.id} className={`p-4 rounded-[12px] border cursor-pointer transition-all ${role.id === 'seller' ? 'bg-white border-[#064E3B] shadow-md ring-1 ring-[#064E3B]/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
+                        <div key={role.id} className={`p-4 rounded-[12px] border cursor-pointer transition-all ${role.id === 'seller' ? 'bg-white border-brand-green shadow-md ring-1 ring-brand-green/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
                             <div className="flex justify-between items-start mb-2">
-                                <Shield className={`w-5 h-5 ${role.id === 'seller' ? 'text-[#064E3B]' : 'text-gray-400'}`} />
+                                <Shield className={`w-5 h-5 ${role.id === 'seller' ? 'text-brand-green' : 'text-gray-400'}`} />
                                 {role.badge && <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{role.badge}</span>}
                             </div>
-                            <h3 className={`font-bold ${role.id === 'seller' ? 'text-[#064E3B]' : 'text-gray-900'}`}>{role.name}</h3>
+                            <h3 className={`font-bold ${role.id === 'seller' ? 'text-brand-green' : 'text-gray-900'}`}>{role.name}</h3>
                             <p className="text-xs text-gray-500">{role.users} ta xodim</p>
                         </div>
                     ))}
-                    <Button variant="outline" className="w-full border-dashed border-gray-300 text-gray-500 hover:border-[#064E3B] hover:text-[#064E3B]">
+                    <Button variant="outline" className="w-full border-dashed border-gray-300 text-gray-500 hover:border-brand-green hover:text-brand-green">
                         + Yangi rol qo&apos;shish
                     </Button>
                 </div>
@@ -57,7 +57,7 @@ export default function RolesPage() {
                                 <h2 className="text-xl font-bold text-gray-900">Sotuvchi</h2>
                                 <p className="text-sm text-gray-500">Ushbu rol uchun ruxsatnomalarni belgilang</p>
                             </div>
-                            <Button className="bg-[#064E3B] hover:bg-[#053d2e]">
+                            <Button className="bg-brand-green hover:bg-[#053d2e]">
                                 <Check className="w-4 h-4 mr-2" />
                                 Saqlash
                             </Button>
@@ -70,7 +70,7 @@ export default function RolesPage() {
                                     <div className="space-y-2">
                                         {group.items.map(item => (
                                             <label key={item} className="flex items-center gap-3 cursor-pointer group">
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${['Dashboard ko\'rish', 'Buyurtmalarni ko\'rish'].includes(item) ? 'bg-[#064E3B] border-[#064E3B]' : 'border-gray-300 bg-white group-hover:border-[#064E3B]'}`}>
+                                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${['Dashboard ko\'rish', 'Buyurtmalarni ko\'rish'].includes(item) ? 'bg-brand-green border-brand-green' : 'border-gray-300 bg-white group-hover:border-brand-green'}`}>
                                                     {['Dashboard ko\'rish', 'Buyurtmalarni ko\'rish'].includes(item) && <Check className="w-3.5 h-3.5 text-white" />}
                                                 </div>
                                                 <span className="text-sm text-gray-700">{item}</span>

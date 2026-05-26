@@ -82,7 +82,7 @@ export default function DiscountsPage() {
     const t = (uz: string, ru: string) => language === 'ru' ? ru : uz;
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* ── Breadcrumb ── */}
             <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <nav className="flex items-center gap-2 text-sm text-gray-500">
@@ -250,7 +250,7 @@ export default function DiscountsPage() {
                 </div>
 
                 {/* ── CTA ── */}
-                <div className="bg-gradient-to-br from-[#0c2340] to-[#163860] rounded-2xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="bg-gradient-to-br from-brand-navy to-[#163860] rounded-2xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div>
                         <h3 className="text-xl font-bold mb-2">
                             {t("Chegirma haqida savolingiz bormi?", "Есть вопросы по скидкам?")}

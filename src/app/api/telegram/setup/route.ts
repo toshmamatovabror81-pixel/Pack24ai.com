@@ -20,6 +20,7 @@ import {
     deleteTelegramWebhooks,
     type TelegramRuntimeBot,
 } from '@/lib/telegram/runtime';
+import { configureCustomerWebAppMenu } from '@/lib/telegram/webAppMenu';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,10 @@ const TELEGRAM_BOTS: TelegramRuntimeBot[] = [
         init: initPack24AdminBot,
     },
 ];
+
+function hasSuccessfulWebhookResult(results: { status: string }[]): boolean {
+    return results.some((entry) => entry.status.startsWith('✅'));
+}
 
 // ─── GET — Botlar holati ─────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -95,6 +100,18 @@ export async function POST(request: NextRequest) {
             baseUrl,
             webhookSecret: webhookSecret ?? undefined,
         });
+
+        if (mode === 'webhook' && baseUrl && hasSuccessfulWebhookResult(results)) {
+            const customerBot = await initCustomerBot();
+            if (customerBot) {
+                try {
+                    await configureCustomerWebAppMenu(customerBot, baseUrl);
+                } catch (webAppErr) {
+                    console.warn('[Telegram setup] WebApp menu button:', webAppErr);
+                }
+            }
+        }
+
         const hasSuccessfulResult = results.some((entry) => entry.status.startsWith('✅') || entry.status.startsWith('ℹ️'));
 
         return NextResponse.json({

@@ -68,7 +68,7 @@ export default function NewReviewPage() {
 
     if (submitted) {
         return (
-            <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center px-4">
+            <div className="min-h-screen bg-surface-page flex items-center justify-center px-4">
                 <div className="bg-white rounded-3xl border border-gray-100 p-10 text-center max-w-md w-full shadow-sm">
                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
                         <CheckCircle size={36} className="text-emerald-500" />
@@ -94,7 +94,7 @@ export default function NewReviewPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Breadcrumb */}
             <div className="max-w-[700px] mx-auto px-4 sm:px-6 py-4">
                 <nav className="flex items-center gap-2 text-sm text-gray-500">

@@ -5,7 +5,7 @@ export type BannerLocation = 'hero' | 'promo' | 'sidebar';
 export type BannerGradient =
     | 'from-blue-600 to-indigo-700'
     | 'from-emerald-500 to-teal-600'
-    | 'from-[#0c2340] to-[#163860]'
+    | 'from-brand-navy to-[#163860]'
     | 'from-purple-600 to-violet-700'
     | 'from-orange-500 to-red-500'
     | 'from-emerald-600 to-teal-700'

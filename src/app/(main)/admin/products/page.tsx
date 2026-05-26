@@ -125,7 +125,7 @@ export default function ProductsPage() {
 
                     <div className="flex gap-3 w-full md:w-auto">
                         <div className="relative">
-                            <select aria-label="Kategoriya bo'yicha filtrlash" className="appearance-none h-10 pl-4 pr-10 bg-white border border-gray-200 rounded-[10px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#064E3B]/20 text-[15px]">
+                            <select aria-label="Kategoriya bo'yicha filtrlash" className="appearance-none h-10 pl-4 pr-10 bg-white border border-gray-200 rounded-[10px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-[15px]">
                                 <option value="all">Barcha Kategoriyalar</option>
                                 {categories.map(c => <option key={c} value={c as string}>{c}</option>)}
                             </select>
@@ -140,7 +140,7 @@ export default function ProductsPage() {
                         </Button>
 
                         <Link href="/admin/products/new">
-                            <Button className="gap-2 bg-[#064E3B] hover:bg-[#053d2e]">
+                            <Button className="gap-2 bg-brand-green hover:bg-[#053d2e]">
                                 <Plus className="w-4 h-4" />
                                 Qo&apos;shish
                             </Button>

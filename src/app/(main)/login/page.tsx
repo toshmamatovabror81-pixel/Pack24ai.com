@@ -121,7 +121,7 @@ export default function LoginPage() {
 
                 {/* Header */}
                 <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#064E3B] flex items-center justify-center mx-auto mb-3">
+                    <div className="w-14 h-14 rounded-2xl bg-brand-green flex items-center justify-center mx-auto mb-3">
                         <Lock size={24} className="text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">Kirish</h1>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                         onClick={() => { setMode('telegram'); setTgStep('phone'); setOtp(''); }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                             mode === 'telegram'
-                                ? 'bg-white shadow text-[#064E3B]'
+                                ? 'bg-white shadow text-brand-green'
                                 : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
@@ -145,7 +145,7 @@ export default function LoginPage() {
                         onClick={() => setMode('password')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                             mode === 'password'
-                                ? 'bg-white shadow text-[#064E3B]'
+                                ? 'bg-white shadow text-brand-green'
                                 : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
@@ -178,7 +178,7 @@ export default function LoginPage() {
 
                                 <Button
                                     type="submit"
-                                    className="w-full bg-[#064E3B] hover:bg-[#053d2e] h-11 text-base gap-2"
+                                    className="w-full bg-brand-green hover:bg-[#053d2e] h-11 text-base gap-2"
                                     disabled={isLoading || !phone.trim()}
                                 >
                                     {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -215,7 +215,7 @@ export default function LoginPage() {
                                         placeholder="• • • • • •"
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        className="w-full text-center text-3xl font-mono font-bold tracking-[0.4em] border-2 border-gray-200 focus:border-[#064E3B] rounded-xl px-4 py-4 outline-none transition-colors"
+                                        className="w-full text-center text-3xl font-mono font-bold tracking-[0.4em] border-2 border-gray-200 focus:border-brand-green rounded-xl px-4 py-4 outline-none transition-colors"
                                         required
                                         autoFocus
                                     />
@@ -223,7 +223,7 @@ export default function LoginPage() {
 
                                 <Button
                                     type="submit"
-                                    className="w-full bg-[#064E3B] hover:bg-[#053d2e] h-11 text-base gap-2"
+                                    className="w-full bg-brand-green hover:bg-[#053d2e] h-11 text-base gap-2"
                                     disabled={isLoading || otp.length !== 6 || countdown <= 0}
                                 >
                                     {isLoading ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
@@ -267,7 +267,7 @@ export default function LoginPage() {
                         />
                         <Button
                             type="submit"
-                            className="w-full bg-[#064E3B] hover:bg-[#053d2e] h-11 text-base"
+                            className="w-full bg-brand-green hover:bg-[#053d2e] h-11 text-base"
                             disabled={isLoading}
                         >
                             {isLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
@@ -282,7 +282,7 @@ export default function LoginPage() {
                         <span className="text-gray-500">Hisobingiz yo&apos;qmi? </span>
                         <Link
                             href={referralCode ? `/register?ref=${encodeURIComponent(referralCode)}` : '/register'}
-                            className="text-[#064E3B] font-semibold hover:underline"
+                            className="text-brand-green font-semibold hover:underline"
                         >
                             Ro&apos;yxatdan o&apos;tish
                         </Link>

@@ -471,6 +471,7 @@ model Order {
 
   items             OrderItem[]
   corporateInvoices CorporateInvoice[]
+  paymeTransactions PaymeTransaction[]
 
   staffTasks Task[]
 
@@ -491,6 +492,23 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+/// Payme JSON-RPC transaction mapping (CreateTransaction → PerformTransaction)
+model PaymeTransaction {
+  id          String   @id // Payme transaction ID
+  orderId     Int
+  order       Order    @relation(fields: [orderId], references: [id])
+  amount      Int      // tiyin
+  state       Int      @default(1) // 1=created, 2=performed, -1=cancelled, -2=cancelled after perform
+  createTime  BigInt
+  performTime BigInt?
+  cancelTime  BigInt?
+  reason      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderId])
 }
 
 model Warehouse {

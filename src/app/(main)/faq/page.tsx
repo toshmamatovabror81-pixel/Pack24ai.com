@@ -253,7 +253,7 @@ export default function FAQPage() {
         setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Breadcrumb */}
             <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <nav className="flex items-center gap-2 text-sm text-gray-500">

@@ -73,7 +73,7 @@ export default function NavCatalogDropdown() {
             {/* Catalog Button */}
             <Link
                 href="/catalog"
-                className="hidden lg:flex items-center bg-[#e33326] text-white px-5 py-3 rounded text-[15px] font-bold uppercase hover:bg-[#c92d21] transition-colors gap-2 flex-shrink-0"
+                className="hidden lg:flex items-center bg-brand-red text-white px-5 py-3 rounded text-[15px] font-bold uppercase hover:bg-[#c92d21] transition-colors gap-2 flex-shrink-0"
                 onMouseEnter={handleMouseEnterButton}
                 onMouseLeave={handleMouseLeave}
             >
@@ -104,16 +104,16 @@ export default function NavCatalogDropdown() {
                                     href={`/category/${cat.slug}`}
                                     className={`flex items-center gap-3 px-4 py-3 text-[13.5px] transition-all border-b border-gray-50 last:border-0 ${
                                         isHovered
-                                            ? 'bg-[#e33326]/5 text-[#e33326]'
-                                            : 'text-gray-700 hover:bg-gray-50 hover:text-[#e33326]'
+                                            ? 'bg-brand-red/5 text-brand-red'
+                                            : 'text-gray-700 hover:bg-gray-50 hover:text-brand-red'
                                     }`}
                                     onMouseEnter={() => setActiveCategory(cat.id)}
                                     onClick={() => { setIsOpen(false); setActiveCategory(null); }}
                                 >
-                                    <Icon size={17} className={isHovered ? 'text-[#e33326]' : 'text-gray-400'} />
+                                    <Icon size={17} className={isHovered ? 'text-brand-red' : 'text-gray-400'} />
                                     <span className="font-medium flex-1 leading-tight">{getCatName(cat, language)}</span>
                                     {hasSubs && (
-                                        <ChevronRight size={14} className={isHovered ? 'text-[#e33326]' : 'text-gray-300'} />
+                                        <ChevronRight size={14} className={isHovered ? 'text-brand-red' : 'text-gray-300'} />
                                     )}
                                 </Link>
                             );
@@ -122,7 +122,7 @@ export default function NavCatalogDropdown() {
                         {/* Barchasini ko'rish */}
                         <Link
                             href="/catalog"
-                            className="block text-center py-3 text-xs font-bold text-[#e33326] bg-red-50/60 hover:bg-red-50 uppercase tracking-wide sticky bottom-0"
+                            className="block text-center py-3 text-xs font-bold text-brand-red bg-red-50/60 hover:bg-red-50 uppercase tracking-wide sticky bottom-0"
                             onClick={() => { setIsOpen(false); setActiveCategory(null); }}
                         >
                             {VIEW_ALL[language] ?? VIEW_ALL.uz}
@@ -148,7 +148,7 @@ export default function NavCatalogDropdown() {
                                     <Link
                                         key={sub.id}
                                         href={`/category/${sub.slug}`}
-                                        className="flex items-center gap-3 px-4 py-3 text-[13px] text-gray-600 hover:bg-[#e33326]/5 hover:text-[#e33326] transition-all border-b border-gray-50 last:border-0"
+                                        className="flex items-center gap-3 px-4 py-3 text-[13px] text-gray-600 hover:bg-brand-red/5 hover:text-brand-red transition-all border-b border-gray-50 last:border-0"
                                         onClick={() => { setIsOpen(false); setActiveCategory(null); }}
                                     >
                                         <SubIcon size={15} className="text-gray-400" />

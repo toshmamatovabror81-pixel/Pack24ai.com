@@ -44,11 +44,11 @@ export default function Navbar() {
     // SSR skeleton — hydration xatolarini oldini olish
     if (!hasMounted) {
         return (
-            <nav className="bg-[#102a45] text-white shadow-lg sticky top-0 z-50">
-                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="bg-brand-dark text-white shadow-lg sticky top-0 z-50">
+                <div className="max-w-site mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-[70px]">
                         <span className="text-2xl font-black tracking-tighter">
-                            PACK<span className="text-[#e33326]">24</span>
+                            PACK<span className="text-brand-red">24</span>
                         </span>
                     </div>
                 </div>
@@ -63,7 +63,7 @@ export default function Navbar() {
 
             {/* 2. Main header: Logo + Catalog + Search + Actions */}
             <div className="bg-white py-4 md:py-5 border-b border-gray-100">
-                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap items-center gap-4 md:gap-6">
+                <div className="max-w-site mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap items-center gap-4 md:gap-6">
                     {/* Logo */}
                     <Link href="/" className="flex-shrink-0 flex items-center mr-2" aria-label="Pack24 bosh sahifasi">
                         <span className="text-3xl font-black text-gray-900 tracking-tighter uppercase relative">
@@ -81,7 +81,7 @@ export default function Navbar() {
                     <div className="hidden xl:block flex-shrink-0">
                         <Link
                             href="/payment"
-                            className="text-[#e33326] border border-[#e33326] px-4 py-2.5 rounded text-[13px] font-bold uppercase hover:bg-[#e33326] hover:text-white transition-colors whitespace-nowrap"
+                            className="text-brand-red border border-brand-red px-4 py-2.5 rounded text-[13px] font-bold uppercase hover:bg-brand-red hover:text-white transition-colors whitespace-nowrap"
                         >
                             {t('nav.onlinePayment')}
                         </Link>
@@ -92,7 +92,7 @@ export default function Navbar() {
 
                     {/* Mobile hamburger */}
                     <button
-                        className="md:hidden ml-auto text-gray-700 hover:text-[#e33326] transition-colors"
+                        className="md:hidden ml-auto text-gray-700 hover:text-brand-red transition-colors"
                         onClick={() => setMobileOpen(!mobileOpen)}
                         aria-label={mobileOpen ? 'Menyu yopish' : 'Menyu ochish'}
                     >
@@ -103,7 +103,7 @@ export default function Navbar() {
 
             {/* 3. Desktop nav links */}
             <nav className="bg-white hidden md:block border-b-2 border-gray-100" aria-label="Asosiy navigatsiya">
-                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-site mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center space-x-0 overflow-x-auto">
                         {NAV_LINKS.map((link) => {
                             const isActive = pathname === link.href;
@@ -113,8 +113,8 @@ export default function Navbar() {
                                     href={link.href}
                                     className={`font-bold text-[13px] py-4 px-3 lg:px-4 uppercase whitespace-nowrap transition-colors border-b-2 ${
                                         isActive
-                                            ? 'text-[#e33326] border-[#e33326]'
-                                            : 'text-[#102a45] hover:text-[#e33326] border-transparent'
+                                            ? 'text-brand-red border-brand-red'
+                                            : 'text-brand-dark hover:text-brand-red border-transparent'
                                     }`}
                                 >
                                     {t(link.key)}
@@ -142,11 +142,11 @@ export default function Navbar() {
                                         href={link.href}
                                         onClick={() => setMobileOpen(false)}
                                         className={`flex items-center justify-between py-3 border-b border-gray-100 uppercase text-xs font-bold transition-colors ${
-                                            isActive ? 'text-[#e33326]' : 'text-gray-700 hover:text-[#e33326]'
+                                            isActive ? 'text-brand-red' : 'text-gray-700 hover:text-brand-red'
                                         }`}
                                     >
                                         {t(link.key)}
-                                        {isActive && <span className="w-2 h-2 bg-[#e33326] rounded-full" />}
+                                        {isActive && <span className="w-2 h-2 bg-brand-red rounded-full" />}
                                     </Link>
                                 </li>
                             );

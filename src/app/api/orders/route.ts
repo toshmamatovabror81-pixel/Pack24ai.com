@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { getServerSession } from 'next-auth';
@@ -210,7 +211,7 @@ export async function POST(req: NextRequest) {
         ]);
         for (const result of sideEffects) {
             if (result.status === 'rejected') {
-                console.error('[POST /api/orders] side effect failed', result.reason);
+                logger.error({ error: result.reason }, 'POST /api/orders side effect failed');
             }
         }
         // ── Korporativ buyurtma → avtomatik faktura ────────────────────
@@ -232,34 +233,44 @@ export async function POST(req: NextRequest) {
                     const dueDate = new Date();
                     dueDate.setDate(dueDate.getDate() + activeContract.paymentTermDays);
 
-                    // Faktura raqami generatsiya
+                    // Faktura raqami generatsiya (retry loop to handle concurrent duplicates)
                     const year = new Date().getFullYear();
-                    const lastInvoice = await prisma.corporateInvoice.findFirst({
-                        where: { invoiceNo: { startsWith: `INV-${year}-` } },
-                        orderBy: { invoiceNo: 'desc' },
-                    });
-                    const nextNum = lastInvoice
-                        ? String(parseInt(lastInvoice.invoiceNo.split('-').pop() || '0') + 1).padStart(4, '0')
-                        : '0001';
+                    let invoiceNo: string | null = null;
+                    for (let attempt = 0; attempt < 3; attempt++) {
+                        try {
+                            const lastInvoice = await prisma.corporateInvoice.findFirst({
+                                where: { invoiceNo: { startsWith: `INV-${year}-` } },
+                                orderBy: { invoiceNo: 'desc' },
+                            });
+                            const lastNum = lastInvoice
+                                ? parseInt(lastInvoice.invoiceNo.split('-').pop() || '0')
+                                : 0;
+                            invoiceNo = `INV-${year}-${String(lastNum + 1 + attempt).padStart(4, '0')}`;
 
-                    await prisma.corporateInvoice.create({
-                        data: {
-                            invoiceNo: `INV-${year}-${nextNum}`,
-                            contractId: activeContract.id,
-                            orderId: order.id,
-                            subtotal: toDecimal(subtotal),
-                            vatPercent,
-                            vatAmount: toDecimal(vatAmount),
-                            totalAmount: toDecimal(totalWithVat),
-                            dueDate,
-                            status: 'issued',
-                        },
-                    });
+                            await prisma.corporateInvoice.create({
+                                data: {
+                                    invoiceNo,
+                                    contractId: activeContract.id,
+                                    orderId: order.id,
+                                    subtotal: toDecimal(subtotal),
+                                    vatPercent,
+                                    vatAmount: toDecimal(vatAmount),
+                                    totalAmount: toDecimal(totalWithVat),
+                                    dueDate,
+                                    status: 'issued',
+                                },
+                            });
+                            break;
+                        } catch (e: unknown) {
+                            if ((e as { code?: string }).code === 'P2002' && attempt < 2) continue;
+                            throw e;
+                        }
+                    }
 
-                    console.log(`[Orders] Auto-invoice INV-${year}-${nextNum} yaratildi → buyurtma #${order.id}`);
+                    logger.info(`Auto-invoice ${invoiceNo} yaratildi → buyurtma #${order.id}`);
                 }
             } catch (invoiceErr) {
-                console.error('[Orders] Auto-invoice xatosi:', invoiceErr);
+                logger.error({ error: invoiceErr }, 'Auto-invoice xatosi');
             }
         }
 
@@ -278,7 +289,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        console.error('[POST /api/orders]', error);
+        logger.error({ error }, 'POST /api/orders');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

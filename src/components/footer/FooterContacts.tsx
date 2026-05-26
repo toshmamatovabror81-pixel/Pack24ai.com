@@ -16,7 +16,7 @@ export default function FooterContacts({ language: _language, ui, lbl }: FooterC
         <div className="lg:col-span-2">
             <div className="mb-4">
                 <span className="text-2xl font-black tracking-tighter text-white">
-                    PACK<span className="text-[#e33326]">24</span>
+                    PACK<span className="text-brand-red">24</span>
                     <span className="text-blue-400 ml-1 text-lg">AI</span>
                 </span>
                 <p className="text-blue-200/60 text-xs mt-1 font-medium">{ui('tagline')}</p>

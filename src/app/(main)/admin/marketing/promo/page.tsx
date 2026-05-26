@@ -90,7 +90,7 @@ export default function PromoCodesPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Promokodlar</h1>
                     <p className="text-sm text-gray-500 mt-1">Chegirma kuponlarini boshqarish</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} className="bg-[#064E3B] hover:bg-[#053d2e]">
+                <Button onClick={() => setIsModalOpen(true)} className="bg-brand-green hover:bg-[#053d2e]">
                     <Plus className="w-4 h-4 mr-2" />
                     Promokod Yaratish
                 </Button>
@@ -125,11 +125,11 @@ export default function PromoCodesPage() {
                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="py-4 pl-6">
                                         <div
-                                            className="inline-flex items-center gap-2 font-mono font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer group hover:border-[#064E3B] hover:text-[#064E3B] transition-all"
+                                            className="inline-flex items-center gap-2 font-mono font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer group hover:border-brand-green hover:text-brand-green transition-all"
                                             onClick={() => handleCopy(item.id, item.code)}
                                         >
                                             {item.code}
-                                            {copiedId === item.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 text-gray-400 group-hover:text-[#064E3B]" />}
+                                            {copiedId === item.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 text-gray-400 group-hover:text-brand-green" />}
                                         </div>
                                     </td>
                                     <td className="py-4 px-4">
@@ -268,7 +268,7 @@ export default function PromoCodesPage() {
                             {/* Actions */}
                             <div className="flex gap-3 pt-4">
                                 <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 border-transparent text-gray-700">Bekor qilish</Button>
-                                <Button className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">Saqlash</Button>
+                                <Button className="flex-1 bg-brand-green hover:bg-[#053d2e]">Saqlash</Button>
                             </div>
                         </div>
                     </div>

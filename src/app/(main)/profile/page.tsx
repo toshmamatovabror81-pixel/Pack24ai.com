@@ -105,7 +105,7 @@ export default function ProfilePage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Hero banner */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 py-12">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -363,7 +363,7 @@ export default function ProfilePage() {
                                             href="https://t.me/Pack24AI_bot"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-[#064E3B] hover:bg-[#053d2e] px-4 py-2.5 rounded-xl transition-colors"
+                                            className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-brand-green hover:bg-[#053d2e] px-4 py-2.5 rounded-xl transition-colors"
                                         >
                                             <MessageCircle size={15} />
                                             @Pack24AI_bot orqali ulash

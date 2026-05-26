@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // ─── Payme (PayCom) to'lov integratsiyasi ───────────────────────────────────
 // Hujjatlar: https://developer.paycom.uz/
@@ -15,11 +19,22 @@ const PAYME_URL = IS_TEST
 // ─── POST /api/payment/payme — Payme checkout URL yaratish ─────────────────
 export async function POST(req: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Auth kerak' }, { status: 401 });
+        }
+
         const body = await req.json();
-        const { orderId, amount, _description } = body;
+        const { orderId, amount } = body;
 
         if (!orderId || !amount) {
             return NextResponse.json({ error: 'orderId va amount majburiy' }, { status: 400 });
+        }
+
+        // Buyurtma egasini tekshirish
+        const order = await prisma.order.findUnique({ where: { id: parseInt(orderId) } });
+        if (!order || order.userId !== parseInt(session.user.id)) {
+            return NextResponse.json({ error: 'Buyurtma topilmadi yoki ruxsat yo\'q' }, { status: 403 });
         }
 
         // Payme amount tiyin (100x so'm)
@@ -44,7 +59,7 @@ export async function POST(req: NextRequest) {
             amountInTiyin,
         });
     } catch (error) {
-        console.error('[API/payment/payme]', error);
+        logger.error({ error }, '[API/payment/payme]');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

@@ -325,7 +325,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                         <Button variant="secondary" className="flex-1 bg-white border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200">
                             Bekor qilish
                         </Button>
-                        <Button className="flex-[2] bg-[#064E3B] hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10">
+                        <Button className="flex-[2] bg-brand-green hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10">
                             <CheckCircle2 className="w-4 h-4 mr-2" />
                             Qabul qilish & Tayyorlash
                         </Button>

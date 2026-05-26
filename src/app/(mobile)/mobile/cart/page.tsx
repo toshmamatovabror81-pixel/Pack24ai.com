@@ -56,7 +56,7 @@ export default function CartPage() {
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Savatingiz bo&apos;sh</h3>
                 <p className="text-sm text-gray-500 mb-6">Mahsulotlarni tanlab, bu yerga qo&apos;shing</p>
                 <Link href="/mobile/catalog">
-                    <button className="bg-[#064E3B] text-white px-6 py-3 rounded-xl font-medium text-sm">
+                    <button className="bg-brand-green text-white px-6 py-3 rounded-xl font-medium text-sm">
                         Katalogga o&apos;tish
                     </button>
                 </Link>
@@ -89,7 +89,7 @@ export default function CartPage() {
                                 </button>
                             </div>
                             <div className="mt-auto flex justify-between items-center">
-                                <span className="font-bold text-[#064E3B] text-sm">{item.price.toLocaleString()} co&apos;m</span>
+                                <span className="font-bold text-brand-green text-sm">{item.price.toLocaleString()} co&apos;m</span>
                                 <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
                                     <button
                                         className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 text-xs active:scale-90"
@@ -125,7 +125,7 @@ export default function CartPage() {
                 </div>
                 <div className="border-t border-dashed border-gray-200 my-2 pt-2 flex justify-between items-center">
                     <span className="font-bold text-gray-900">Jami</span>
-                    <span className="font-bold text-xl text-[#064E3B]">{totalAmount().toLocaleString()} co&apos;m</span>
+                    <span className="font-bold text-xl text-brand-green">{totalAmount().toLocaleString()} co&apos;m</span>
                 </div>
             </div>
 
@@ -134,7 +134,7 @@ export default function CartPage() {
                 <button
                     onClick={handleCheckout}
                     disabled={isSubmitting}
-                    className="w-full bg-[#5D5FEF] text-white h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#5D5FEF]/30 active:scale-[0.98] transition-all disabled:opacity-70"
+                    className="w-full bg-brand-purple text-white h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand-purple/30 active:scale-[0.98] transition-all disabled:opacity-70"
                 >
                     {isSubmitting ? 'Kutilmoqda...' : (
                         <>

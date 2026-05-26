@@ -175,7 +175,7 @@ export default function MyOrdersPage() {
     // ── Login talab qilinadi ──
     if (status === 'loading') {
         return (
-            <div className="min-h-[70vh] bg-[#f5f6fa] flex flex-col items-center justify-center p-8 text-center">
+            <div className="min-h-[70vh] bg-surface-page flex flex-col items-center justify-center p-8 text-center">
                 <Loader2 size={28} className="animate-spin text-blue-500" />
             </div>
         );
@@ -183,7 +183,7 @@ export default function MyOrdersPage() {
 
     if (status !== 'authenticated' || !isAuthenticated || !user) {
         return (
-            <div className="min-h-[70vh] bg-[#f5f6fa] flex flex-col items-center justify-center p-8 text-center">
+            <div className="min-h-[70vh] bg-surface-page flex flex-col items-center justify-center p-8 text-center">
                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-sm border border-gray-100">
                     <Package size={40} className="text-gray-200" />
                 </div>
@@ -223,7 +223,7 @@ export default function MyOrdersPage() {
     const canLoadMore = visibleCount < filtered.length;
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
             {/* Cancel Confirmation Modal */}
             {cancelModal !== null && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4">

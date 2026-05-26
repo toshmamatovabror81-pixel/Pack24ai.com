@@ -43,7 +43,7 @@ export default function ConfiguratorPage() {
     const items = DEMO_ITEMS[selectedCat] ?? DEMO_ITEMS.box;
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
 
             {/* ── Page header ── */}
             <div className="bg-white border-b border-gray-100 py-5">
@@ -267,7 +267,7 @@ export default function ConfiguratorPage() {
 
             {/* ── DESIGN TOOLS ───────────────────────────────────── */}
             <section className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-14">
-                <div className="bg-gradient-to-br from-[#0c1a2e] to-[#163860] rounded-3xl overflow-hidden">
+                <div className="bg-gradient-to-br from-brand-deeper to-[#163860] rounded-3xl overflow-hidden">
                     {/* Header */}
                     <div className="px-8 pt-10 pb-6 text-center">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs font-semibold text-blue-200 mb-4">

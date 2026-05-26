@@ -54,7 +54,7 @@ export default function StatsSection() {
     const { language } = useLanguage();
 
     return (
-        <section className="bg-gradient-to-r from-[#0c2340] to-[#1a4a7c] py-14">
+        <section className="bg-gradient-to-r from-brand-navy to-brand-accent py-14">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-10">
                     <h2 className="text-2xl lg:text-3xl font-extrabold text-white mb-2">

@@ -78,19 +78,19 @@ export default function IKPUPage() {
                 <div className="flex border-b border-gray-100">
                     <button
                         onClick={() => setActiveTab('search')}
-                        className={`flex-1 py-4 text-sm font-medium text-center transition-colors relative ${activeTab === 'search' ? 'text-[#064E3B] bg-white' : 'text-gray-500 hover:bg-gray-50'
+                        className={`flex-1 py-4 text-sm font-medium text-center transition-colors relative ${activeTab === 'search' ? 'text-brand-green bg-white' : 'text-gray-500 hover:bg-gray-50'
                             }`}
                     >
                         Qidiruv va Biriktirish
-                        {activeTab === 'search' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#064E3B]" />}
+                        {activeTab === 'search' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-green" />}
                     </button>
                     <button
                         onClick={() => setActiveTab('saved')}
-                        className={`flex-1 py-4 text-sm font-medium text-center transition-colors relative ${activeTab === 'saved' ? 'text-[#064E3B] bg-white' : 'text-gray-500 hover:bg-gray-50'
+                        className={`flex-1 py-4 text-sm font-medium text-center transition-colors relative ${activeTab === 'saved' ? 'text-brand-green bg-white' : 'text-gray-500 hover:bg-gray-50'
                             }`}
                     >
                         Saqlangan Kodlar
-                        {activeTab === 'saved' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#064E3B]" />}
+                        {activeTab === 'saved' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-green" />}
                     </button>
                 </div>
 
@@ -118,7 +118,7 @@ export default function IKPUPage() {
                                     <Button
                                         onClick={handleSearch}
                                         disabled={isSearching}
-                                        className="bg-[#064E3B] hover:bg-[#053d2e] min-w-[120px]"
+                                        className="bg-brand-green hover:bg-[#053d2e] min-w-[120px]"
                                     >
                                         {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Qidirish'}
                                     </Button>
@@ -146,7 +146,7 @@ export default function IKPUPage() {
                                                     <h4 className="font-medium text-gray-800">{result.name}</h4>
                                                     <p className="text-xs text-gray-500">{result.group}</p>
                                                 </div>
-                                                <Button variant="outline" size="sm" className="text-[#064E3B] border-[#064E3B] hover:bg-[#064E3B] hover:text-white">
+                                                <Button variant="outline" size="sm" className="text-brand-green border-brand-green hover:bg-brand-green hover:text-white">
                                                     Tanlash
                                                 </Button>
                                             </div>

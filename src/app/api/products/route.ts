@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { ProductStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
             },
         });
     } catch (error) {
-        console.error('[GET /api/products]', error);
+        logger.error({ error }, 'GET /api/products');
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -92,6 +93,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Narx noto'g'ri" }, { status: 400 });
         }
 
+        const validStatuses: ProductStatus[] = [ProductStatus.active, ProductStatus.draft, ProductStatus.archived];
+        const status = body.status && validStatuses.includes(body.status as ProductStatus)
+            ? (body.status as ProductStatus)
+            : ProductStatus.draft;
+
         const newProduct = await prisma.product.create({
             data: {
                 name:           body.name.trim(),
@@ -105,8 +111,8 @@ export async function POST(request: NextRequest) {
                 videoUrl:       await downloadAndUploadToSupabase(body.videoUrl || null),
                 specifications: body.specifications ?? {},
                 tags:           Array.isArray(body.tags) ? body.tags : [],
-                minQuantity:    body.minQuantity    ? parseInt(body.minQuantity) : 1,
-                status:         (body.status as ProductStatus) || ProductStatus.draft,
+                minQuantity:    body.minQuantity    ? (parseInt(body.minQuantity) || 1) : 1,
+                status:         status,
                 inStock:        body.inStock        !== false,
             },
         });
@@ -114,7 +120,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(parseProduct(newProduct), { status: 201 });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error('[POST /api/products]', msg);
-        return NextResponse.json({ error: 'Server xatosi: ' + msg }, { status: 500 });
+        logger.error({ error: msg }, 'POST /api/products');
+        return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

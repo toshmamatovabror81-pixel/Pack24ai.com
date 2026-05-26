@@ -18,10 +18,10 @@ export default function Footer() {
     const lbl = (l: Partial<Record<Language, string>>) => l[language] ?? l['en'] ?? l['ru'] ?? l['uz'] ?? '';
 
     return (
-        <footer className="bg-[#0c1a2e] text-white">
+        <footer className="bg-brand-deeper text-white">
 
             {/* ── Callback CTA strip ── */}
-            <div className="bg-[#102a45] border-b border-white/10">
+            <div className="bg-brand-dark border-b border-white/10">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
                     <div>
                         <p className="font-bold text-white">{ui('callTitle')}</p>
@@ -29,7 +29,7 @@ export default function Footer() {
                     </div>
                     <Link
                         href="/contacts"
-                        className="flex-shrink-0 bg-[#e33326] hover:bg-red-500 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
+                        className="flex-shrink-0 bg-brand-red hover:bg-red-500 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
                     >
                         {ui('callback')}
                     </Link>

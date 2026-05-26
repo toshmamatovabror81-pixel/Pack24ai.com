@@ -292,10 +292,10 @@ export default function RecyclingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
 
             {/* ── HERO ─────────────────────────────────────────────────────────── */}
-            <section className="relative overflow-hidden bg-gradient-to-br from-[#064E3B] via-[#065F46] to-[#047857] text-white">
+            <section className="relative overflow-hidden bg-gradient-to-br from-brand-green via-[#065F46] to-[#047857] text-white">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-300/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-72 h-72 bg-teal-500/10 rounded-full blur-2xl -translate-x-1/2 translate-y-1/2 pointer-events-none" />
                 <div className="absolute right-12 bottom-4 text-[180px] opacity-[0.06] select-none pointer-events-none leading-none">♻️</div>
@@ -506,7 +506,7 @@ export default function RecyclingPage() {
             </section>
 
             {/* ── REQUEST FORM ─────────────────────────────────────────────────── */}
-            <section id="form" className="bg-gradient-to-br from-[#0c2340] to-[#163860] py-16">
+            <section id="form" className="bg-gradient-to-br from-brand-navy to-[#163860] py-16">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                         {/* Left text */}

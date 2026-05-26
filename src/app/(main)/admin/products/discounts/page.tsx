@@ -69,7 +69,7 @@ export default function DiscountsPage() {
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Chegirmalar</h1>
                 <Link href="/admin/products/discounts/new">
-                    <Button className="gap-2 bg-[#064E3B] hover:bg-[#053d2e] rounded-[10px]">
+                    <Button className="gap-2 bg-brand-green hover:bg-[#053d2e] rounded-[10px]">
                         <Plus className="w-4 h-4" />
                         Chegirma qo&apos;shish
                     </Button>

@@ -29,7 +29,7 @@ export default function CartPage() {
 
     const t = (uz: string, ru: string) => language === 'ru' ? ru : uz;
 
-    if (!mounted) return <div className="min-h-screen bg-[#f5f6fa] animate-pulse" />;
+    if (!mounted) return <div className="min-h-screen bg-surface-page animate-pulse" />;
 
     const subtotal = totalAmount();
     const discount = promoApplied ? Math.round(subtotal * 0.05) : 0;
@@ -57,7 +57,7 @@ export default function CartPage() {
     // ── Empty state ────────────────────────────────────────────────────────────
     if (items.length === 0) {
         return (
-            <div className="min-h-[70vh] bg-[#f5f6fa] flex flex-col items-center justify-center p-8 text-center">
+            <div className="min-h-[70vh] bg-surface-page flex flex-col items-center justify-center p-8 text-center">
                 <div className="w-28 h-28 bg-white rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-gray-100">
                     <ShoppingBag size={52} className="text-gray-200" />
                 </div>
@@ -80,7 +80,7 @@ export default function CartPage() {
 
     // ── Main cart ──────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
 
             {/* Breadcrumb */}
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">

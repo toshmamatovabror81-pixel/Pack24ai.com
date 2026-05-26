@@ -65,12 +65,12 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                             const isActive = idx === currentStepIndex;
                             return (
                                 <div key={step.id} className="relative">
-                                    <div className={`absolute -left-[33px] w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white z-10 ${isCompleted ? 'border-[#5D5FEF] text-[#5D5FEF]' : 'border-gray-200 text-gray-300'}`}>
-                                        <div className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'bg-[#5D5FEF]' : 'bg-transparent'}`} />
+                                    <div className={`absolute -left-[33px] w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white z-10 ${isCompleted ? 'border-brand-purple text-brand-purple' : 'border-gray-200 text-gray-300'}`}>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'bg-brand-purple' : 'bg-transparent'}`} />
                                     </div>
                                     <div>
                                         <h3 className={`text-sm font-medium ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</h3>
-                                        {isActive && <p className="text-xs text-[#5D5FEF] mt-0.5">Hozirgi bosqich</p>}
+                                        {isActive && <p className="text-xs text-brand-purple mt-0.5">Hozirgi bosqich</p>}
                                     </div>
                                 </div>
                             )
@@ -116,7 +116,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                         ))}
                         <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
                             <span className="font-medium">Jami</span>
-                            <span className="font-bold text-[#064E3B] text-lg">{order.totalAmount.toLocaleString()} so&apos;m</span>
+                            <span className="font-bold text-brand-green text-lg">{order.totalAmount.toLocaleString()} so&apos;m</span>
                         </div>
                     </div>
                 </div>

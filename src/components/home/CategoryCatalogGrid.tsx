@@ -83,7 +83,7 @@ export default function CategoryCatalogGrid() {
                     </h2>
                     <Link
                         href="/catalog"
-                        className="text-sm text-[#e33326] hover:text-red-700 font-medium transition-colors flex items-center gap-1"
+                        className="text-sm text-brand-red hover:text-red-700 font-medium transition-colors flex items-center gap-1"
                     >
                         {ui('viewAll')}
                         <ChevronRight size={14} />
@@ -96,7 +96,7 @@ export default function CategoryCatalogGrid() {
                         <Link
                             key={cat.id}
                             href={`/category/${cat.slug}`}
-                            className="group flex flex-col items-center text-center p-4 border-r border-b border-gray-200 hover:bg-[#fef7f6] transition-colors duration-150 relative"
+                            className="group flex flex-col items-center text-center p-4 border-r border-b border-gray-200 hover:bg-surface-hover transition-colors duration-150 relative"
                         >
                             {/* Image / Icon */}
                             <div className="w-full aspect-square max-w-[110px] relative mb-3 flex items-center justify-center">
@@ -116,7 +116,7 @@ export default function CategoryCatalogGrid() {
                             </div>
 
                             {/* Name */}
-                            <p className="text-[13px] font-medium text-gray-800 group-hover:text-[#e33326] transition-colors duration-150 leading-snug line-clamp-2 mb-1.5 flex-1">
+                            <p className="text-[13px] font-medium text-gray-800 group-hover:text-brand-red transition-colors duration-150 leading-snug line-clamp-2 mb-1.5 flex-1">
                                 {getCatName(cat, language)}
                             </p>
 
@@ -135,7 +135,7 @@ export default function CategoryCatalogGrid() {
 
                             {/* Price */}
                             {minPrice !== null && (
-                                <p className="text-[13px] font-semibold text-[#e33326] mt-auto whitespace-nowrap">
+                                <p className="text-[13px] font-semibold text-brand-red mt-auto whitespace-nowrap">
                                     {ui('from')} {minPrice.toLocaleString()} {currency}
                                 </p>
                             )}

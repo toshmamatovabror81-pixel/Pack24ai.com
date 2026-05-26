@@ -88,10 +88,10 @@ export default function ToolsPage() {
         language === 'uz' ? uz : language === 'en' ? en : ru;
 
     return (
-        <div className="min-h-screen bg-[#f5f6fa]">
+        <div className="min-h-screen bg-surface-page">
 
             {/* ── HERO ── */}
-            <section className="relative overflow-hidden bg-gradient-to-br from-[#0c1a2e] via-[#0f2340] to-[#1a3a60] text-white py-20">
+            <section className="relative overflow-hidden bg-gradient-to-br from-brand-deeper via-[#0f2340] to-[#1a3a60] text-white py-20">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(99,102,241,0.15),_transparent_70%)]" />
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(16,185,129,0.1),_transparent_70%)]" />
 
@@ -193,7 +193,7 @@ export default function ToolsPage() {
 
             {/* ── CTA ── */}
             <section className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-                <div className="bg-gradient-to-br from-[#102a45] to-[#1e4a7a] rounded-3xl p-12 text-white text-center relative overflow-hidden">
+                <div className="bg-gradient-to-br from-brand-dark to-[#1e4a7a] rounded-3xl p-12 text-white text-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(99,102,241,0.2),_transparent_70%)]" />
                     <div className="relative z-10">
                         <Zap size={40} className="text-yellow-400 mx-auto mb-4" />

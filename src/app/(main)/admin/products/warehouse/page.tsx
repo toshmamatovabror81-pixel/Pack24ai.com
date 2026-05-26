@@ -151,7 +151,7 @@ export default function WarehousePage() {
                         Eksport
                     </Button>
                     <Button
-                        className="bg-[#064E3B] hover:bg-[#053d2e]"
+                        className="bg-brand-green hover:bg-[#053d2e]"
                         onClick={() => {
                             setTransferType('IN');
                             setIsTransferOpen(true);
@@ -178,7 +178,7 @@ export default function WarehousePage() {
                         <div className="relative">
                             <select
                                 aria-label="Ombor bo'yicha filtrlash"
-                                className="h-10 pl-3 pr-8 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-[#064E3B]/20 outline-none appearance-none cursor-pointer"
+                                className="h-10 pl-3 pr-8 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-brand-green/20 outline-none appearance-none cursor-pointer"
                                 value={selectedWarehouseId}
                                 onChange={(e) => setSelectedWarehouseId(e.target.value)}
                             >
@@ -208,7 +208,7 @@ export default function WarehousePage() {
                                 setTransferType('TRANSFER');
                                 setIsTransferOpen(true);
                             }}
-                            className="w-full md:w-auto text-[#064E3B] bg-emerald-50 hover:bg-emerald-100 border-emerald-100"
+                            className="w-full md:w-auto text-brand-green bg-emerald-50 hover:bg-emerald-100 border-emerald-100"
                         >
                             <ArrowRightLeft className="w-4 h-4 mr-2" />
                             O&apos;tkazish
@@ -247,7 +247,7 @@ export default function WarehousePage() {
                                             {item.product.image && (
                                                 <Image src={item.product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200" width={300} height={300} />
                                             )}
-                                            <span className="font-medium text-gray-900 group-hover:text-[#064E3B] transition-colors">{item.product.name}</span>
+                                            <span className="font-medium text-gray-900 group-hover:text-brand-green transition-colors">{item.product.name}</span>
                                         </div>
                                     </td>
                                     <td className="py-4 px-4 font-mono text-xs text-gray-500">{item.product.sku}</td>
@@ -313,7 +313,7 @@ export default function WarehousePage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Qaysi omborga</label>
                                     <select
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-[#064E3B]/20 border-[#064E3B]"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-brand-green/20 border-brand-green"
                                         value={transferData.toWarehouseId}
                                         onChange={(e) => setTransferData({ ...transferData, toWarehouseId: e.target.value })}
                                     >
@@ -327,7 +327,7 @@ export default function WarehousePage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Qaysi ombordan</label>
                                     <select
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-[#064E3B]/20 border-[#064E3B]"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm outline-none focus:ring-2 ring-brand-green/20 border-brand-green"
                                         value={transferData.fromWarehouseId}
                                         onChange={(e) => setTransferData({ ...transferData, fromWarehouseId: e.target.value })}
                                     >
@@ -370,7 +370,7 @@ export default function WarehousePage() {
                         <div className="flex gap-3 mt-6">
                             <Button variant="secondary" className="flex-1 bg-gray-100 hover:bg-gray-200 border-transparent text-gray-700" onClick={() => setIsTransferOpen(false)}>Bekor qilish</Button>
                             <Button
-                                className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]"
+                                className="flex-1 bg-brand-green hover:bg-[#053d2e]"
                                 onClick={handleTransfer}
                                 disabled={isSubmitting}
                             >

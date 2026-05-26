@@ -38,6 +38,18 @@ Qo'shimcha texnik xarita uchun:
 - `docs/auth-and-runtime-flows.md`
 - `docs/schema-tightening-plan.md`
 
+## Ishga tushirish rejasi
+
+Bosqichma-bosqich production launch hujjatlari:
+
+- [`docs/launch/bosqich-1-checklist.md`](docs/launch/bosqich-1-checklist.md) — joriy holat va qolgan ishlar
+- [`docs/launch/vercel-deploy.md`](docs/launch/vercel-deploy.md) — Vercel + Neon deploy
+- [`docs/launch/domain-dns.md`](docs/launch/domain-dns.md) — pack24.uz DNS
+- [`docs/launch/telegram-webhooks.md`](docs/launch/telegram-webhooks.md) — bot webhook
+- [`docs/launch/security-rotation-checklist.md`](docs/launch/security-rotation-checklist.md) — token rotatsiya
+
+Keyingi bosqichlar: WebApp → Customer Expo → Driver app (`docs/launch/bosqich-2` … `bosqich-4`).
+
 ## Lokal ishga tushirish
 
 ### 1. Dependency o'rnatish
@@ -150,6 +162,8 @@ Ishlatiladigan buyruqlar:
 ```bash
 npm test
 npm run test:coverage
+npm run test:e2e
+PLAYWRIGHT_BASE_URL=https://pack24.uz PLAYWRIGHT_NO_SERVER=1 npm run test:e2e:smoke
 ```
 
 ## Hozirgi texnik ustuvorliklar

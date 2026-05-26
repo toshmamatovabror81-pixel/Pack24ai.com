@@ -162,7 +162,7 @@ export default function CheckoutPage() {
     // ── SUCCESS ──────────────────────────────────────────────────
     if (step === 'success') {
         return (
-            <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center p-4">
+            <div className="min-h-screen bg-surface-page flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-10 max-w-md w-full text-center shadow-lg">
                     <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
                         <CheckCircle size={40} className="text-emerald-500" />
@@ -192,7 +192,7 @@ export default function CheckoutPage() {
     // ── PAYMENT REDIRECT ─────────────────────────────────────────
     if (step === 'payment' && payUrl) {
         return (
-            <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center p-4">
+            <div className="min-h-screen bg-surface-page flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-10 max-w-md w-full text-center shadow-lg">
                     <div className="text-4xl mb-4">{payMethod === 'click' ? '🔵' : '🟢'}</div>
                     <h2 className="text-xl font-extrabold text-gray-900 mb-2">
@@ -217,7 +217,7 @@ export default function CheckoutPage() {
 
     // ── FORM ─────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[#f5f6fa] py-8">
+        <div className="min-h-screen bg-surface-page py-8">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-6">

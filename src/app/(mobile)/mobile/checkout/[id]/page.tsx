@@ -81,9 +81,9 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             <div className="flex-1 p-5 overflow-y-auto">
                 {/* Progress Bar */}
                 <div className="flex gap-2 mb-8">
-                    <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-[#5D5FEF]' : 'bg-gray-200'}`} />
-                    <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-[#5D5FEF]' : 'bg-gray-200'}`} />
-                    <div className={`h-1 flex-1 rounded-full ${step >= 3 ? 'bg-[#5D5FEF]' : 'bg-gray-200'}`} />
+                    <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-brand-purple' : 'bg-gray-200'}`} />
+                    <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-brand-purple' : 'bg-gray-200'}`} />
+                    <div className={`h-1 flex-1 rounded-full ${step >= 3 ? 'bg-brand-purple' : 'bg-gray-200'}`} />
                 </div>
 
                 {step === 1 && (
@@ -96,7 +96,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                                     value={formData.address}
                                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                                     placeholder="Ko'cha, uy raqami, mo'ljal..."
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#5D5FEF]/20 h-32 resize-none"
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-purple/20 h-32 resize-none"
                                 />
                             </div>
                         </div>
@@ -119,7 +119,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                                     aria-label="Telefon raqami"
                                     value={formData.phone}
                                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#5D5FEF]/20"
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-purple/20"
                                 />
                             </div>
                             <p className="text-xs text-gray-400 mt-2">Kuryer siz bilan bog&apos;lanishi uchun</p>
@@ -132,7 +132,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                         <div className="space-y-3">
                             <div
                                 onClick={() => setFormData({ ...formData, paymentMethod: 'cash' })}
-                                className={`bg-white p-4 rounded-2xl border-2 flex items-center gap-4 cursor-pointer transition-colors ${formData.paymentMethod === 'cash' ? 'border-[#5D5FEF] bg-blue-50/10' : 'border-transparent shadow-sm'}`}
+                                className={`bg-white p-4 rounded-2xl border-2 flex items-center gap-4 cursor-pointer transition-colors ${formData.paymentMethod === 'cash' ? 'border-brand-purple bg-blue-50/10' : 'border-transparent shadow-sm'}`}
                             >
                                 <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
                                     💵
@@ -141,12 +141,12 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                                     <h3 className="font-bold text-gray-900">Naqd pul</h3>
                                     <p className="text-xs text-gray-500">Qabul qilib olganda</p>
                                 </div>
-                                {formData.paymentMethod === 'cash' && <CheckCircle2 className="w-6 h-6 text-[#5D5FEF]" />}
+                                {formData.paymentMethod === 'cash' && <CheckCircle2 className="w-6 h-6 text-brand-purple" />}
                             </div>
 
                             <div
                                 onClick={() => setFormData({ ...formData, paymentMethod: 'card' })}
-                                className={`bg-white p-4 rounded-2xl border-2 flex items-center gap-4 cursor-pointer transition-colors ${formData.paymentMethod === 'card' ? 'border-[#5D5FEF] bg-blue-50/10' : 'border-transparent shadow-sm'}`}
+                                className={`bg-white p-4 rounded-2xl border-2 flex items-center gap-4 cursor-pointer transition-colors ${formData.paymentMethod === 'card' ? 'border-brand-purple bg-blue-50/10' : 'border-transparent shadow-sm'}`}
                             >
                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                     <CreditCard className="w-5 h-5" />
@@ -155,7 +155,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                                     <h3 className="font-bold text-gray-900">Karta orqali</h3>
                                     <p className="text-xs text-gray-500">Payme / Click (Tez orada)</p>
                                 </div>
-                                {formData.paymentMethod === 'card' && <CheckCircle2 className="w-6 h-6 text-[#5D5FEF]" />}
+                                {formData.paymentMethod === 'card' && <CheckCircle2 className="w-6 h-6 text-brand-purple" />}
                             </div>
                         </div>
                     </div>
@@ -167,7 +167,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                 <button
                     onClick={handleNext}
                     disabled={loading}
-                    className="w-full bg-[#5D5FEF] text-white h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#5D5FEF]/30 active:scale-[0.98] transition-all disabled:opacity-70"
+                    className="w-full bg-brand-purple text-white h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand-purple/30 active:scale-[0.98] transition-all disabled:opacity-70"
                 >
                     {loading ? 'Kutilmoqda...' : step === 3 ? 'Buyurtma berish' : 'Davom etish'}
                 </button>

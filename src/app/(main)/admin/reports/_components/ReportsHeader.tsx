@@ -63,7 +63,7 @@ export default function ReportsHeader({
                                 onEndDateChange('');
                             }}
                             className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                                period === d ? 'bg-[#064E3B] text-white' : 'text-gray-600 hover:bg-gray-50'
+                                period === d ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-50'
                             }`}
                         >
                             {d} kun

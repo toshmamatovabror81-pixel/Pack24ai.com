@@ -9,6 +9,7 @@
     "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-all-platforms.ps1",
     "start:all:no-mobile": "powershell -ExecutionPolicy Bypass -File scripts/start-all-platforms.ps1 -NoMobile",
     "build": "next build",
+    "vercel-build": "npx prisma generate && npx prisma migrate deploy && npm run build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
@@ -16,11 +17,13 @@
     "test:coverage": "jest --coverage",
     "test:integration": "tsx src/app/api/orders/__tests__/corporate-integration.test.ts",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/production-smoke.spec.ts e2e/checkout-critical-path.spec.ts",
     "test:e2e:ui": "playwright test --ui",
     "audit:statuses": "tsx scripts/audit-statuses.ts",
     "seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "prepare": "husky"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -81,6 +84,7 @@
     "autoprefixer": "^10.4.23",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.1.0",
+    "husky": "^9.1.7",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "postcss": "^8.5.6",

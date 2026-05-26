@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import {
     readJsonObject,
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
                     webhookInfo = await bot.telegram.getWebhookInfo();
                 }
             } catch (e) {
-                console.error('Webhook info error:', e);
+                logger.error({ error: e }, 'Webhook info error');
             }
         }
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Config fetch error:', error);
+        logger.error({ error }, 'Config fetch error');
         return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 });
     }
 }
@@ -129,16 +130,16 @@ export async function POST(request: NextRequest) {
                                 webhookUrl,
                                 webhookSecret ? { secret_token: webhookSecret } : undefined,
                             );
-                            console.log(`✅ Webhook set: ${webhookUrl}`);
+                            logger.info(`Webhook set: ${webhookUrl}`);
                         } else {
-                            console.warn('⚠️ TELEGRAM_WEBHOOK_SECRET yo\'q — webhook o\'rnatilmadi');
+                            logger.warn('TELEGRAM_WEBHOOK_SECRET yo\'q — webhook o\'rnatilmadi');
                         }
                     } else {
-                        console.warn('⚠️ NEXT_PUBLIC_APP_URL not set — webhook not configured');
+                        logger.warn('NEXT_PUBLIC_APP_URL not set — webhook not configured');
                     }
                 }
             } catch (err) {
-                console.error('Failed to verify bot token:', err);
+                logger.error({ error: err }, 'Failed to verify bot token');
             }
         }
 
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
 
-        console.error('Error saving config:', error);
+        logger.error({ error }, 'Error saving config');
         return NextResponse.json({ error: 'Failed to save config' }, { status: 500 });
     }
 }

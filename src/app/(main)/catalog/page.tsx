@@ -362,7 +362,7 @@ export default function CatalogIndexPage() {
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block w-60 shrink-0 mr-5 self-start sticky top-[80px]">
                 <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                    <div className="px-4 py-3 bg-[#0c2340] text-white flex items-center gap-2">
+                    <div className="px-4 py-3 bg-brand-navy text-white flex items-center gap-2">
                         <LayoutGrid size={14} />
                         <span className="text-xs font-bold uppercase tracking-wide">
                             {t('Kategoriyalar', 'Категории', 'Categories')}

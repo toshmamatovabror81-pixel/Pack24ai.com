@@ -11,7 +11,7 @@ import {
 const GRADIENTS: { value: BannerGradient; label: string }[] = [
     { value: 'from-blue-600 to-indigo-700',    label: '🔵 Ko\'k - Ko\'k to\'q' },
     { value: 'from-emerald-500 to-teal-600',   label: '🟢 Yashil - Moviy' },
-    { value: 'from-[#0c2340] to-[#163860]',    label: '🌑 To\'q Ko\'k (Hero)' },
+    { value: 'from-brand-navy to-[#163860]',    label: '🌑 To\'q Ko\'k (Hero)' },
     { value: 'from-purple-600 to-violet-700',  label: '🟣 Binafsha' },
     { value: 'from-orange-500 to-red-500',     label: '🟠 To\'q sariq - Qizil' },
     { value: 'from-emerald-600 to-teal-700',   label: '♻️ Yashil (Qayta ishlash)' },
@@ -106,7 +106,7 @@ export default function BannersPage() {
                 </div>
                 <button
                     onClick={openAdd}
-                    className="flex items-center gap-2 bg-[#0c2340] hover:bg-[#102a45] text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors shadow-sm"
+                    className="flex items-center gap-2 bg-brand-navy hover:bg-brand-dark text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors shadow-sm"
                 >
                     <Plus size={16} /> Banner qo&apos;shish
                 </button>
@@ -120,7 +120,7 @@ export default function BannersPage() {
                         onClick={() => setFilterLoc(loc.value as BannerLocation | 'all')}
                         className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                             filterLoc === loc.value
-                                ? 'bg-[#0c2340] text-white shadow'
+                                ? 'bg-brand-navy text-white shadow'
                                 : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
                         }`}
                     >
@@ -234,7 +234,7 @@ export default function BannersPage() {
                         </div>
 
                         <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
-                            <button onClick={handleSave} className="flex items-center gap-2 bg-[#0c2340] hover:bg-[#102a45] text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-colors">
+                            <button onClick={handleSave} className="flex items-center gap-2 bg-brand-navy hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-colors">
                                 <Save size={15} /> Saqlash
                             </button>
                             <button onClick={() => setShowForm(false)} className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors">

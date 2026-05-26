@@ -50,7 +50,7 @@ export default function QrCatalogPage() {
                         <Printer className="w-4 h-4 mr-2" />
                         Chop etish
                     </Button>
-                    <Button className="bg-[#064E3B] hover:bg-[#053d2e]">
+                    <Button className="bg-brand-green hover:bg-[#053d2e]">
                         <Download className="w-4 h-4 mr-2" />
                         Yuklab olish
                     </Button>
@@ -84,7 +84,7 @@ export default function QrCatalogPage() {
                             </div>
                             <p className="text-2xl font-bold text-gray-900">{stats.uniqueVisitors.toLocaleString()}</p>
                         </Card>
-                        <Card className="p-5 flex flex-col justify-center border border-gray-100 shadow-sm rounded-[12px] bg-[#064E3B] text-white">
+                        <Card className="p-5 flex flex-col justify-center border border-gray-100 shadow-sm rounded-[12px] bg-brand-green text-white">
                             <div className="flex items-center gap-3 mb-2 text-emerald-200">
                                 <div className="p-2 bg-white/10 rounded-lg text-white">
                                     <BarChart3 className="w-5 h-5" />
@@ -109,29 +109,29 @@ export default function QrCatalogPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div
                                     onClick={() => setTargetType('bot')}
-                                    className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${targetType === 'bot' ? 'border-[#064E3B] bg-emerald-50/50' : 'border-gray-100 hover:border-gray-200'}`}
+                                    className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${targetType === 'bot' ? 'border-brand-green bg-emerald-50/50' : 'border-gray-100 hover:border-gray-200'}`}
                                 >
-                                    <div className={`p-2 rounded-full ${targetType === 'bot' ? 'bg-[#064E3B] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                    <div className={`p-2 rounded-full ${targetType === 'bot' ? 'bg-brand-green text-white' : 'bg-gray-100 text-gray-500'}`}>
                                         <Bot className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-900">Telegram Bot</h3>
                                         <p className="text-xs text-gray-500">Mijoz botga o&apos;tadi</p>
                                     </div>
-                                    {targetType === 'bot' && <div className="ml-auto bg-[#064E3B] text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
+                                    {targetType === 'bot' && <div className="ml-auto bg-brand-green text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
                                 </div>
                                 <div
                                     onClick={() => setTargetType('web')}
-                                    className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${targetType === 'web' ? 'border-[#064E3B] bg-emerald-50/50' : 'border-gray-100 hover:border-gray-200'}`}
+                                    className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${targetType === 'web' ? 'border-brand-green bg-emerald-50/50' : 'border-gray-100 hover:border-gray-200'}`}
                                 >
-                                    <div className={`p-2 rounded-full ${targetType === 'web' ? 'bg-[#064E3B] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                    <div className={`p-2 rounded-full ${targetType === 'web' ? 'bg-brand-green text-white' : 'bg-gray-100 text-gray-500'}`}>
                                         <Globe className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-900">Veb-sayt</h3>
                                         <p className="text-xs text-gray-500">Brauzerda ochiladi</p>
                                     </div>
-                                    {targetType === 'web' && <div className="ml-auto bg-[#064E3B] text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
+                                    {targetType === 'web' && <div className="ml-auto bg-brand-green text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
                                 </div>
                             </div>
                         </div>
@@ -155,7 +155,7 @@ export default function QrCatalogPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Logotip</label>
                                 <label className="flex items-center gap-3 cursor-pointer">
-                                    <div className={`w-12 h-6 rounded-full p-1 transition-colors ${hasLogo ? 'bg-[#064E3B]' : 'bg-gray-300'}`}>
+                                    <div className={`w-12 h-6 rounded-full p-1 transition-colors ${hasLogo ? 'bg-brand-green' : 'bg-gray-300'}`}>
                                         <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${hasLogo ? 'translate-x-6' : 'translate-x-0'}`} />
                                     </div>
                                     <span className="text-sm text-gray-700">QR markazida logotip</span>
@@ -198,29 +198,29 @@ export default function QrCatalogPage() {
                     <Card className="p-6 border border-gray-100 shadow-sm rounded-[16px]">
                         <h2 className="text-lg font-bold text-gray-900 mb-4">Yuklab olish formatlari</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-[#064E3B] hover:bg-emerald-50 transition-all group">
-                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-[#064E3B]">
+                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-brand-green hover:bg-emerald-50 transition-all group">
+                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-brand-green">
                                     <ImageIcon className="w-6 h-6" />
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-[#064E3B]">PNG</span>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-green">PNG</span>
                             </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-[#064E3B] hover:bg-emerald-50 transition-all group">
-                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-[#064E3B]">
+                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-brand-green hover:bg-emerald-50 transition-all group">
+                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-brand-green">
                                     <Type className="w-6 h-6" />
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-[#064E3B]">SVG</span>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-green">SVG</span>
                             </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-[#064E3B] hover:bg-emerald-50 transition-all group">
-                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-[#064E3B]">
+                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-brand-green hover:bg-emerald-50 transition-all group">
+                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-brand-green">
                                     <Printer className="w-6 h-6" />
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-[#064E3B]">PDF (A5)</span>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-green">PDF (A5)</span>
                             </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-[#064E3B] hover:bg-emerald-50 transition-all group">
-                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-[#064E3B]">
+                            <button className="flex flex-col items-center justify-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-brand-green hover:bg-emerald-50 transition-all group">
+                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white text-gray-600 group-hover:text-brand-green">
                                     <Printer className="w-6 h-6" />
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-[#064E3B]">PDF (A6)</span>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-green">PDF (A6)</span>
                             </button>
                         </div>
                     </Card>
@@ -230,7 +230,7 @@ export default function QrCatalogPage() {
                 <div className="xl:col-span-1">
                     <div className="sticky top-6 space-y-6">
                         <Card className="p-8 border border-gray-100 shadow-lg rounded-[24px] bg-white flex flex-col items-center text-center relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-[#064E3B]"></div>
+                            <div className="absolute top-0 left-0 w-full h-2 bg-brand-green"></div>
 
                             <h3 className="text-2xl font-bold text-gray-900 mb-1">Bizning Menyu</h3>
                             <p className="text-gray-500 text-sm mb-6">Skanerlang va buyurtma bering</p>
@@ -259,7 +259,7 @@ export default function QrCatalogPage() {
 
                             <div className="bg-gray-100 px-4 py-2 rounded-lg mb-6">
                                 <span className="text-gray-500 text-xs uppercase tracking-widest font-bold">Stol Raqami</span>
-                                <p className="text-3xl font-bold text-[#064E3B]">12</p>
+                                <p className="text-3xl font-bold text-brand-green">12</p>
                             </div>
 
                             <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -268,7 +268,7 @@ export default function QrCatalogPage() {
                             </div>
                         </Card>
 
-                        <div className="bg-[#064E3B] text-white p-6 rounded-[20px] shadow-lg relative overflow-hidden">
+                        <div className="bg-brand-green text-white p-6 rounded-[20px] shadow-lg relative overflow-hidden">
                             <div className="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
                             <div className="absolute bottom-0 left-0 -ml-6 -mb-6 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
 

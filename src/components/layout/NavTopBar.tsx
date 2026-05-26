@@ -63,7 +63,7 @@ export default function NavTopBar() {
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
                 {/* Left: location + schedule */}
                 <div className="flex items-center space-x-6">
-                    <span className="border-b border-dashed border-gray-400 cursor-pointer hover:text-[#e33326] transition-colors">
+                    <span className="border-b border-dashed border-gray-400 cursor-pointer hover:text-brand-red transition-colors">
                         {loc}
                     </span>
                     <span className="hidden sm:block text-gray-500">{sched}</span>
@@ -71,13 +71,13 @@ export default function NavTopBar() {
 
                 {/* Right: callback, email, phone, currency, language */}
                 <div className="flex items-center space-x-4">
-                    <a href="#" className="hidden md:block hover:text-[#e33326] border-b border-dashed border-gray-400 pb-px transition-colors">
+                    <a href="#" className="hidden md:block hover:text-brand-red border-b border-dashed border-gray-400 pb-px transition-colors">
                         {cb}
                     </a>
-                    <a href={`mailto:${TOP_BAR_DATA.email}`} className="hidden lg:block hover:text-[#e33326] text-gray-500">
+                    <a href={`mailto:${TOP_BAR_DATA.email}`} className="hidden lg:block hover:text-brand-red text-gray-500">
                         {TOP_BAR_DATA.email}
                     </a>
-                    <a href={`tel:${TOP_BAR_DATA.phone}`} className="font-bold text-gray-800 text-[15px] hover:text-[#e33326]">
+                    <a href={`tel:${TOP_BAR_DATA.phone}`} className="font-bold text-gray-800 text-[15px] hover:text-brand-red">
                         {TOP_BAR_DATA.phone}
                     </a>
 

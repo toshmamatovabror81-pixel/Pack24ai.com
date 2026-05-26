@@ -51,7 +51,7 @@ export default function MobileCatalogPage() {
                     />
                 </div>
                 <div className="flex justify-end mt-2">
-                    <span className="text-[#5D5FEF] font-medium text-sm flex items-center">
+                    <span className="text-brand-purple font-medium text-sm flex items-center">
                         Hammasi <ChevronRight className="w-4 h-4" />
                     </span>
                 </div>

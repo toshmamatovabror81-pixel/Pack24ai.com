@@ -100,7 +100,7 @@ export default function BranchesPage() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button onClick={openAddModal} className="bg-[#064E3B] hover:bg-[#053d2e] shrink-0">
+                    <Button onClick={openAddModal} className="bg-brand-green hover:bg-[#053d2e] shrink-0">
                         <Plus className="w-4 h-4 mr-2" />
                         Filial qo&apos;shish
                     </Button>
@@ -161,10 +161,10 @@ export default function BranchesPage() {
                                             </span>
                                             <button
                                                 onClick={() => toggleStatus(branch.id)}
-                                                className="text-gray-300 hover:text-[#064E3B] transition-colors"
+                                                className="text-gray-300 hover:text-brand-green transition-colors"
                                                 aria-label={branch.status === 'active' ? 'Faolsizlantirish' : 'Faollashtirish'}
                                             >
-                                                {branch.status === 'active' ? <ToggleRight className="w-9 h-9 text-[#064E3B]" /> : <ToggleLeft className="w-9 h-9" />}
+                                                {branch.status === 'active' ? <ToggleRight className="w-9 h-9 text-brand-green" /> : <ToggleLeft className="w-9 h-9" />}
                                             </button>
                                         </div>
                                     </td>
@@ -220,7 +220,7 @@ export default function BranchesPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Manzil</label>
                                 <div className="relative">
                                     <textarea
-                                        className="w-full min-h-[80px] px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#064E3B]/20 text-sm resize-none"
+                                        className="w-full min-h-[80px] px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-green/20 text-sm resize-none"
                                         placeholder="Filial manzilini kiriting..."
                                         defaultValue={editingBranch?.address}
                                     />
@@ -247,7 +247,7 @@ export default function BranchesPage() {
 
                             <div className="flex gap-3 pt-4">
                                 <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 border-transparent text-gray-700">Bekor qilish</Button>
-                                <Button className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">
+                                <Button className="flex-1 bg-brand-green hover:bg-[#053d2e]">
                                     <Check className="w-4 h-4 mr-2" />
                                     Saqlash
                                 </Button>

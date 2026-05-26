@@ -1,0 +1,4 @@
+# Mobile apps — production API URL
+# Copy to pack24-mobile/apps/customer/.env and pack24-mobile/apps/driver/.env
+
+EXPO_PUBLIC_API_URL=https://pack24.uz

@@ -1,7 +1,7 @@
 // Product page loading skeleton — Next.js App Router
 export default function ProductLoading() {
     return (
-        <div className="min-h-screen bg-[#f5f6fa] animate-pulse">
+        <div className="min-h-screen bg-surface-page animate-pulse">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div className="h-3 bg-gray-200 rounded-full w-64 mb-6" />
             </div>

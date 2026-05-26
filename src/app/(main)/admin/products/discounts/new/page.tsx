@@ -41,7 +41,7 @@ export default function NewDiscountPage() {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" className="bg-white border-gray-200">Bekor qilish</Button>
-                    <Button className="bg-[#064E3B] hover:bg-[#053d2e] gap-2">
+                    <Button className="bg-brand-green hover:bg-[#053d2e] gap-2">
                         <Save className="w-4 h-4" /> Saqlash
                     </Button>
                 </div>
@@ -52,7 +52,7 @@ export default function NewDiscountPage() {
                 <div className="lg:col-span-2 space-y-6">
                     <Card className="p-6 rounded-[12px]">
                         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                            <span className="w-1 h-6 bg-[#064E3B] rounded-full block"></span>
+                            <span className="w-1 h-6 bg-brand-green rounded-full block"></span>
                             Asosiy ma&apos;lumotlar
                         </h3>
 
@@ -67,7 +67,7 @@ export default function NewDiscountPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-3">Chegirma turi</label>
                                     <div className="flex gap-4">
-                                        <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${discountType === 'percentage' ? 'border-[#064E3B] bg-[#064E3B]/5 ring-1 ring-[#064E3B]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                        <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${discountType === 'percentage' ? 'border-brand-green bg-brand-green/5 ring-1 ring-brand-green' : 'border-gray-200 hover:border-gray-300'}`}>
                                             <input
                                                 type="radio"
                                                 name="type"
@@ -77,7 +77,7 @@ export default function NewDiscountPage() {
                                             />
                                             <span className="font-medium text-sm text-gray-900">Foiz (%)</span>
                                         </label>
-                                        <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${discountType === 'fixed' ? 'border-[#064E3B] bg-[#064E3B]/5 ring-1 ring-[#064E3B]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                        <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${discountType === 'fixed' ? 'border-brand-green bg-brand-green/5 ring-1 ring-brand-green' : 'border-gray-200 hover:border-gray-300'}`}>
                                             <input
                                                 type="radio"
                                                 name="type"
@@ -117,7 +117,7 @@ export default function NewDiscountPage() {
                                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                     </div>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <input type="checkbox" id="no-expiry" className="rounded border-gray-300 text-[#064E3B] focus:ring-[#064E3B]" />
+                                        <input type="checkbox" id="no-expiry" className="rounded border-gray-300 text-brand-green focus:ring-brand-green" />
                                         <label htmlFor="no-expiry" className="text-xs text-gray-600">Cheklovsiz</label>
                                     </div>
                                 </div>
@@ -127,7 +127,7 @@ export default function NewDiscountPage() {
 
                     <Card className="p-6 rounded-[12px]">
                         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                            <span className="w-1 h-6 bg-[#064E3B] rounded-full block"></span>
+                            <span className="w-1 h-6 bg-brand-green rounded-full block"></span>
                             Mahsulotlarni tanlash
                         </h3>
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
@@ -139,7 +139,7 @@ export default function NewDiscountPage() {
 
                 {/* Right Column: Preview */}
                 <div className="space-y-6">
-                    <Card className="p-6 sticky top-24 rounded-[12px] border-[#064E3B]/10 shadow-[0_4px_20px_rgba(6,78,59,0.05)]">
+                    <Card className="p-6 sticky top-24 rounded-[12px] border-brand-green/10 shadow-[0_4px_20px_rgba(6,78,59,0.05)]">
                         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
                             <Calculator className="w-4 h-4" />
                             Narx namunasi
@@ -159,7 +159,7 @@ export default function NewDiscountPage() {
                             <div className="h-px bg-gray-200 mb-3"></div>
                             <div className="flex justify-between items-center">
                                 <span className="font-bold text-gray-900">Yangi narx:</span>
-                                <span className="font-bold text-lg text-[#064E3B]">{newPrice.toLocaleString()} UZS</span>
+                                <span className="font-bold text-lg text-brand-green">{newPrice.toLocaleString()} UZS</span>
                             </div>
                         </div>
 

@@ -141,7 +141,7 @@ export default function ProductionDashboard() {
                     <p className="text-slate-500 text-sm mt-1">Hozirgi vaqtda sexlardagi holat va buyurtmalar ijrosi</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button onClick={() => setIsNewOrderOpen(true)} className="bg-[#064E3B] hover:bg-[#053d2e]">
+                    <Button onClick={() => setIsNewOrderOpen(true)} className="bg-brand-green hover:bg-[#053d2e]">
                         <Plus className="w-4 h-4 mr-2" />
                         Yangi Buyurtma
                     </Button>

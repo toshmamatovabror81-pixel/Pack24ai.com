@@ -100,7 +100,7 @@ function AdminLoginForm() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 bg-[#102a45] text-white font-bold py-4 rounded-lg hover:bg-[#1e4b75] disabled:opacity-60 disabled:cursor-not-allowed transition-colors uppercase tracking-wide shadow-lg shadow-blue-900/20"
+                        className="w-full flex items-center justify-center gap-2 bg-brand-dark text-white font-bold py-4 rounded-lg hover:bg-[#1e4b75] disabled:opacity-60 disabled:cursor-not-allowed transition-colors uppercase tracking-wide shadow-lg shadow-blue-900/20"
                     >
                         {loading ? (
                             <>

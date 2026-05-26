@@ -21,7 +21,7 @@ export default function FooterNewsletter({ ui }: FooterNewsletterProps) {
 
     return (
         <div className="mt-10 pt-8 border-t border-white/10">
-            <div className="bg-gradient-to-br from-[#102a45] to-[#0e2038] rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="bg-gradient-to-br from-brand-dark to-[#0e2038] rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div>
                     <p className="font-bold text-white mb-1">{ui('newsTitle')}</p>
                     <p className="text-sm text-blue-200/60">{ui('newsSub')}</p>
@@ -42,7 +42,7 @@ export default function FooterNewsletter({ ui }: FooterNewsletterProps) {
                         />
                         <button
                             type="submit"
-                            className="bg-[#e33326] hover:bg-red-500 text-white px-4 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 text-sm whitespace-nowrap"
+                            className="bg-brand-red hover:bg-red-500 text-white px-4 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 text-sm whitespace-nowrap"
                         >
                             {ui('subscribe')}
                             <ArrowRight size={14} />

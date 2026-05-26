@@ -605,7 +605,7 @@ export default function NewProductPage() {
                                 <div className="relative">
                                     <select
                                         aria-label="Kategoriyani tanlang"
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-[#064E3B]/20 focus:border-[#064E3B] outline-none transition-all appearance-none cursor-pointer"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green outline-none transition-all appearance-none cursor-pointer"
                                         value={selectedCategory}
                                         onChange={(e) => {
                                             setSelectedCategory(e.target.value);
@@ -630,7 +630,7 @@ export default function NewProductPage() {
                                 <div className="relative">
                                     <select
                                         aria-label="Modelni tanlang"
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-[#064E3B]/20 focus:border-[#064E3B] outline-none transition-all appearance-none cursor-pointer"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green outline-none transition-all appearance-none cursor-pointer"
                                         value={selectedSubCategory}
                                         onChange={(e) => setSelectedSubCategory(e.target.value)}
                                     >

@@ -26,7 +26,7 @@ export default function CouriersPage() {
                     </div>
                     <p className="text-sm text-gray-500">Yetkazib beruvchilar va ularning statistikasi</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} className="bg-[#064E3B]">
+                <Button onClick={() => setIsModalOpen(true)} className="bg-brand-green">
                     + Kuryer qo&apos;shish
                 </Button>
             </div>
@@ -130,7 +130,7 @@ export default function CouriersPage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Yetkazib berish xizmati</label>
-                                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#064E3B]/20" aria-label="Xizmatni tanlash">
+                                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-green/20" aria-label="Xizmatni tanlash">
                                     <option>Yandex Go</option>
                                     <option>MyTaxi</option>
                                     <option>UzPost</option>
@@ -142,7 +142,7 @@ export default function CouriersPage() {
 
                             <div className="flex gap-3 pt-4">
                                 <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 border-transparent text-gray-700">Bekor qilish</Button>
-                                <Button className="flex-1 bg-[#064E3B] hover:bg-[#053d2e]">
+                                <Button className="flex-1 bg-brand-green hover:bg-[#053d2e]">
                                     <Check className="w-4 h-4 mr-2" />
                                     Saqlash
                                 </Button>

@@ -83,7 +83,7 @@ export default function SettingsPage() {
                         <div className="flex gap-4">
                             {['O\'zbek', 'Русский', 'English', 'Türkçe'].map(lang => (
                                 <label key={lang} className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#064E3B] focus:ring-[#064E3B]" defaultChecked={lang === 'O\'zbek'} />
+                                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-brand-green focus:ring-brand-green" defaultChecked={lang === 'O\'zbek'} />
                                     <span className="text-sm text-gray-700">{lang}</span>
                                 </label>
                             ))}
@@ -93,11 +93,11 @@ export default function SettingsPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Asosiy til</label>
                         <div className="flex gap-4">
                             <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="main_lang" className="w-4 h-4 text-[#064E3B] focus:ring-[#064E3B]" defaultChecked />
+                                <input type="radio" name="main_lang" className="w-4 h-4 text-brand-green focus:ring-brand-green" defaultChecked />
                                 <span className="text-sm text-gray-700">O&apos;zbek</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="main_lang" className="w-4 h-4 text-[#064E3B] focus:ring-[#064E3B]" />
+                                <input type="radio" name="main_lang" className="w-4 h-4 text-brand-green focus:ring-brand-green" />
                                 <span className="text-sm text-gray-700">Русский</span>
                             </label>
                         </div>
@@ -161,7 +161,7 @@ export default function SettingsPage() {
 
                 <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2" id="currency-label">Asosiy Valyuta</label>
-                    <select aria-labelledby="currency-label" className="w-full max-w-xs bg-white border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-[#064E3B] focus:border-[#064E3B]">
+                    <select aria-labelledby="currency-label" className="w-full max-w-xs bg-white border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-green focus:border-brand-green">
                         {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">Valyuta o&apos;zgarganda barcha narxlar qayta hisoblanadi.</p>
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                                 <input
                                     type="checkbox"
                                     aria-label={`${day.name} ish kunini yoqish`}
-                                    className="w-4 h-4 text-[#064E3B] rounded focus:ring-[#064E3B]"
+                                    className="w-4 h-4 text-brand-green rounded focus:ring-brand-green"
                                     checked={schedule[day.id].active}
                                     onChange={(e) => setSchedule({ ...schedule, [day.id]: { ...schedule[day.id], active: e.target.checked } })}
                                 />
@@ -229,7 +229,7 @@ export default function SettingsPage() {
                 <Button variant="secondary" className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-transparent">
                     Bekor qilish
                 </Button>
-                <Button className="bg-[#064E3B] hover:bg-[#053d2e] shadow-lg shadow-emerald-900/20">
+                <Button className="bg-brand-green hover:bg-[#053d2e] shadow-lg shadow-emerald-900/20">
                     <Check className="w-4 h-4 mr-2" />
                     O&apos;zgarishlarni saqlash
                 </Button>

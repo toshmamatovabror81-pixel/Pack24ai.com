@@ -175,7 +175,7 @@ export default function ConfiguratorSection() {
 
     return (
         <section className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
-            <div className="bg-gradient-to-br from-[#0c2340] via-[#0f3460] to-[#16213e] rounded-3xl overflow-hidden relative">
+            <div className="bg-gradient-to-br from-brand-navy via-[#0f3460] to-[#16213e] rounded-3xl overflow-hidden relative">
                 {/* Background blobs */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/10 rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none" />
