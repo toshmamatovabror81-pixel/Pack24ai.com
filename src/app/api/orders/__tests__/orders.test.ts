@@ -3,6 +3,8 @@
  * Buyurtma holati o'tishi va to'lov mantiqini tekshiradi.
  */
 
+import { add, mul, toNumber, type MoneyInput } from '@/lib/money';
+
 // ── Yordamchi funksiyalar (route mantiqidan ajratilgan) ──────────────────────
 type OrderStatus = 'draft' | 'new' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
 type _PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
@@ -20,19 +22,20 @@ function canTransition(from: OrderStatus, to: OrderStatus): boolean {
     return STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-function calculateTotal(items: { price: number; quantity: number }[]): number {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+function calculateTotal(items: { price: MoneyInput; quantity: number }[]): number {
+    if (items.length === 0) return 0;
+    return toNumber(add(...items.map((item) => mul(item.price, item.quantity))));
 }
 
 function validateOrder(data: {
     customerName?: string;
     contactPhone?: string;
-    items?: { productId: number; quantity: number; price: number }[];
+    items?: { productId: number; quantity: number; price: MoneyInput }[];
 }) {
     if (!data.customerName?.trim()) return 'Mijoz ismi kiritilishi shart';
     if (!data.contactPhone?.trim()) return 'Telefon kiritilishi shart';
     if (!data.items || data.items.length === 0) return 'Kamida bitta mahsulot tanlang';
-    const invalidItem = data.items.find((i) => i.quantity < 1 || i.price < 0);
+    const invalidItem = data.items.find((i) => i.quantity < 1 || toNumber(i.price) < 0);
     if (invalidItem) return "Mahsulot miqdori noto'g'ri";
     return null;
 }

@@ -26,6 +26,7 @@ import {
 } from './journalCorrection';
 import { isSupervisorReplyMenuText } from '../../adminBot.menuNav';
 import { handleJournalFlow } from '../../adminBot.text.flows';
+import { toNumber } from '@/lib/money';
 
 export function registerAdminTextHandler(bot: Telegraf) {
     bot.on('text', async (ctx) => {
@@ -220,7 +221,7 @@ export function registerAdminTextHandler(bot: Telegraf) {
                     customer: col.request.name,
                     driver: col.driver?.name || 'вЂ”',
                     weight: String(col.actualWeight),
-                    amount: fmtN(Math.round(col.totalAmount)),
+                    amount: fmtN(Math.round(toNumber(col.totalAmount))),
                     status: col.paymentStatus === 'pending' ? 'вЏі Kutilmoqda' : 'рџ’µ Haydovchiga to\'langan',
                 });
 

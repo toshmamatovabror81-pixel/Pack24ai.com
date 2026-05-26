@@ -6,6 +6,7 @@ import { Lang, getText, formatText } from '../../i18n';
 import { btn, customerConfirmKeyboard } from '../../keyboards';
 import { notifyCustomer, notifyAdmin } from '../../notifier';
 import { createBotEvent } from '../../botEvents';
+import { toDecimal, roundUZS, toNumber } from '@/lib/money';
 import { fmtN } from './types';
 import { processEcoProgress } from '@/lib/eco/ecoProgressService';
 
@@ -239,7 +240,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                 if (!request) return;
 
                 const discount = ses.discount ?? 0;
-                const pricePerKg = request.point?.pricePerKg || 800;
+                const pricePerKg = toNumber(request.point?.pricePerKg) || 800;
                 const effectiveWeight = ses.weight * (1 - (discount / 100));
                 const totalAmount = effectiveWeight * pricePerKg;
 
@@ -250,8 +251,8 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         actualWeight: ses.weight,
                         discountPercent: discount,
                         effectiveWeight: Math.round(effectiveWeight * 100) / 100,
-                        pricePerKg,
-                        totalAmount: Math.round(totalAmount),
+                        pricePerKg: toDecimal(pricePerKg),
+                        totalAmount: toDecimal(roundUZS(totalAmount)),
                         collectedAt: new Date(),
                     },
                 });

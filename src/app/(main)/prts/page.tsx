@@ -11,13 +11,22 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+interface EcoRecentRequest {
+    id: string | number;
+    material?: string;
+    createdAt: string;
+    pointId?: string | null;
+    volume?: number;
+    status: string;
+}
+
 interface EcoStats {
     points: number;
     totalWeight: number;
     treesSaved: string;
     co2Offset: string;
     waterSaved: string;
-    recentRequests: UnsafeAny[];
+    recentRequests: EcoRecentRequest[];
 }
 
 interface MonthlyData {

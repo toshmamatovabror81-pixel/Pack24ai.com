@@ -7,16 +7,26 @@ import { Card } from '@/components/ui/Card';
 import { Plus, Send, MessageCircle, Mail, Smartphone, Trash2, Eye } from 'lucide-react';
 import Link from 'next/link';
 
+interface NewsletterCampaign {
+    id: number;
+    type: string;
+    content: string;
+    audience: string;
+    sentAt: string | null;
+    receivers: number;
+    views?: number;
+    status: string;
+}
 
 export default function NewsletterPage() {
-    const [campaigns, setCampaigns] = React.useState<UnsafeAny[]>([]);
+    const [campaigns, setCampaigns] = React.useState<NewsletterCampaign[]>([]);
     const [loading, setLoading] = React.useState(true);
 
     const fetchCampaigns = async () => {
         try {
             const res = await fetch('/api/marketing/campaigns');
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as NewsletterCampaign[];
                 setCampaigns(data);
             }
         } catch (error) {

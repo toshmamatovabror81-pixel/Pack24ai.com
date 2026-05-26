@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Switch } from '@/components/ui/Switch';
 import { Search, Plus, Download, Pencil, Trash2, Filter, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useProductStore } from '@/lib/store/useProductStore';
+import { useProductStore, type Product } from '@/lib/store/useProductStore';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import ImportProductModal from '@/components/admin/ImportProductModal';
 import { toast } from 'sonner';
@@ -49,7 +49,7 @@ export default function ProductsPage() {
 
     const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
 
-    const handlePriceClick = (product: UnsafeAny) => {
+    const handlePriceClick = (product: Product) => {
         setEditingPriceId(product.id);
         setTempPrice(product.price.toString());
     };

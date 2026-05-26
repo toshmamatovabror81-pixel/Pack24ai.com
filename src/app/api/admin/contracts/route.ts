@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { serializeMoney, toDecimal, toNumber } from '@/lib/money';
 
 // ─── GET /api/admin/contracts — Barcha shartnomalar ──────────────────────────
 export async function GET(req: NextRequest) {
@@ -34,19 +35,20 @@ export async function GET(req: NextRequest) {
                 _sum: { totalAmount: true, paidAmount: true },
             });
 
-            const totalInvoiced = invoiceAgg._sum.totalAmount ?? 0;
-            const totalPaid = invoiceAgg._sum.paidAmount ?? 0;
+            const totalInvoiced = toNumber(invoiceAgg._sum.totalAmount);
+            const totalPaid = toNumber(invoiceAgg._sum.paidAmount);
             const outstandingDebt = totalInvoiced - totalPaid;
+            const creditLimit = toNumber(c.creditLimit);
 
-            return {
+            return serializeMoney({
                 ...c,
                 totalInvoiced: Math.round(totalInvoiced),
                 totalPaid: Math.round(totalPaid),
                 outstandingDebt: Math.round(outstandingDebt),
-                creditUsagePercent: c.creditLimit > 0
-                    ? Math.round((outstandingDebt / c.creditLimit) * 100)
+                creditUsagePercent: creditLimit > 0
+                    ? Math.round((outstandingDebt / creditLimit) * 100)
                     : 0,
-            };
+            });
         }));
 
         return NextResponse.json(enriched);
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
                 bankAccount: bankAccount || null,
                 bankName: bankName || null,
                 directorName: directorName || null,
-                creditLimit: Number(creditLimit) || 0,
+                creditLimit: toDecimal(Number(creditLimit) || 0),
                 paymentTermDays: Number(paymentTermDays) || 15,
                 notes: notes || null,
             },
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        return NextResponse.json(contract, { status: 201 });
+        return NextResponse.json(serializeMoney(contract), { status: 201 });
     } catch (error) {
         console.error('[Contracts POST]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });

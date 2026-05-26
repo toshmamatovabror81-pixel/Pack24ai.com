@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { mul, toNumber } from '@/lib/money';
 
 // ─── GET /api/orders/[id]/invoice — PDF hisob-faktura HTML yaratish ──────────
 // Browser printWindow yoki Puppeteer uchun HTML qaytariladim
@@ -28,17 +29,21 @@ export async function GET(
         }
 
         const issueDate = new Date(order.createdAt).toLocaleDateString('ru-RU');
-        const totalFormatted = (order.totalAmount ?? 0).toLocaleString('ru-RU');
+        const totalFormatted = toNumber(order.totalAmount).toLocaleString('ru-RU');
 
-        const itemsHtml = order.items.map((item: { price: number; quantity: number; product: { name: string } | null }, i: number) => `
+        const itemsHtml = order.items.map((item, i) => {
+            const unitPrice = toNumber(item.price);
+            const lineTotal = toNumber(mul(item.price, item.quantity));
+            return `
             <tr>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">${i + 1}</td>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">${item.product?.name ?? 'Mahsulot'}</td>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:center;">${item.quantity}</td>
-                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${item.price.toLocaleString('ru-RU')} so'm</td>
-                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;">${(item.price * item.quantity).toLocaleString('ru-RU')} so'm</td>
+                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${unitPrice.toLocaleString('ru-RU')} so'm</td>
+                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;">${lineTotal.toLocaleString('ru-RU')} so'm</td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
         const html = `<!DOCTYPE html>
 <html lang="uz">

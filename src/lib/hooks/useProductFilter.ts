@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Product } from '../store/useProductStore';
+import { toNumber } from '@/lib/money';
 
 export interface FilterState {
     priceRange: [number, number];
@@ -36,9 +37,10 @@ export function useProductFilter(products: Product[]) {
         let maxLength = 0;
 
         products.forEach(p => {
+            const price = toNumber(p.price);
             // Price Stats
-            if (p.price < minPrice) minPrice = p.price;
-            if (p.price > maxPrice) maxPrice = p.price;
+            if (price < minPrice) minPrice = price;
+            if (price > maxPrice) maxPrice = price;
 
             // Dimension Stats
             if (p.dimensions) {
@@ -84,7 +86,8 @@ export function useProductFilter(products: Product[]) {
             }
 
             // Price Range
-            if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
+            const price = toNumber(p.price);
+            if (price < priceRange[0] || price > priceRange[1]) return false;
 
             // Dimensions Range (Only if product has dimensions)
             // If product doesn't have dimensions, should we show it? Maybe?

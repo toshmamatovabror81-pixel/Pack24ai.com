@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { updateRecycleRequest } from '@/lib/domain/recycling/requestService';
 import { requireDriver } from '@/lib/auth/guards';
+import { toNumber } from '@/lib/money';
 
 export async function POST(req: NextRequest) {
     try {
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 // Haydovchiga daromad yozish — RecyclePoint.driverRatePerKg asosida
-                const driverRate = (request.point as UnsafeAny)?.driverRatePerKg ?? 100;
+                const driverRate = request.point ? toNumber(request.point.driverRatePerKg) : 100;
                 const driverEarning = Math.round(actualWeight * driverRate);
                 await prisma.driverTransaction.create({
                     data: {
@@ -81,8 +82,9 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ ok: true, status });
-    } catch (error: UnsafeAny) {
+    } catch (error: unknown) {
         console.error('[driver/update-status]', error);
-        return NextResponse.json({ error: 'Server xatosi', detail: error.message }, { status: 500 });
+        const msg = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({ error: 'Server xatosi', detail: msg }, { status: 500 });
     }
 }

@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useProductStore } from '@/lib/store/useProductStore';
+import { useProductStore, type Product } from '@/lib/store/useProductStore';
 import { useCategoryStore, type Category } from '@/lib/store/useCategoryStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
@@ -134,7 +134,7 @@ export default function CategoryPage() {
         return 0;
     });
 
-    const handleAdd = (product: UnsafeAny) => {
+    const handleAdd = (product: Product) => {
         addToCart({ productId: Number(product.id), name: product.name, price: product.price, image: product.image, quantity: 1 });
         toast.success(t("Savatga qo'shildi! 🎉", "Добавлено в корзину! 🎉", "Added to cart! 🎉"));
     };

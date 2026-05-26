@@ -56,6 +56,8 @@ jest.mock('@/lib/platform/events', () => ({
     publishPlatformEvent: (...args: unknown[]) => publishPlatformEventMock(...args),
 }));
 
+import { Prisma } from '@prisma/client';
+import { toNumber } from '@/lib/money';
 import { POST } from '@/app/api/orders/route';
 
 describe('POST /api/orders route', () => {
@@ -66,21 +68,21 @@ describe('POST /api/orders route', () => {
         sendWebsiteOrderCreatedToAdminChatsMock.mockResolvedValue(true);
         publishPlatformEventMock.mockResolvedValue({ id: 99 });
         orderFindFirstMock.mockResolvedValue(null);
-        productFindUniqueMock.mockResolvedValue({ id: 1, price: 5000 });
+        productFindUniqueMock.mockResolvedValue({ id: 1, price: new Prisma.Decimal(5000) });
         orderCreateMock.mockResolvedValue({
             id: 12,
             customerName: 'Ali <Test>',
             contactPhone: '+998901234567',
             shippingAddress: 'Yunusobod <4>',
             shippingLocation: '41.3,69.2',
-            totalAmount: 10000,
+            totalAmount: new Prisma.Decimal(10000),
             status: 'new',
             paymentMethod: 'cash',
             deliveryMethod: 'courier',
             items: [
                 {
                     quantity: 2,
-                    price: 5000,
+                    price: new Prisma.Decimal(5000),
                     product: { name: 'Quti <XL>' },
                 },
             ],
@@ -142,9 +144,11 @@ describe('POST /api/orders route', () => {
                 deliveryMethod: 'courier',
                 paymentMethod: 'cash',
                 paymentStatus: 'pending',
-                totalAmount: 10000,
             }),
         }));
+        const createData = orderCreateMock.mock.calls[0][0].data;
+        expect(toNumber(createData.totalAmount)).toBe(10000);
+        expect(toNumber(createData.items.create[0].price)).toBe(5000);
         expect(publishPlatformEventMock).toHaveBeenCalledWith(expect.objectContaining({
             type: 'order.created',
             entityType: 'order',
@@ -156,9 +160,8 @@ describe('POST /api/orders route', () => {
             items: [{ quantity: 2, price: 5000, name: 'Quti <XL>' }],
         }));
         expect(response.status).toBe(200);
-        await expect(response.json()).resolves.toMatchObject({
-            id: 12,
-            totalAmount: 10000,
-        });
+        const body = await response.json();
+        expect(body).toMatchObject({ id: 12 });
+        expect(toNumber(body.totalAmount)).toBe(10000);
     });
 });

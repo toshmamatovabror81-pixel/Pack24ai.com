@@ -6,6 +6,7 @@ import {
     PRIORITY_LABELS,
     STATUS_LABELS,
     canTransitionTaskStatus,
+    type TaskStatus,
 } from '../taskConstants';
 
 describe('TASK_DEPARTMENTS', () => {
@@ -53,7 +54,7 @@ describe('TASK_STATUSES', () => {
 });
 
 describe('canTransitionTaskStatus', () => {
-    const allowed: [string, string][] = [
+    const allowed: [TaskStatus, TaskStatus][] = [
         ['pending', 'in_progress'],
         ['pending', 'cancelled'],
         ['in_progress', 'review'],
@@ -64,10 +65,10 @@ describe('canTransitionTaskStatus', () => {
     ];
 
     it.each(allowed)('%s → %s is allowed', (from, to) => {
-        expect(canTransitionTaskStatus(from as UnsafeAny, to as UnsafeAny)).toBe(true);
+        expect(canTransitionTaskStatus(from, to)).toBe(true);
     });
 
-    const forbidden: [string, string][] = [
+    const forbidden: [TaskStatus, TaskStatus][] = [
         ['pending', 'review'],
         ['pending', 'completed'],
         ['in_progress', 'pending'],
@@ -84,7 +85,7 @@ describe('canTransitionTaskStatus', () => {
     ];
 
     it.each(forbidden)('%s → %s is forbidden', (from, to) => {
-        expect(canTransitionTaskStatus(from as UnsafeAny, to as UnsafeAny)).toBe(false);
+        expect(canTransitionTaskStatus(from, to)).toBe(false);
     });
 
     it('completed is a terminal state', () => {

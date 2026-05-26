@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import { parseProduct } from '@/lib/product-utils';
 import { downloadAndUploadToSupabase, processGalleryUrls } from '@/lib/media-utils';
 import { verifyAdminAuth } from '@/lib/adminAuth';
+import { toDecimal } from '@/lib/money';
 
 
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
         const where: Prisma.ProductWhereInput = {};
 
         if (category && category !== 'all') where.category = category;
-        if (status   && status   !== 'all') where.status   = status as UnsafeAny;
+        if (status   && status   !== 'all') where.status   = status as ProductStatus;
         if (search)                          where.name     = { contains: search, mode: 'insensitive' };
         if (featured === '1') where.isFeatured = true;
         if (onSale === '1') where.originalPrice = { not: null };
@@ -95,8 +96,8 @@ export async function POST(request: NextRequest) {
             data: {
                 name:           body.name.trim(),
                 description:    body.description   || '',
-                price,
-                originalPrice:  body.originalPrice ? parseFloat(body.originalPrice) : null,
+                price: toDecimal(price),
+                originalPrice:  body.originalPrice ? toDecimal(parseFloat(body.originalPrice)) : null,
                 sku:            body.sku            || null,
                 category:       body.category       || null,
                 image:          await downloadAndUploadToSupabase(body.image || '/placeholder.png'),

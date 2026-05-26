@@ -8,6 +8,7 @@ import { createBotEvent } from '../../botEvents';
 import { createOrReuseBotAccessRequest } from '../../botAccessRequests';
 import { persistDriverCredentials, formatDriverCredentialsMessage } from '../../driverCredentials';
 import { fmtN } from './types';
+import { toNumber } from '@/lib/money';
 
 export function registerMessageHandlers(bot: Telegraf) {
     // LOCATION HANDLER — GPS tracking
@@ -239,7 +240,7 @@ export function registerMessageHandlers(bot: Telegraf) {
                 return;
             }
 
-            const pricePerKg = request.point?.pricePerKg || 800;
+            const pricePerKg = toNumber(request.point?.pricePerKg) || 800;
             const effectiveWeight = ses.weight! * (1 - (discount / 100));
             const totalAmount = effectiveWeight * pricePerKg;
 
@@ -393,7 +394,7 @@ export function registerMessageHandlers(bot: Telegraf) {
             });
 
             const totalWeight = collections.reduce((s, c) => s + c.actualWeight, 0);
-            const totalAmount = collections.reduce((s, c) => s + c.totalAmount, 0);
+            const totalAmount = collections.reduce((s, c) => s + toNumber(c.totalAmount), 0);
 
             await ctx.reply(
                 formatText('drv_report', lang, {

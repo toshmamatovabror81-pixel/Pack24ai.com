@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { verifyAdminAuth } from '@/lib/adminAuth';
+import { roundUZS, toNumber } from '@/lib/money';
 
 export async function POST(request: NextRequest) {
     const authError = await verifyAdminAuth(request);
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
         // Extract Data
         const name = $('h1').first().text().trim();
         const priceText = $('.price_value').first().text().replace(/\D/g, ''); // Extract numbers
-        const price = priceText ? parseInt(priceText) : 0;
+        const price = toNumber(roundUZS(priceText ? parseInt(priceText, 10) : 0));
 
         // Extract Breadcrumbs for Category Sync
         const breadcrumbs: string[] = [];

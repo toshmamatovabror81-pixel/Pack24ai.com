@@ -1,4 +1,4 @@
-'use client';import { LogOut, Phone, Instagram, Send, Globe, Settings, Info, Youtube, Headset } from 'lucide-react';
+'use client';import { LogOut, Phone, Instagram, Send, Globe, Settings, Info, Youtube, Headset, type LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function MobileProfilePage() {
@@ -64,7 +64,17 @@ export default function MobileProfilePage() {
     );
 }
 
-function MenuItem({ icon: Icon, label, value, badge }: UnsafeAny) {
+function MenuItem({
+    icon: Icon,
+    label,
+    value,
+    badge,
+}: {
+    icon: LucideIcon;
+    label: string;
+    value?: string;
+    badge?: string;
+}) {
     return (
         <div className="flex items-center justify-between p-4 active:bg-gray-50 transition-colors cursor-pointer">
             <div className="flex items-center gap-3">
@@ -84,7 +94,15 @@ function MenuItem({ icon: Icon, label, value, badge }: UnsafeAny) {
     )
 }
 
-function SocialButton({ icon: Icon, color, label }: UnsafeAny) {
+function SocialButton({
+    icon: Icon,
+    color,
+    label,
+}: {
+    icon: LucideIcon;
+    color: string;
+    label?: string;
+}) {
     return (
         <button
             className={`w-10 h-10 rounded-full ${color} text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform`}

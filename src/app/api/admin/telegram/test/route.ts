@@ -33,8 +33,9 @@ export async function POST(request: NextRequest) {
                 try {
                     await bot.telegram.sendMessage(chatId, `🔔 *PACK24 AI Test Xabari*\n\nBot muvaffaqiyatli ulandi!\nBot: @${me.username}\nHolat: Faol ✅`, { parse_mode: 'Markdown' });
                     results.push({ chatId, status: 'success' });
-                } catch (err: UnsafeAny) {
-                    results.push({ chatId, status: 'error', message: err.message });
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    results.push({ chatId, status: 'error', message });
                 }
             }
             
@@ -50,8 +51,9 @@ export async function POST(request: NextRequest) {
             bot: `@${me.username}` 
         });
 
-    } catch (error: UnsafeAny) {
+    } catch (error: unknown) {
         console.error('Test error:', error);
-        return NextResponse.json({ error: error.message || 'Xatolik yuz berdi' }, { status: 500 });
+        const msg = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({ error: msg || 'Xatolik yuz berdi' }, { status: 500 });
     }
 }

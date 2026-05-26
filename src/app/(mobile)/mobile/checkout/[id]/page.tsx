@@ -24,7 +24,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
         setFormData(prev => ({ ...prev, phone: '+998 90 123 45 67' }));
     }, []);
 
-    const updateOrder = async (updates: UnsafeAny) => {
+    const updateOrder = async (updates: Record<string, unknown>) => {
         setLoading(true);
         try {
             const res = await fetch(`/api/orders/${orderId}`, {

@@ -17,6 +17,28 @@ interface TestResult {
     duration: number;
 }
 
+interface WarehouseRow {
+    id: number;
+    isMain?: boolean;
+}
+
+interface InventoryRow {
+    productId: number;
+    warehouseId: number;
+    quantity?: number;
+}
+
+interface CustomerRow {
+    id: number;
+    name: string;
+    source?: string;
+}
+
+interface ContractListRow {
+    id: number;
+    outstandingDebt?: number;
+}
+
 const results: TestResult[] = [];
 let adminCookie = '';
 
@@ -25,8 +47,9 @@ async function runTest(name: string, fn: () => Promise<void>) {
     try {
         await fn();
         results.push({ name, passed: true, details: '✅ OK', duration: Date.now() - start });
-    } catch (err: UnsafeAny) {
-        results.push({ name, passed: false, details: `❌ ${err.message}`, duration: Date.now() - start });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        results.push({ name, passed: false, details: `❌ ${message}`, duration: Date.now() - start });
     }
 }
 
@@ -56,11 +79,12 @@ async function api(path: string, options?: RequestInit & { raw?: boolean }) {
     }
 
     if (options?.raw) {
-        return { status: res.status, data: null as UnsafeAny, ok: res.ok, text: await res.text() };
+        return { status: res.status, data: null, ok: res.ok, text: await res.text() };
     }
 
     const text = await res.text();
-    let data: UnsafeAny;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- integration script: many heterogeneous API shapes
+    let data: any;
     try { data = JSON.parse(text); } catch { data = { _raw: text }; }
     return { status: res.status, data, ok: res.ok, text };
 }
@@ -110,7 +134,8 @@ async function main() {
         const { status, data } = await api('/api/warehouse');
         assert(status === 200 && Array.isArray(data), 'Omborlar massivi');
         assert(data.length > 0, 'Kamida 1 ombor kerak');
-        testWarehouseId = data.find((w: UnsafeAny) => w.isMain)?.id || data[0].id;
+        const rows = data as WarehouseRow[];
+        testWarehouseId = rows.find((w) => w.isMain)?.id || rows[0].id;
         console.log(`    → ${data.length} ombor, asosiy: ID=${testWarehouseId}`);
     });
 
@@ -135,7 +160,9 @@ async function main() {
 
     await runTest('2.0 — Inventar tayyorlash (20 ta kirim)', async () => {
         const { data: invData } = await api('/api/warehouse/inventory');
-        const existing = (invData as UnsafeAny[])?.find((i: UnsafeAny) => i.productId === testProductId && i.warehouseId === testWarehouseId);
+        const existing = (invData as InventoryRow[]).find(
+            (i) => i.productId === testProductId && i.warehouseId === testWarehouseId,
+        );
         const currentQty = existing?.quantity ?? 0;
 
         // Avval tozalash
@@ -213,9 +240,11 @@ async function main() {
 
     await runTest('2.3 — Ombor tekshiruvi: 20 → 15', async () => {
         const { data } = await api('/api/warehouse/inventory');
-        const item = (data as UnsafeAny[])?.find((i: UnsafeAny) => i.productId === testProductId && i.warehouseId === testWarehouseId);
+        const item = (data as InventoryRow[]).find(
+            (i) => i.productId === testProductId && i.warehouseId === testWarehouseId,
+        );
         assert(item?.quantity === 15, `Ombor: ${item?.quantity}, kutilgan: 15`);
-        console.log(`    → ✓ Ombor sinxron: ${item.quantity} ta`);
+        console.log(`    → ✓ Ombor sinxron: ${item!.quantity} ta`);
     });
 
     await runTest('2.4 — Ortiqcha buyurtma → RAD (16 > 15)', async () => {
@@ -242,9 +271,11 @@ async function main() {
 
     await runTest('2.6 — Ombor tiklangan: 15 → 20', async () => {
         const { data } = await api('/api/warehouse/inventory');
-        const item = (data as UnsafeAny[])?.find((i: UnsafeAny) => i.productId === testProductId && i.warehouseId === testWarehouseId);
+        const item = (data as InventoryRow[]).find(
+            (i) => i.productId === testProductId && i.warehouseId === testWarehouseId,
+        );
         assert(item?.quantity === 20, `Ombor: ${item?.quantity}, kutilgan: 20`);
-        console.log(`    → ✓ Ombor tiklandi: ${item.quantity} ta`);
+        console.log(`    → ✓ Ombor tiklandi: ${item!.quantity} ta`);
     });
 
     // ══════════════════════════════════════════════════════════════
@@ -257,7 +288,7 @@ async function main() {
         assert(Array.isArray(list) && list.length > 0, `Mijozlar: ${JSON.stringify(data).substring(0, 100)}`);
         
         // Mehmon mijozlarni tashlab yuboramiz (shartnoma uchun user kerak)
-        const registered = list.filter((c: UnsafeAny) => c.source === 'registered');
+        const registered = (list as CustomerRow[]).filter((c) => c.source === 'registered');
         assert(registered.length > 0, 'Kamida 1 ta ro\'yxatdan o\'tgan mijoz kerak (shartnoma uchun)');
         
         testUserId = registered[0].id;
@@ -288,10 +319,10 @@ async function main() {
     await runTest('3.2 — Shartnomalar ro\'yxati', async () => {
         const { data } = await api('/api/admin/contracts');
         assert(Array.isArray(data), 'Massiv kutilgan');
-        const our = data.find((c: UnsafeAny) => c.id === testContractId);
+        const our = (data as ContractListRow[]).find((c) => c.id === testContractId);
         assert(!!our, 'Shartnoma topilmadi');
-        assert(typeof our.outstandingDebt === 'number', 'outstandingDebt kerak');
-        console.log(`    → ✓ ${data.length} shartnoma, qarz: ${our.outstandingDebt}`);
+        assert(typeof our!.outstandingDebt === 'number', 'outstandingDebt kerak');
+        console.log(`    → ✓ ${data.length} shartnoma, qarz: ${our!.outstandingDebt}`);
     });
 
     await runTest('3.3 — Shartnoma TAFSILOTI', async () => {
@@ -410,9 +441,11 @@ async function main() {
 
     await runTest('5.1 — Yakuniy ombor (20-5+5-3=17)', async () => {
         const { data } = await api('/api/warehouse/inventory');
-        const item = (data as UnsafeAny[])?.find((i: UnsafeAny) => i.productId === testProductId && i.warehouseId === testWarehouseId);
+        const item = (data as InventoryRow[]).find(
+            (i) => i.productId === testProductId && i.warehouseId === testWarehouseId,
+        );
         assert(item?.quantity === 17, `Ombor: ${item?.quantity}, kutilgan: 17`);
-        console.log(`    → ✓ Ombor sinxron: ${item.quantity} (20-5+5-3=17)`);
+        console.log(`    → ✓ Ombor sinxron: ${item!.quantity} (20-5+5-3=17)`);
     });
 
     await runTest('5.2 — Shartnoma balans (to\'liq to\'langan)', async () => {

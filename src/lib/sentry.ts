@@ -12,7 +12,8 @@
  * ishlatilsa, full-stack trace olish mumkin.
  */
 
-let sentryInstance: UnsafeAny = null;
+type SentryCapture = { captureException: (error: unknown, ctx?: { extra?: Record<string, unknown> }) => void };
+let sentryInstance: SentryCapture | null = null;
 
 export function initServerSentry() {
     const dsn = process.env.SENTRY_DSN;

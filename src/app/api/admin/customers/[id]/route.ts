@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { serializeMoney, toNumber } from '@/lib/money';
 
 interface AdminCustomerDetail {
     id: number | string;
@@ -148,7 +149,7 @@ export async function GET(
                 continue;
             }
 
-            const amount = order.totalAmount ?? 0;
+            const amount = toNumber(order.totalAmount);
 
             if (['new', 'processing', 'shipping'].includes(order.status)) {
                 financials.activeCount++;
@@ -218,7 +219,7 @@ export async function GET(
 
         return NextResponse.json({
             ...customer,
-            orders,
+            orders: serializeMoney(orders),
             financials,
             ledger,
             currentBalance: runningBalance,

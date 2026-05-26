@@ -396,8 +396,8 @@ model Product {
   id             Int           @id @default(autoincrement())
   name           String
   description    String?
-  price          Float
-  originalPrice  Float?
+  price          Decimal       @db.Decimal(18, 2)
+  originalPrice  Decimal?      @db.Decimal(18, 2)
   sku            String?
   category       String?
   categoryId     Int? // Yangi: Category relation
@@ -453,7 +453,7 @@ model Order {
   user   User? @relation(fields: [userId], references: [id])
 
   status      OrderStatus @default(draft)
-  totalAmount Float       @default(0)
+  totalAmount Decimal     @default(0) @db.Decimal(18, 2)
 
   shippingAddress  String?
   shippingLocation String? // JSON or "lat,long"
@@ -487,7 +487,7 @@ model OrderItem {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
-  price     Float // Snapshot of price
+  price     Decimal @db.Decimal(18, 2) // Snapshot of price
 
   @@index([orderId])
   @@index([productId])
@@ -612,8 +612,8 @@ model RecyclePoint {
   address         String? // Baza manzili
   lat             Float? // Kenglik (koordinata)
   lng             Float? // Uzunlik (koordinata)
-  pricePerKg      Float              @default(800) // Default narx (so'm/kg) — masul+admin belgilaydi
-  driverRatePerKg Float              @default(100) // Haydovchiga 1 kg uchun to'lov (so'm/kg)
+  pricePerKg      Decimal            @default(800) @db.Decimal(18, 2) // Default narx (so'm/kg) — masul+admin belgilaydi
+  driverRatePerKg Decimal            @default(100) @db.Decimal(18, 2) // Haydovchiga 1 kg uchun to'lov (so'm/kg)
   status          RecyclePointStatus @default(active)
   color           String             @default("bg-emerald-500")
   workingHours    String             @default("08:00-18:00") // Ish tartibi
@@ -771,7 +771,7 @@ model DriverTransaction {
   driverId     Int
   driver       Driver      @relation(fields: [driverId], references: [id], onDelete: Cascade)
   type         String // earning | withdrawal | bonus
-  amount       Float // Summa (so'm)
+  amount       Decimal     @db.Decimal(18, 2) // Summa (so'm)
   description  String? // Tavsif
   status       String      @default("completed") // pending | completed | failed
   cardId       Int? // Qaysi kartaga (FK)
@@ -854,8 +854,8 @@ model RecycleCollection {
   actualWeight    Float // Haqiqiy og'irlik (kg)
   discountPercent Float @default(0) // Chegirma foizi (sifat, namlik va h.k.)
   effectiveWeight Float // Hisoblangan og'irlik (kg)
-  pricePerKg      Float // Narx (so'm/kg)
-  totalAmount     Float // Jami summa (so'm)
+  pricePerKg      Decimal @db.Decimal(18, 2) // Narx (so'm/kg)
+  totalAmount     Decimal @db.Decimal(18, 2) // Jami summa (so'm)
 
   discountReason String? // Chegirma sababi: namlik, iflos, yirtiq...
   materialType   String? // qog'oz, karton, gazeta, jurnal, ofis, kitob, aralash
@@ -871,8 +871,8 @@ model RecycleCollection {
 
   // To'lov — masul belgilaydi: haydovchiga yoki mijozga
   paymentStatus     RecyclePaymentStatus @default(pending)
-  paymentToDriver   Float? // Haydovchiga to'langan summa
-  paymentToCustomer Float? // Mijozga to'langan summa
+  paymentToDriver   Decimal? @db.Decimal(18, 2) // Haydovchiga to'langan summa
+  paymentToCustomer Decimal? @db.Decimal(18, 2) // Mijozga to'langan summa
   paymentNote       String?
   paidAt            DateTime?
   paidBy            String? // Masul ismi
@@ -895,8 +895,8 @@ model RecycleManualIntake {
 
   date        DateTime
   weightKg    Float
-  pricePerKg  Float
-  totalAmount Float
+  pricePerKg  Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
   note        String?
 
   createdAt DateTime @default(now())
@@ -936,8 +936,8 @@ model RecycleExpenseLog {
   point        RecyclePoint? @relation(fields: [pointId], references: [id])
 
   date          DateTime
-  expenseAmount Float    @default(0)
-  advanceAmount Float    @default(0)
+  expenseAmount Decimal    @default(0) @db.Decimal(18, 2)
+  advanceAmount Decimal    @default(0) @db.Decimal(18, 2)
   comment       String?
 
   createdAt DateTime @default(now())
@@ -956,7 +956,7 @@ model RecycleDailyCash {
   point        RecyclePoint? @relation(fields: [pointId], references: [id])
 
   date           DateTime
-  openingBalance Float
+  openingBalance Decimal @db.Decimal(18, 2)
   note           String?
 
   createdAt DateTime @default(now())
@@ -978,8 +978,8 @@ model RecycleSalesLog {
   customerName String
   weightKg     Float
   baleCount    Int      @default(0)
-  pricePerKg   Float
-  totalAmount  Float
+  pricePerKg   Decimal @db.Decimal(18, 2)
+  totalAmount  Decimal @db.Decimal(18, 2)
   vehicleType  String?
   plateNumber  String?
   note         String?
@@ -1191,7 +1191,7 @@ model Contract {
   bankName     String? // Bank nomi
   directorName String? // Direktor ismi
 
-  creditLimit     Float @default(0) // Nasiya limiti (so'm)
+  creditLimit     Decimal @default(0) @db.Decimal(18, 2) // Nasiya limiti (so'm)
   paymentTermDays Int   @default(15) // To'lov muddati (kun)
 
   status    ContractStatus @default(active)
@@ -1217,14 +1217,14 @@ model CorporateInvoice {
   orderId    Int
   order      Order    @relation(fields: [orderId], references: [id])
 
-  subtotal    Float // QQS siz summa
+  subtotal    Decimal @db.Decimal(18, 2) // QQS siz summa
   vatPercent  Float @default(12) // QQS foizi
-  vatAmount   Float // QQS summasi
-  totalAmount Float // Jami (QQS bilan)
+  vatAmount   Decimal @db.Decimal(18, 2) // QQS summasi
+  totalAmount Decimal @db.Decimal(18, 2) // Jami (QQS bilan)
 
   status     InvoiceStatus @default(issued)
   dueDate    DateTime // To'lov muddati
-  paidAmount Float         @default(0)
+  paidAmount Decimal     @default(0) @db.Decimal(18, 2)
   paidAt     DateTime?
 
   createdAt DateTime @default(now())

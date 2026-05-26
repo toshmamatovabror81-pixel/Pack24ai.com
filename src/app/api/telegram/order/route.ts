@@ -9,6 +9,7 @@ import {
 import { publishPlatformEvent } from '@/lib/platform/events';
 import { sendManualOrderNotificationToAdminChats } from '@/lib/platform/telegramCommands';
 import { isAuthorizedTelegramOpsRequest } from '@/lib/telegram/security';
+import { roundUZS, toNumber } from '@/lib/money';
 
 export async function POST(request: NextRequest) {
     try {
@@ -28,7 +29,9 @@ export async function POST(request: NextRequest) {
             return {
                 name: readOptionalString(itemRecord.name, `items[${index}].name`) || 'Mahsulot',
                 quantity: readOptionalNumber(itemRecord.quantity, `items[${index}].quantity`) ?? 0,
-                price: readOptionalNumber(itemRecord.price, `items[${index}].price`) ?? 0,
+                price: toNumber(
+                    roundUZS(readOptionalNumber(itemRecord.price, `items[${index}].price`) ?? 0),
+                ),
             };
         });
 
@@ -41,7 +44,9 @@ export async function POST(request: NextRequest) {
         const contactPhone = readOptionalString(body.contactPhone, 'contactPhone') || '-';
         const address = readOptionalString(body.address, 'address') || '-';
         const comment = readOptionalString(body.comment, 'comment') || 'Yo\'q';
-        const totalAmount = readOptionalNumber(body.totalAmount, 'totalAmount') ?? 0;
+        const totalAmount = toNumber(
+            roundUZS(readOptionalNumber(body.totalAmount, 'totalAmount') ?? 0),
+        );
         const numericOrderId = typeof body.id === 'number' && Number.isInteger(body.id) ? body.id : undefined;
 
         const sent = await sendManualOrderNotificationToAdminChats({

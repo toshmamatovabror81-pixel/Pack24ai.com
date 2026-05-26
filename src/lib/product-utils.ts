@@ -1,9 +1,10 @@
 /**
  * Product JSON maydonlari uchun type-safe utility funksiyalar.
- * 
+ *
  * PostgreSQL Json tipidan foydalanilgandan so'ng, Prisma o'zi
  * serialize/deserialize qiladi — JSON.parse/stringify kerak emas.
  */
+import { serializeMoney } from '@/lib/money';
 
 export interface ProductSpecification {
     key: string;
@@ -45,14 +46,16 @@ export function parseTags(raw: unknown): string[] {
  * Prisma dan kelgan Product ni type-safe qiladi.
  * gallery, specifications, tags endi Prisma tomonidan
  * avtomatik parse qilinadi — faqat type assertion kerak.
+ * Money maydonlari (price, originalPrice) number ga aylantiriladi.
  */
 export function parseProduct<T extends Record<string, unknown>>(raw: T) {
-    return {
+    const withJson = {
         ...raw,
         gallery:        parseGallery(raw.gallery),
         specifications: parseSpecifications(raw.specifications),
         tags:           parseTags(raw.tags),
-    } as Omit<T, 'gallery' | 'specifications' | 'tags'> & {
+    };
+    return serializeMoney(withJson) as Omit<T, 'gallery' | 'specifications' | 'tags'> & {
         gallery: string[];
         specifications: ProductSpecification[];
         tags: string[];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toNumber } from '@/lib/money';
 
 // ─── GET /api/admin/products/analytics ───────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -134,27 +135,27 @@ export async function GET(req: NextRequest) {
             },
             categoryRevenue: categoryRevenue.map(c => ({
                 category: c.category,
-                revenue: Number(c.revenue),
+                revenue: toNumber(c.revenue),
                 sold: Number(c.sold),
             })),
             topSold: topSold.map(p => ({
                 id: p.product_id,
                 name: p.name,
                 image: p.image,
-                price: Number(p.price),
+                price: toNumber(p.price),
                 totalSold: Number(p.total_sold),
-                revenue: Number(p.revenue),
+                revenue: toNumber(p.revenue),
             })),
             leastSold: leastSold.map(p => ({
                 id: p.product_id,
                 name: p.name,
-                price: Number(p.price),
+                price: toNumber(p.price),
                 totalSold: Number(p.total_sold),
             })),
             dailySales: dailySales.map(d => ({
                 date: d.date?.slice(5) ?? '',
                 sold: Number(d.sold),
-                revenue: Number(d.revenue),
+                revenue: toNumber(d.revenue),
             })),
             priceSegments: priceSegments.map(s => ({
                 segment: s.segment,

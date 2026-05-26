@@ -4,16 +4,32 @@ import Image from 'next/image';
 import { useEffect, useState, use } from 'react';import { ArrowLeft, MapPin, Phone, Package, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+interface MobileOrderDetailLine {
+    id?: string | number;
+    product?: { image?: string; name?: string };
+    quantity: number;
+    price: number;
+}
+
+interface MobileOrderDetail {
+    id: string | number;
+    status: string;
+    shippingAddress?: string;
+    contactPhone?: string;
+    items: MobileOrderDetailLine[];
+    totalAmount: number;
+}
+
 export default function OrderTrackingPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const [order, setOrder] = useState<UnsafeAny>(null);
+    const [order, setOrder] = useState<MobileOrderDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
         fetch(`/api/orders/${id}`)
             .then(res => res.json())
-            .then(data => setOrder(data))
+            .then(data => setOrder(data as MobileOrderDetail))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, [id]);
@@ -84,10 +100,10 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                 <div className="bg-white p-5 rounded-2xl shadow-sm">
                     <h2 className="font-bold text-gray-900 mb-3">Mahsulotlar</h2>
                     <div className="space-y-3">
-                        {order.items.map((item: UnsafeAny) => (
+                        {order.items.map((item) => (
                             <div key={item.id} className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
                                 <div className="w-12 h-12 bg-gray-50 rounded-lg overflow-hidden shrink-0">
-                                    <Image src={item.product?.image} alt={item.product?.name || 'Item'} className="w-full h-full object-cover" width={300} height={300} />
+                                    <Image src={item.product?.image ?? '/icons/box.png'} alt={item.product?.name || 'Item'} className="w-full h-full object-cover" width={300} height={300} />
                                 </div>
                                 <div className="flex-1">
                                     <h4 className="text-sm font-medium text-gray-900 line-clamp-2">{item.product?.name}</h4>

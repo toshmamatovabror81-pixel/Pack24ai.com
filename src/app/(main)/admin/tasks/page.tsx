@@ -14,6 +14,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { TaskCard } from './_components/TaskCard';
 import { CreateTaskDialog } from './_components/CreateTaskDialog';
 import { TaskDetailDrawer } from './_components/TaskDetailDrawer';
+import type { TaskDetail } from './_components/TaskDetailDrawer';
 import type { TaskCardData } from './_components/TaskCard';
 import {
     TASK_DEPARTMENTS, DEPARTMENT_LABELS, TASK_PRIORITIES, PRIORITY_LABELS,
@@ -132,7 +133,7 @@ export default function TasksPage() {
 
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-    const [selectedTaskDetail, setSelectedTaskDetail] = useState<UnsafeAny>(null);
+    const [selectedTaskDetail, setSelectedTaskDetail] = useState<TaskDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeId, setActiveId] = useState<number | null>(null);
 
@@ -178,7 +179,7 @@ export default function TasksPage() {
     const fetchTaskDetail = useCallback(async (id: number) => {
         try {
             const res = await fetch(`/api/admin/tasks/${id}`);
-            const data = await res.json();
+            const data = (await res.json()) as TaskDetail;
             setSelectedTaskDetail(data);
         } catch (err) {
             console.error('[Tasks] detail error:', err);

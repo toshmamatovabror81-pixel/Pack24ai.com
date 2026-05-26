@@ -8,13 +8,32 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';import { Search, Plus, ArrowRightLeft, Download, AlertTriangle, ArrowRight, Home, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface WarehouseBrief {
+    id: string;
+    name: string;
+}
+
+interface WarehouseInventoryProduct {
+    name: string;
+    sku?: string;
+    image?: string;
+    price?: number;
+}
+
+interface WarehouseInventoryRow {
+    id: string;
+    quantity: number;
+    product: WarehouseInventoryProduct;
+    warehouse: { name: string };
+}
+
 export default function WarehousePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isTransferOpen, setIsTransferOpen] = useState(false);
 
     // Data State
-    const [inventory, setInventory] = useState<UnsafeAny[]>([]);
-    const [warehouses, setWarehouses] = useState<UnsafeAny[]>([]);
+    const [inventory, setInventory] = useState<WarehouseInventoryRow[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseBrief[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('all');
 
@@ -36,7 +55,7 @@ export default function WarehousePage() {
             // Fetch Warehouses
             const whRes = await fetch('/api/warehouse');
             if (whRes.ok) {
-                const whData = await whRes.json();
+                const whData = (await whRes.json()) as WarehouseBrief[];
                 setWarehouses(whData);
 
                 // Set default to main warehouse if exists
@@ -52,7 +71,7 @@ export default function WarehousePage() {
 
             const invRes = await fetch(`/api/warehouse/inventory?${params.toString()}`);
             if (invRes.ok) {
-                const invData = await invRes.json();
+                const invData = (await invRes.json()) as WarehouseInventoryRow[];
                 setInventory(invData);
             }
         } catch (error) {

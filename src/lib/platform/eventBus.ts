@@ -45,12 +45,7 @@ class EventBus {
 
         return () => {
             this.clients.delete(client);
-
-            // Oxirgi client uzilganda polling'ni to'xtatish
-            if (this.clients.size === 0 && this.pollTimer) {
-                clearInterval(this.pollTimer);
-                this.pollTimer = null;
-            }
+            this.stopPollingIfIdle();
         };
     }
 
@@ -66,6 +61,21 @@ class EventBus {
                 this.clients.delete(client);
             }
         }
+
+        this.stopPollingIfIdle();
+    }
+
+    /** Test va shutdown uchun — barcha subscriberlarni olib tashlaydi */
+    shutdown(): void {
+        this.clients.clear();
+        this.stopPollingIfIdle();
+    }
+
+    private stopPollingIfIdle(): void {
+        if (this.clients.size === 0 && this.pollTimer) {
+            clearInterval(this.pollTimer);
+            this.pollTimer = null;
+        }
     }
 
     get clientCount(): number {
@@ -78,6 +88,8 @@ class EventBus {
      * har 10 soniyada BotEvent jadvalini tekshiradi
      */
     private startDBPolling(): void {
+        if (process.env.NODE_ENV === 'test') return;
+
         const pollMs =
             process.env.NODE_ENV === 'development'
                 ? 30_000

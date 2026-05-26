@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { useCategoryStore, type Category } from '@/lib/store/useCategoryStore';
 import * as LucideIcons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { Language } from '@/lib/translations';
 import { ChevronRight } from 'lucide-react';
 
@@ -23,11 +24,9 @@ function getCatName(cat: Category, lang: Language): string {
     return cat.name[lang as keyof typeof cat.name] || cat.name.uz || cat.name.ru;
 }
 
-function getIcon(iconName: string) {
-    const Icon = iconName && (LucideIcons as UnsafeAny)[iconName]
-        ? (LucideIcons as UnsafeAny)[iconName]
-        : LucideIcons.Box;
-    return Icon;
+function getIcon(iconName: string): LucideIcon {
+    const map = LucideIcons as unknown as Record<string, LucideIcon | undefined>;
+    return (iconName && map[iconName]) || LucideIcons.Box;
 }
 
 export default function NavCatalogDropdown() {

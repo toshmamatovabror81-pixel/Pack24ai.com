@@ -14,6 +14,7 @@ import {
 import { publishPlatformEvent } from '@/lib/platform/events';
 import { sendWebsiteOrderCreatedToAdminChats } from '@/lib/platform/telegramCommands';
 import { validateAndReserveStock, formatStockErrors } from '@/lib/domain/stockValidation';
+import { add, mul, roundUZS, serializeMoney, toDecimal, toNumber } from '@/lib/money';
 
 const ORDER_STATUSES = ['draft', 'new', 'processing', 'shipping', 'delivered', 'cancelled'] as const;
 const ORDER_DELIVERY_METHODS = ['courier', 'pickup'] as const;
@@ -99,23 +100,23 @@ export async function POST(req: NextRequest) {
             });
             const productMap = new Map(products.map(p => [p.id, p]));
 
-            let total = 0;
-            const fItems: { productId: number; quantity: number; price: number }[] = [];
+            let total = toNumber(0);
+            const fItems: { productId: number; quantity: number; price: ReturnType<typeof toDecimal> }[] = [];
             for (const item of items) {
                 const product = productMap.get(item.productId);
                 if (product) {
-                    total += product.price * item.quantity;
+                    total = toNumber(add(total, mul(product.price, item.quantity)));
                     fItems.push({ productId: item.productId, quantity: item.quantity, price: product.price });
                 }
             }
             let order = await prisma.order.findFirst({ where: { telegramUserId: telegramUserId?.toString(), status: OrderStatus.draft } });
             if (order) {
                 await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
-                order = await prisma.order.update({ where: { id: order.id }, data: { totalAmount: total, items: { create: fItems } }, include: { items: { include: { product: true } } } });
+                order = await prisma.order.update({ where: { id: order.id }, data: { totalAmount: roundUZS(total), items: { create: fItems } }, include: { items: { include: { product: true } } } });
             } else {
-                order = await prisma.order.create({ data: { telegramUserId: telegramUserId?.toString(), status: OrderStatus.draft, totalAmount: total, items: { create: fItems } }, include: { items: { include: { product: true } } } });
+                order = await prisma.order.create({ data: { telegramUserId: telegramUserId?.toString(), status: OrderStatus.draft, totalAmount: roundUZS(total), items: { create: fItems } }, include: { items: { include: { product: true } } } });
             }
-            return NextResponse.json(order);
+            return NextResponse.json(serializeMoney(order));
         }
 
         // Full checkout order
@@ -123,11 +124,14 @@ export async function POST(req: NextRequest) {
         const orderItems = items.map(i => ({
             productId: i.productId,
             quantity: i.quantity,
-            price: i.price,
+            price: toDecimal(i.price),
         }));
 
         if (!computedTotal) {
-            computedTotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+            computedTotal = orderItems.reduce(
+                (sum, i) => toNumber(add(sum, mul(i.price, i.quantity))),
+                0,
+            );
         }
 
         // ─── Ombor tekshiruv + buyurtma yaratish (tranzaksiya) ───────────
@@ -156,7 +160,7 @@ export async function POST(req: NextRequest) {
                     paymentMethod:   paymentMethod ?? 'cash',
                     paymentStatus:   (paymentMethod === 'cash' || !paymentMethod) ? PaymentStatus.pending : PaymentStatus.pending,
                     status:          status === 'new' ? OrderStatus.new_ : (status as OrderStatus),
-                    totalAmount: computedTotal,
+                    totalAmount: roundUZS(computedTotal),
                     items: { create: orderItems },
                 },
                 include: { items: { include: { product: { select: { name: true } } } } },
@@ -169,7 +173,7 @@ export async function POST(req: NextRequest) {
             telegramUserId: order.telegramUserId,
             customerName: order.customerName,
             contactPhone: order.contactPhone,
-            totalAmount: order.totalAmount,
+            totalAmount: toNumber(order.totalAmount),
             itemCount: order.items.length,
             paymentMethod: order.paymentMethod,
             deliveryMethod: order.deliveryMethod,
@@ -193,13 +197,13 @@ export async function POST(req: NextRequest) {
                 contactPhone: order.contactPhone,
                 shippingAddress: order.shippingAddress,
                 shippingLocation: order.shippingLocation,
-                totalAmount: order.totalAmount,
+                totalAmount: toNumber(order.totalAmount),
                 status: order.status,
                 paymentMethod: order.paymentMethod,
                 deliveryMethod: order.deliveryMethod,
-                items: order.items.map((i: { quantity: number; price: number; product: { name: string } | null }) => ({
+                items: order.items.map((i) => ({
                     quantity: i.quantity,
-                    price: i.price,
+                    price: toNumber(i.price),
                     name: i.product?.name ?? 'Mahsulot',
                 })),
             }),
@@ -221,7 +225,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 if (activeContract) {
-                    const subtotal = order.totalAmount;
+                    const subtotal = toNumber(order.totalAmount);
                     const vatPercent = 12;
                     const vatAmount = Math.round(subtotal * vatPercent / 100);
                     const totalWithVat = subtotal + vatAmount;
@@ -243,10 +247,10 @@ export async function POST(req: NextRequest) {
                             invoiceNo: `INV-${year}-${nextNum}`,
                             contractId: activeContract.id,
                             orderId: order.id,
-                            subtotal,
+                            subtotal: toDecimal(subtotal),
                             vatPercent,
-                            vatAmount,
-                            totalAmount: totalWithVat,
+                            vatAmount: toDecimal(vatAmount),
+                            totalAmount: toDecimal(totalWithVat),
                             dueDate,
                             status: 'issued',
                         },
@@ -259,7 +263,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        return NextResponse.json(order);
+        return NextResponse.json(serializeMoney(order));
     } catch (error) {
         if (error instanceof RequestValidationError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
@@ -353,7 +357,7 @@ export async function GET(request: Request) {
             skip: paramSkip,
             include: { items: { include: { product: true } } },
         });
-        return NextResponse.json(orders);
+        return NextResponse.json(serializeMoney(orders));
     } catch (_error) {
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

@@ -18,6 +18,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
 
+interface ProductionStageRow {
+    stage: string;
+    operator?: string;
+}
+
 interface ProductionOrder {
     id: number;
     orderNo: string;
@@ -28,7 +33,7 @@ interface ProductionOrder {
     currentStage: string;
     progress: number;
     status: string;
-    stages: UnsafeAny[];
+    stages: ProductionStageRow[];
 }
 
 export default function ProductionDashboard() {
@@ -120,7 +125,7 @@ export default function ProductionDashboard() {
     };
 
     const getOperator = (order: ProductionOrder) => {
-        const currentStageData = order.stages?.find((s: UnsafeAny) => s.stage === order.currentStage);
+        const currentStageData = order.stages?.find((s) => s.stage === order.currentStage);
         return currentStageData?.operator || 'Tayinlanmagan';
     };
 

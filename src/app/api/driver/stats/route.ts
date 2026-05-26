@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireDriver } from '@/lib/auth/guards';
+import { toNumber } from '@/lib/money';
 
 export async function GET(req: NextRequest) {
     const guard = await requireDriver(req);
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
         today: {
             collections: todayCollections.length,
             totalWeight: Math.round(todayCollections.reduce((s, c) => s + c.actualWeight, 0)),
-            totalAmount: Math.round(todayCollections.reduce((s, c) => s + c.totalAmount, 0)),
+            totalAmount: Math.round(todayCollections.reduce((s, c) => s + toNumber(c.totalAmount), 0)),
         },
         total: {
             collections: allCollections.length,

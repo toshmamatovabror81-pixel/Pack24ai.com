@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { serializeMoney, toDecimal, toNumber } from '@/lib/money';
 
 // ─── GET /api/admin/contracts/[id] — Shartnoma tafsiloti ─────────────────────
 export async function GET(
@@ -28,24 +29,25 @@ export async function GET(
         // Qarz va kredit hisoblash
         const totalInvoiced = contract.invoices
             .filter(i => i.status !== 'cancelled')
-            .reduce((s, i) => s + i.totalAmount, 0);
+            .reduce((s, i) => s + toNumber(i.totalAmount), 0);
         const totalPaid = contract.invoices
             .filter(i => i.status !== 'cancelled')
-            .reduce((s, i) => s + i.paidAmount, 0);
+            .reduce((s, i) => s + toNumber(i.paidAmount), 0);
 
         const outstandingDebt = Math.round(totalInvoiced - totalPaid);
-        const creditUsagePercent = contract.creditLimit > 0
-            ? Math.round((outstandingDebt / contract.creditLimit) * 100)
+        const creditLimit = toNumber(contract.creditLimit);
+        const creditUsagePercent = creditLimit > 0
+            ? Math.round((outstandingDebt / creditLimit) * 100)
             : 0;
 
-        return NextResponse.json({
+        return NextResponse.json(serializeMoney({
             ...contract,
             totalInvoiced: Math.round(totalInvoiced),
             totalPaid: Math.round(totalPaid),
             outstandingDebt,
             creditUsagePercent,
             _count: { invoices: contract.invoices.length },
-        });
+        }));
     } catch (error) {
         console.error('[Contract GET]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
@@ -75,7 +77,7 @@ export async function PATCH(
         }
 
         if (updateData.creditLimit !== undefined) {
-            updateData.creditLimit = Number(updateData.creditLimit);
+            updateData.creditLimit = toDecimal(Number(updateData.creditLimit));
         }
         if (updateData.paymentTermDays !== undefined) {
             updateData.paymentTermDays = Number(updateData.paymentTermDays);

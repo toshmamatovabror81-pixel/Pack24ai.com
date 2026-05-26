@@ -2,12 +2,7 @@
 
 import Image from 'next/image';
 import {
-    Search, Percent, ShoppingBag, Box, Ticket, Layers, Package, Printer, ScrollText,
-    PackageOpen, Mail, Archive, Croissant, Utensils, Footprints, Square, FileText,
-    TrendingDown, Moon, StickyNote, Maximize, GripHorizontal, Scan, Shield, Sliders,
-    Palette, Zap, Coffee, CircleDot, Wind, Tag, Disc, Stamp, Type, Hand, Cog, Sparkles,
-    Recycle, Cylinder, LayoutGrid, BoxSelect, Minimize2, Minimize, HardHat, Trash2,
-    Stethoscope, Shirt, ChefHat, File, Receipt
+    Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
@@ -16,16 +11,6 @@ import { useLanguage } from '@/lib/contexts/LanguageContext';
 export default function MobileHomePage() {
     const categories = useCategoryStore((state) => state.categories);
     const { language } = useLanguage();
-
-    // Icon mapper
-    const _IconMap: UnsafeAny = {
-        Percent, ShoppingBag, Box, Ticket, Layers, Package, Printer, ScrollText,
-        PackageOpen, Mail, Archive, Croissant, Utensils, Footprints, Square, FileText,
-        TrendingDown, Moon, StickyNote, Maximize, GripHorizontal, Scan, Shield, Sliders,
-        Palette, Zap, Coffee, CircleDot, Wind, Tag, Disc, Stamp, Type, Hand, Cog, Sparkles,
-        Recycle, Cylinder, LayoutGrid, BoxSelect, Minimize2, Minimize, HardHat, Trash2,
-        Stethoscope, Shirt, ChefHat, File, Receipt
-    };
 
     return (
         <div className="pb-4">

@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Download, Loader2, ArrowRight, CheckCircle } from 'lucide-react';
-import { useProductStore } from '@/lib/store/useProductStore';
+import { useProductStore, type ImportData } from '@/lib/store/useProductStore';
 import { toast } from 'sonner';
+
+type ScrapePreview = ImportData & { categoryPath?: string[] };
 
 interface ImportProductModalProps {
     isOpen: boolean;
@@ -16,7 +18,7 @@ interface ImportProductModalProps {
 export default function ImportProductModal({ isOpen, onClose }: ImportProductModalProps) {
     const [url, setUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [previewData, setPreviewData] = useState<UnsafeAny>(null);
+    const [previewData, setPreviewData] = useState<ScrapePreview | null>(null);
     const { importProduct } = useProductStore();
 
     if (!isOpen) return null;
@@ -35,7 +37,7 @@ export default function ImportProductModal({ isOpen, onClose }: ImportProductMod
             if (data.error) {
                 toast.error(data.error);
             } else {
-                setPreviewData(data);
+                setPreviewData(data as ScrapePreview);
                 toast.success('Ma\'lumotlar yuklandi!');
             }
         } catch (_e) {
@@ -70,7 +72,9 @@ export default function ImportProductModal({ isOpen, onClose }: ImportProductMod
             }
         }
 
-        importProduct({ ...previewData, image: finalImage });
+        const { categoryPath: _cp, ...importPayload } = previewData;
+        void _cp;
+        importProduct({ ...importPayload, image: finalImage });
         toast.success("Mahsulot 'Qoralama'ga qo'shildi!");
         onClose();
         setUrl('');
@@ -110,7 +114,7 @@ export default function ImportProductModal({ isOpen, onClose }: ImportProductMod
                 ) : (
                     <div className="space-y-6">
                         <div className="flex gap-4">
-                            <Image src={previewData.image} alt="" className="w-32 h-32 object-contain rounded-lg border border-gray-200 bg-white" width={300} height={300} />
+                            <Image src={previewData.image ?? '/icons/box.png'} alt="" className="w-32 h-32 object-contain rounded-lg border border-gray-200 bg-white" width={300} height={300} />
                             <div className="flex-1 space-y-2">
                                 <h3 className="font-bold text-gray-800 text-lg leading-tight">{previewData.name}</h3>
 

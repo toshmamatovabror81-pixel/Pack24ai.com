@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { MoneyInput, toNumber } from '@/lib/money';
 
 // ─── Yordamchi interface ──────────────────────────────────────────────────────
 interface CustomerRecord {
@@ -189,7 +190,7 @@ export async function GET(request: NextRequest) {
 
 // ─── Moliyaviy hisob-kitob ────────────────────────────────────────────────────
 function calcFinancials(orders: {
-    totalAmount: number;
+    totalAmount: MoneyInput;
     status: string;
     paymentStatus: string;
     createdAt: Date;
@@ -202,17 +203,17 @@ function calcFinancials(orders: {
     // Jami tushumga kirgan summa (bekor qilinganlar hisoblanmaydi)
     const totalRevenue = orders
         .filter(o => o.status !== 'cancelled' && o.status !== 'draft')
-        .reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+        .reduce((s, o) => s + toNumber(o.totalAmount), 0);
 
     // To'langan summa (paymentStatus === 'paid')
     const totalPaid = orders
         .filter(o => o.paymentStatus === 'paid' && o.status !== 'cancelled')
-        .reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+        .reduce((s, o) => s + toNumber(o.totalAmount), 0);
 
     // Debitor = mijoz bizga qarzdor (buyurtma bor, to'lanmagan)
     const totalDebit = orders
         .filter(o => o.paymentStatus !== 'paid' && o.status !== 'cancelled' && o.status !== 'draft')
-        .reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+        .reduce((s, o) => s + toNumber(o.totalAmount), 0);
 
     // Kreditor = biz mijozga qarzdor (ortiqcha to'lov yoki qaytarish)
     // Hozircha 0 — kelajakda refund tizimi qo'shilganda hisoblanadi

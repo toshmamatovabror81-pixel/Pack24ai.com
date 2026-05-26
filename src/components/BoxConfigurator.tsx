@@ -115,7 +115,7 @@ export default function BoxConfigurator() {
                 <input
                   type="text"
                   value={inputs[k as keyof typeof inputs]}
-                  onChange={(e) => handleInputChange(k as UnsafeAny, e.target.value)}
+                  onChange={(e) => handleInputChange(k as keyof typeof inputs, e.target.value)}
                   className={`w-full p-3 bg-gray-50 border-2 rounded-lg text-gray-900 font-bold outline-none transition-all placeholder-gray-300 ${!validation.valid ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-blue-500'
                     }`}
                   placeholder="0"

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { toNumber, type MoneyInput } from '@/lib/money';
 
 export interface OrderItem {
     id: string;
@@ -29,7 +30,11 @@ interface AdminStore {
     allOrders: AdminOrder[];
 
     // Actions
-    addOrder: (order: Omit<AdminOrder, 'date' | 'status' | 'source'> & { status?: string, source?: string }) => void;
+    addOrder: (order: Omit<AdminOrder, 'date' | 'status' | 'source' | 'totalAmount'> & {
+        status?: string;
+        source?: string;
+        totalAmount: MoneyInput;
+    }) => void;
     updateOrderStatus: (id: string, status: AdminOrder['status']) => void;
 }
 
@@ -53,6 +58,7 @@ export const useAdminStore = create<AdminStore>()(
                 allOrders: [
                     {
                         ...order,
+                        totalAmount: toNumber(order.totalAmount),
                         id: order.id || Math.floor(Math.random() * 100000).toString(),
                         status: (order.status as AdminOrder['status']) || 'new',
                         source: (order.source as AdminOrder['source']) || 'website',

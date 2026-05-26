@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toDecimal, toNumber, serializeMoney } from '@/lib/money';
 
 // ─── GET /api/admin/invoices/[id] — Faktura tafsiloti ────────────────────────
 export async function GET(
@@ -30,7 +31,7 @@ export async function GET(
             return NextResponse.json({ error: 'Faktura topilmadi' }, { status: 404 });
         }
 
-        return NextResponse.json(invoice);
+        return NextResponse.json(serializeMoney(invoice));
     } catch (error) {
         console.error('[Invoice GET]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
@@ -61,10 +62,11 @@ export async function PATCH(
                 return NextResponse.json({ error: "To'lov summasi musbat bo'lishi kerak" }, { status: 400 });
             }
 
-            const newPaidAmount = invoice.paidAmount + Number(amount);
+            const newPaidAmount = toNumber(invoice.paidAmount) + Number(amount);
+            const totalAmount = toNumber(invoice.totalAmount);
             let updatedStatus = invoice.status;
 
-            if (newPaidAmount >= invoice.totalAmount) {
+            if (newPaidAmount >= totalAmount) {
                 updatedStatus = 'paid';
             } else if (newPaidAmount > 0) {
                 updatedStatus = 'partial';
@@ -73,13 +75,13 @@ export async function PATCH(
             const updated = await prisma.corporateInvoice.update({
                 where: { id: parseInt(id) },
                 data: {
-                    paidAmount: newPaidAmount,
+                    paidAmount: toDecimal(newPaidAmount),
                     status: updatedStatus,
                     paidAt: updatedStatus === 'paid' ? new Date() : null,
                 },
             });
 
-            return NextResponse.json(updated);
+            return NextResponse.json(serializeMoney(updated));
         }
 
         // Status o'zgartirish
@@ -94,7 +96,7 @@ export async function PATCH(
                 data: { status: newStatus },
             });
 
-            return NextResponse.json(updated);
+            return NextResponse.json(serializeMoney(updated));
         }
 
         return NextResponse.json({ error: "Noto'g'ri amal" }, { status: 400 });

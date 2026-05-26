@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react';
+import type { Session } from 'next-auth';
 import type { User } from '@/lib/store/useAuthStore';
 
 // Mock next-auth/react before importing the store
@@ -317,11 +318,15 @@ describe('useAuthStore', () => {
         });
 
         it('returns null when id is missing', () => {
-            expect(sessionUserToStoreUser({ name: 'A', phone: '+998' } as UnsafeAny)).toBeNull();
+            expect(
+                sessionUserToStoreUser({ name: 'A', phone: '+998' } as Session['user']),
+            ).toBeNull();
         });
 
         it('returns null when phone is missing', () => {
-            expect(sessionUserToStoreUser({ id: '1', name: 'A' } as UnsafeAny)).toBeNull();
+            expect(
+                sessionUserToStoreUser({ id: '1', name: 'A' } as Session['user']),
+            ).toBeNull();
         });
 
         it('returns null for null/undefined input', () => {

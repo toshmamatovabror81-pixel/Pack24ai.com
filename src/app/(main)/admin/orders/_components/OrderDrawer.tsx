@@ -16,14 +16,92 @@ import {
     Factory
 } from 'lucide-react';
 
+/** API list row plus optional richer fields used by the drawer / print mock */
+export interface AdminOrderDrawerPayload {
+    id: number;
+    status: string;
+    statusLabel?: string;
+    date?: string;
+    createdAt?: string | null;
+    customerName?: string | null;
+    contactPhone?: string | null;
+    shippingAddress?: string | null;
+    customer?: {
+        name: string;
+        phone: string;
+        address: string;
+    };
+    items?: unknown;
+    totalAmount?: number | null;
+    totalSum?: string;
+    finalTotal?: string;
+}
+
+interface OrderDrawerLine {
+    name: string;
+    ikpu: string;
+    qty: number;
+    price: string;
+    total: string;
+}
+
+function normalizeDrawerItems(raw: unknown): OrderDrawerLine[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item): OrderDrawerLine => {
+        if (item && typeof item === 'object') {
+            const o = item as Record<string, unknown>;
+            const prod = o.product && typeof o.product === 'object' ? (o.product as Record<string, unknown>) : undefined;
+            const name =
+                typeof o.name === 'string'
+                    ? o.name
+                    : typeof prod?.name === 'string'
+                      ? prod.name
+                      : 'Mahsulot';
+            const qty = Number(o.qty ?? o.quantity ?? 0);
+            const priceRaw = Number(o.price ?? 0);
+            const priceStr =
+                typeof o.price === 'string' ? o.price : `${priceRaw.toLocaleString('ru-RU')} so'm`;
+            const totalNum =
+                typeof o.total === 'number'
+                    ? o.total
+                    : typeof o.total === 'string'
+                      ? Number.parseFloat(o.total)
+                      : priceRaw * (Number.isFinite(qty) ? qty : 0);
+            const totalStr =
+                typeof o.total === 'string'
+                    ? o.total
+                    : `${(Number.isFinite(totalNum) ? totalNum : 0).toLocaleString('ru-RU')} so'm`;
+            const ikpu = typeof o.ikpu === 'string' ? o.ikpu : '—';
+            return { name, ikpu, qty: Number.isFinite(qty) ? qty : 0, price: priceStr, total: totalStr };
+        }
+        return { name: 'Mahsulot', ikpu: '—', qty: 0, price: '0', total: '0' };
+    });
+}
+
 interface OrderDrawerProps {
     isOpen: boolean;
     onClose: () => void;
-    order: UnsafeAny; // Using any for rough prototyping, will refine interface later
+    order: AdminOrderDrawerPayload | null;
 }
 
 export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps) {
     if (!isOpen || !order) return null;
+
+    const customer =
+        order.customer ?? {
+            name: order.customerName ?? '—',
+            phone: order.contactPhone ?? '—',
+            address: order.shippingAddress ?? '—',
+        };
+    const displayDate =
+        order.date ??
+        (order.createdAt ? new Date(order.createdAt).toLocaleString('uz-UZ') : '—');
+    const drawerLines = normalizeDrawerItems(order.items);
+    const totalSumDisplay =
+        order.totalSum ??
+        `${(order.totalAmount ?? 0).toLocaleString('ru-RU')} so'm`;
+    const finalTotalDisplay = order.finalTotal ?? totalSumDisplay;
+    const statusLabelDisplay = order.statusLabel ?? order.status;
 
     const handlePrint = () => {
         window.print();
@@ -49,11 +127,11 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                     order.status === 'completed' ? 'bg-green-100 text-green-700' :
                                         'bg-gray-100 text-gray-700'
                                     }`}>
-                                    {order.status === 'new' ? 'Yangi' : order.statusLabel}
+                                    {order.status === 'new' ? 'Yangi' : statusLabelDisplay}
                                 </Badge>
                             </div>
                             <p className="text-sm text-gray-500 flex items-center gap-2">
-                                <Calendar className="w-3.5 h-3.5" /> {order.date}
+                                <Calendar className="w-3.5 h-3.5" /> {displayDate}
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -84,16 +162,16 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                 <div className="bg-gray-50 p-4 rounded-xl space-y-3">
                                     <div className="flex justify-between">
                                         <span className="text-sm text-gray-500">Mijoz:</span>
-                                        <span className="text-sm font-medium">{order.customer.name}</span>
+                                        <span className="text-sm font-medium">{customer.name}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-sm text-gray-500">Telefon:</span>
-                                        <span className="text-sm font-medium font-mono">{order.customer.phone}</span>
+                                        <span className="text-sm font-medium font-mono">{customer.phone}</span>
                                     </div>
                                     <div className="pt-2 border-t border-gray-200">
                                         <div className="flex items-start gap-2 text-sm text-gray-700">
                                             <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                                            {order.customer.address}
+                                            {customer.address}
                                         </div>
                                         <div className="mt-2 h-24 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
                                             Xarita Preview
@@ -142,7 +220,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {order.items.map((item: UnsafeAny, i: number) => (
+                                        {drawerLines.map((item, i) => (
                                             <tr key={i}>
                                                 <td className="px-4 py-3">
                                                     <p className="font-medium text-gray-900">{item.name}</p>
@@ -157,7 +235,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                     <tfoot className="bg-gray-50">
                                         <tr>
                                             <td colSpan={3} className="px-4 py-2 text-right text-gray-500">Jami summa:</td>
-                                            <td className="px-4 py-2 text-right font-bold text-gray-900">{order.totalSum}</td>
+                                            <td className="px-4 py-2 text-right font-bold text-gray-900">{totalSumDisplay}</td>
                                         </tr>
                                         <tr>
                                             <td colSpan={3} className="px-4 py-2 text-right text-gray-500">Yetkazib berish:</td>
@@ -165,7 +243,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                                         </tr>
                                         <tr>
                                             <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-900 text-lg border-t border-gray-200">Yakuniy:</td>
-                                            <td className="px-4 py-3 text-right font-bold text-emerald-600 text-lg border-t border-gray-200">{order.finalTotal}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-emerald-600 text-lg border-t border-gray-200">{finalTotalDisplay}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -262,13 +340,13 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                     <h1 className="text-xl font-bold mb-1">PACK24.UZ</h1>
                     <p className="text-[10px]">O&apos;zbekistondagi eng katta qadoqlash<br />mahsulotlari do&apos;koni</p>
                     <p className="mt-2 font-bold">Buyurtma #{order.id}</p>
-                    <p className="text-[10px]">{order.date}</p>
+                    <p className="text-[10px]">{displayDate}</p>
                 </div>
 
                 <div className="mb-4 text-[10px]">
-                    <p><span className="font-bold">Mijoz:</span> {order.customer.name}</p>
-                    <p><span className="font-bold">Tel:</span> {order.customer.phone}</p>
-                    <p className="mt-1"><span className="font-bold">Manzil:</span> {order.customer.address}</p>
+                    <p><span className="font-bold">Mijoz:</span> {customer.name}</p>
+                    <p><span className="font-bold">Tel:</span> {customer.phone}</p>
+                    <p className="mt-1"><span className="font-bold">Manzil:</span> {customer.address}</p>
                 </div>
 
                 <table className="w-full text-left mb-4">
@@ -280,7 +358,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                         </tr>
                     </thead>
                     <tbody className="border-b border-black border-dashed">
-                        {order.items.map((item: UnsafeAny, i: number) => (
+                        {drawerLines.map((item, i) => (
                             <tr key={i}>
                                 <td className="py-2 pr-2">
                                     <div className="font-bold">{item.name}</div>
@@ -296,7 +374,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                 <div className="space-y-1 text-right font-bold mb-6">
                     <div className="flex justify-between">
                         <span>Jami:</span>
-                        <span>{order.totalSum}</span>
+                        <span>{totalSumDisplay}</span>
                     </div>
                     <div className="flex justify-between">
                         <span>Yetkazib berish:</span>
@@ -304,7 +382,7 @@ export default function OrderDrawer({ isOpen, onClose, order }: OrderDrawerProps
                     </div>
                     <div className="flex justify-between text-sm mt-2 pt-2 border-t border-black">
                         <span>TO&apos;LOV:</span>
-                        <span>{order.finalTotal}</span>
+                        <span>{finalTotalDisplay}</span>
                     </div>
                 </div>
 

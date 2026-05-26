@@ -16,12 +16,13 @@ import {
     Info,
     Building2
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface DeliveryMethod {
     id: string;
     name: string;
     type: 'internal' | 'external';
-    icon: UnsafeAny;
+    icon: LucideIcon;
     status: 'active' | 'inactive';
     details?: string;
     price?: number;

@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { RecycleRequestStatus } from '@prisma/client';
 
 const MONTH_NAMES_UZ = [
     'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
         const requests = await prisma.recycleRequest.findMany({
             where: {
                 userId,
-                status: { in: ['collected', 'completed', 'confirmed'] as UnsafeAny },
+                status: { in: [RecycleRequestStatus.collected, RecycleRequestStatus.completed, RecycleRequestStatus.confirmed] },
                 completedAt: { gte: startDate, lt: endDate },
             },
             select: { material: true, volume: true, completedAt: true },

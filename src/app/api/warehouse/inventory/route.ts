@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
-// ... (existing code)
+import type { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
     try {
@@ -9,7 +8,7 @@ export async function GET(request: Request) {
         const warehouseId = searchParams.get('warehouseId');
         const search = searchParams.get('search');
 
-        const where: UnsafeAny = {};
+        const where: Prisma.InventoryWhereInput = {};
 
         if (warehouseId && warehouseId !== 'all') {
             where.warehouseId = parseInt(warehouseId);
@@ -74,14 +73,14 @@ export async function POST(request: Request) {
             // 2. Update Inventory
             if (type === 'IN' && toWarehouseId) {
                 // Add to destination
-                await upsertInventory(tx, parseInt(productId), parseInt(toWarehouseId), parseInt(quantity));
+                await upsertInventory(tx as unknown as Prisma.TransactionClient, parseInt(productId), parseInt(toWarehouseId), parseInt(quantity));
             } else if (type === 'OUT' && fromWarehouseId) {
                 // Remove from source
-                await upsertInventory(tx, parseInt(productId), parseInt(fromWarehouseId), -parseInt(quantity));
+                await upsertInventory(tx as unknown as Prisma.TransactionClient, parseInt(productId), parseInt(fromWarehouseId), -parseInt(quantity));
             } else if (type === 'TRANSFER' && fromWarehouseId && toWarehouseId) {
                 // Move from source to destination
-                await upsertInventory(tx, parseInt(productId), parseInt(fromWarehouseId), -parseInt(quantity));
-                await upsertInventory(tx, parseInt(productId), parseInt(toWarehouseId), parseInt(quantity));
+                await upsertInventory(tx as unknown as Prisma.TransactionClient, parseInt(productId), parseInt(fromWarehouseId), -parseInt(quantity));
+                await upsertInventory(tx as unknown as Prisma.TransactionClient, parseInt(productId), parseInt(toWarehouseId), parseInt(quantity));
             }
         });
 
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
     }
 }
 
-async function upsertInventory(tx: UnsafeAny, productId: number, warehouseId: number, change: number) {
+async function upsertInventory(tx: Prisma.TransactionClient, productId: number, warehouseId: number, change: number) {
     const existing = await tx.inventory.findUnique({
         where: {
             productId_warehouseId: {

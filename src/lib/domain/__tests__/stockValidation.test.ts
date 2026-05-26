@@ -8,29 +8,56 @@ import {
     formatStockErrors,
 } from '@/lib/domain/stockValidation';
 
+type AggregateResult = { _sum: { quantity: number | null } };
+
+/** Partial Prisma-style tx used by `checkStock` — only mocked delegates */
+type StockCheckTxMock = {
+    inventory: {
+        aggregate: jest.MockedFunction<(args?: unknown) => Promise<AggregateResult>>;
+        findUnique: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+        update: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+        create: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+    };
+    product: {
+        findUnique: jest.MockedFunction<
+            (args?: unknown) => Promise<{ name: string } | null>
+        >;
+    };
+    warehouse: {
+        findMany: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+        findFirst: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+    };
+    stockMovement: {
+        create: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+    };
+    orderItem: {
+        findMany: jest.MockedFunction<(args?: unknown) => Promise<unknown>>;
+    };
+};
+
 describe('stockValidation', () => {
-    let mockTx: UnsafeAny;
+    let mockTx: StockCheckTxMock;
 
     beforeEach(() => {
         mockTx = {
             inventory: {
-                aggregate: jest.fn<UnsafeAny>(),
-                findUnique: jest.fn<UnsafeAny>(),
-                update: jest.fn<UnsafeAny>(),
-                create: jest.fn<UnsafeAny>(),
+                aggregate: jest.fn(),
+                findUnique: jest.fn(),
+                update: jest.fn(),
+                create: jest.fn(),
             },
             product: {
-                findUnique: jest.fn<UnsafeAny>(),
+                findUnique: jest.fn(),
             },
             warehouse: {
-                findMany: jest.fn<UnsafeAny>(),
-                findFirst: jest.fn<UnsafeAny>(),
+                findMany: jest.fn(),
+                findFirst: jest.fn(),
             },
             stockMovement: {
-                create: jest.fn<UnsafeAny>(),
+                create: jest.fn(),
             },
             orderItem: {
-                findMany: jest.fn<UnsafeAny>(),
+                findMany: jest.fn(),
             },
         };
     });

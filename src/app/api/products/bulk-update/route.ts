@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminAuth } from '@/lib/adminAuth';
+import { roundUZS, toNumber } from '@/lib/money';
 
 // POST /api/products/bulk-update
 // Body: { category: string, percentage: number }
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
                 prisma.product.update({
                     where: { id: p.id },
                     data: {
-                        price: Math.max(0, Math.round(p.price * (1 + percentage / 100))),
+                        price: roundUZS(toNumber(p.price) * (1 + percentage / 100)),
                     },
                 })
             )

@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 import Link from "next/link";
 
+interface ReferralInvitee {
+  name: string;
+  createdAt: string;
+  ecoPoints?: number;
+}
+
 interface ReferralData {
   referralCode: string;
   points: number;
   referralBonusPoints: number;
-  referrals: UnsafeAny[];
+  referrals: ReferralInvitee[];
 }
 
 export default function ReferralDashboard() {
@@ -160,7 +166,7 @@ export default function ReferralDashboard() {
             <CardContent className="pt-4">
               {data?.referrals && data.referrals.length > 0 ? (
                 <div className="space-y-3">
-                  {data.referrals.map((ref: UnsafeAny, i: number) => (
+                  {data.referrals.map((ref, i: number) => (
                     <div key={i} className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-emerald-200 transition-colors group">
                       <div>
                         <p className="font-bold text-sm text-gray-800 group-hover:text-emerald-700 transition-colors">{ref.name}</p>

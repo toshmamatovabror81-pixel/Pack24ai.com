@@ -4,10 +4,8 @@ import { Search, ChevronRight, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-// Define Category interface locally or import if available
-interface _Category {
-    name: string;
-    // Add other properties if needed
+interface ApiProductCategoryRow {
+    category?: string | null;
 }
 
 export default function MobileCatalogPage() {
@@ -21,7 +19,10 @@ export default function MobileCatalogPage() {
             .then(data => {
                 // Extract unique categories from products
                 // In a real app, you might have a dedicated /api/categories endpoint
-                const cats = Array.from(new Set(data.map((p: UnsafeAny) => p.category).filter(Boolean))) as string[];
+                const rows = data as ApiProductCategoryRow[];
+                const cats = Array.from(
+                    new Set(rows.map((p) => p.category).filter((c): c is string => typeof c === 'string' && c.length > 0))
+                );
                 setCategories(cats);
             })
             .catch(err => console.error(err))

@@ -21,6 +21,15 @@ interface Stats {
     paidCollections: number;
 }
 
+interface TelegramTestResultRow {
+    status?: string;
+}
+
+interface TelegramWebhookInfoStub {
+    url?: string;
+    pending_update_count?: number;
+}
+
 export default function TelegramBotPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -36,7 +45,7 @@ export default function TelegramBotPage() {
     const [botUsername, setBotUsername] = useState('@...');
     const [botName] = useState('Pack24 Bot');
     const [isActive, setIsActive] = useState(false);
-    const [webhookInfo, setWebhookInfo] = useState<UnsafeAny>(null);
+    const [webhookInfo, setWebhookInfo] = useState<TelegramWebhookInfoStub | null>(null);
     const [stats, setStats] = useState<Stats>({
         totalUsers: 0, totalOrders: 0,
         totalCollections: 0, pendingCollections: 0, paidCollections: 0,
@@ -97,7 +106,7 @@ export default function TelegramBotPage() {
             const res = await fetch('/api/admin/telegram/test', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
-                const ok = data.results?.filter((r: UnsafeAny) => r.status === 'success').length || 0;
+                const ok = (data.results as TelegramTestResultRow[] | undefined)?.filter((r) => r.status === 'success').length || 0;
                 if (ok > 0) {
                     toast.success(`${ok} ta manzilga test xabari yuborildi!`);
                 } else {
@@ -227,11 +236,14 @@ export default function TelegramBotPage() {
                                     </p>
                                 </div>
                             </div>
-                            {webhookInfo?.pending_update_count > 0 && (
+                            {(() => {
+                                const pending = webhookInfo?.pending_update_count ?? 0;
+                                return pending > 0 ? (
                                 <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-                                    {webhookInfo.pending_update_count} kutilmoqda
+                                    {pending} kutilmoqda
                                 </Badge>
-                            )}
+                                ) : null;
+                            })()}
                         </div>
                     )}
 

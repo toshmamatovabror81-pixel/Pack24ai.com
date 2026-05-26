@@ -5,8 +5,21 @@ import { useEffect, useState } from 'react';import { ArrowLeft, ChevronRight, Cl
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+interface MobileOrderLine {
+    id?: string | number;
+    product?: { image?: string; name?: string };
+}
+
+interface MobileOrdersListRow {
+    id: string | number;
+    status: string;
+    createdAt: string;
+    items: MobileOrderLine[];
+    totalAmount: number;
+}
+
 export default function OrderHistoryPage() {
-    const [orders, setOrders] = useState<UnsafeAny[]>([]);
+    const [orders, setOrders] = useState<MobileOrdersListRow[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -15,7 +28,7 @@ export default function OrderHistoryPage() {
         const userId = localStorage.getItem('telegramUserId') || 'guest';
         fetch(`/api/orders?telegramUserId=${userId}`)
             .then(res => res.json())
-            .then(data => setOrders(data))
+            .then(data => setOrders(Array.isArray(data) ? data : []))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, []);
@@ -81,9 +94,9 @@ export default function OrderHistoryPage() {
                             <div className="flex items-center justify-between border-t border-gray-50 pt-3">
                                 <div className="flex items-center gap-2">
                                     <div className="flex -space-x-2">
-                                        {order.items.slice(0, 3).map((item: UnsafeAny) => (
+                                        {order.items.slice(0, 3).map((item) => (
                                             <div key={item.id} className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white overflow-hidden">
-                                                <Image src={item.product?.image} alt={item.product?.name || 'Mahsulot'} className="w-full h-full object-cover" width={300} height={300} />
+                            <Image src={item.product?.image ?? '/icons/box.png'} alt={item.product?.name || 'Mahsulot'} className="w-full h-full object-cover" width={300} height={300} />
                                             </div>
                                         ))}
                                     </div>

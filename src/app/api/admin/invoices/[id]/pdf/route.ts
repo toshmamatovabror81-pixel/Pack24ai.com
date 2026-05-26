@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { mul, toNumber } from '@/lib/money';
 
 function fmtMoney(n: number) {
     return n.toLocaleString('ru-RU');
@@ -44,8 +45,8 @@ export async function GET(
                 <td class="cell">${i + 1}</td>
                 <td class="cell">${item.product?.name ?? 'Mahsulot'}</td>
                 <td class="cell center">${item.quantity}</td>
-                <td class="cell right">${fmtMoney(item.price)} so'm</td>
-                <td class="cell right bold">${fmtMoney(item.price * item.quantity)} so'm</td>
+                <td class="cell right">${fmtMoney(toNumber(item.price))} so'm</td>
+                <td class="cell right bold">${fmtMoney(toNumber(mul(item.price, item.quantity)))} so'm</td>
             </tr>
         `).join('');
 
@@ -178,23 +179,23 @@ export async function GET(
         <div class="totals">
             <div class="totals-row">
                 <span>Mahsulotlar jami</span>
-                <span>${fmtMoney(invoice.subtotal)} so'm</span>
+                <span>${fmtMoney(toNumber(invoice.subtotal))} so'm</span>
             </div>
             <div class="totals-vat">
                 <span>QQS (${invoice.vatPercent}%)</span>
-                <span>${fmtMoney(invoice.vatAmount)} so'm</span>
+                <span>${fmtMoney(toNumber(invoice.vatAmount))} so'm</span>
             </div>
             <div class="totals-total">
                 <span>JAMI TO'LOV</span>
-                <span>${fmtMoney(invoice.totalAmount)} so'm</span>
+                <span>${fmtMoney(toNumber(invoice.totalAmount))} so'm</span>
             </div>
         </div>
 
-        ${invoice.paidAmount > 0 ? `
+        ${toNumber(invoice.paidAmount) > 0 ? `
         <div class="payment-info">
             <h3>To'lov holati</h3>
-            <p>To'langan: <strong>${fmtMoney(invoice.paidAmount)} so'm</strong></p>
-            <p>Qoldiq: <strong>${fmtMoney(invoice.totalAmount - invoice.paidAmount)} so'm</strong></p>
+            <p>To'langan: <strong>${fmtMoney(toNumber(invoice.paidAmount))} so'm</strong></p>
+            <p>Qoldiq: <strong>${fmtMoney(toNumber(invoice.totalAmount) - toNumber(invoice.paidAmount))} so'm</strong></p>
         </div>
         ` : ''}
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
+import { toNumber, serializeMoney } from '@/lib/money';
 
 // ─── GET /api/admin/stats — Dashboard uchun real statistika ──────────────────
 export async function GET(_req: NextRequest) {
@@ -46,8 +47,8 @@ export async function GET(_req: NextRequest) {
             }),
         ]);
 
-        const thisMonthRevenue = thisMonthOrders.reduce((acc: number, o: { totalAmount: number | null, status: string }) => acc + (o.totalAmount ?? 0), 0);
-        const lastMonthRevenue = lastMonthOrders.reduce((acc: number, o: { totalAmount: number | null }) => acc + (o.totalAmount ?? 0), 0);
+        const thisMonthRevenue = thisMonthOrders.reduce((acc, o) => acc + toNumber(o.totalAmount), 0);
+        const lastMonthRevenue = lastMonthOrders.reduce((acc, o) => acc + toNumber(o.totalAmount), 0);
         const revenueGrowth = lastMonthRevenue > 0
             ? (((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1)
             : '0';
@@ -67,11 +68,11 @@ export async function GET(_req: NextRequest) {
         });
 
         const chartData = dayLabels.map(day => {
-            const dayOrders = last7.filter((o: { createdAt: Date, totalAmount: number | null, status: string }) => o.createdAt.toISOString().split('T')[0] === day);
+            const dayOrders = last7.filter((o) => o.createdAt.toISOString().split('T')[0] === day);
             return {
                 name: new Date(day).toLocaleDateString('ru-RU', { weekday: 'short' }),
                 orders: dayOrders.length,
-                revenue: dayOrders.reduce((acc: number, o: { totalAmount: number | null }) => acc + (o.totalAmount ?? 0), 0),
+                revenue: dayOrders.reduce((acc, o) => acc + toNumber(o.totalAmount), 0),
             };
         });
 
@@ -83,7 +84,7 @@ export async function GET(_req: NextRequest) {
             revenueGrowth: parseFloat(revenueGrowth),
             totalProducts,
             totalCategories,
-            recentOrders,
+            recentOrders: serializeMoney(recentOrders),
             chartData,
         });
     } catch (error) {

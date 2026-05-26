@@ -1,9 +1,12 @@
+import type { MoneyInput } from '@/lib/money';
+import { toNumber } from '@/lib/money';
+
 export interface DailyJournalSummaryInput {
-    openingBalance?: number | null;
-    intakes: Array<{ weightKg: number; totalAmount: number }>;
+    openingBalance?: MoneyInput | null;
+    intakes: Array<{ weightKg: number; totalAmount: MoneyInput }>;
     presses: Array<{ pressedKg: number; baleCount: number }>;
-    expenses: Array<{ expenseAmount: number; advanceAmount: number }>;
-    salesRows: Array<{ weightKg: number; baleCount: number; totalAmount: number }>;
+    expenses: Array<{ expenseAmount: MoneyInput; advanceAmount: MoneyInput }>;
+    salesRows: Array<{ weightKg: number; baleCount: number; totalAmount: MoneyInput }>;
 }
 
 export interface DailyJournalSummary {
@@ -110,15 +113,15 @@ export function humanJournalDate(date: Date): string {
 
 export function calculateDailyJournalSummary(input: DailyJournalSummaryInput): DailyJournalSummary {
     const intakeWeight = input.intakes.reduce((sum, row) => sum + row.weightKg, 0);
-    const intakeAmount = input.intakes.reduce((sum, row) => sum + row.totalAmount, 0);
+    const intakeAmount = input.intakes.reduce((sum, row) => sum + toNumber(row.totalAmount), 0);
     const pressedKg = input.presses.reduce((sum, row) => sum + row.pressedKg, 0);
     const baleCount = input.presses.reduce((sum, row) => sum + row.baleCount, 0);
-    const expenseAmount = input.expenses.reduce((sum, row) => sum + row.expenseAmount, 0);
-    const advanceAmount = input.expenses.reduce((sum, row) => sum + row.advanceAmount, 0);
-    const openingBalance = input.openingBalance ?? 0;
+    const expenseAmount = input.expenses.reduce((sum, row) => sum + toNumber(row.expenseAmount), 0);
+    const advanceAmount = input.expenses.reduce((sum, row) => sum + toNumber(row.advanceAmount), 0);
+    const openingBalance = toNumber(input.openingBalance);
     const soldWeight = input.salesRows.reduce((sum, row) => sum + row.weightKg, 0);
     const soldBales = input.salesRows.reduce((sum, row) => sum + row.baleCount, 0);
-    const soldAmount = input.salesRows.reduce((sum, row) => sum + row.totalAmount, 0);
+    const soldAmount = input.salesRows.reduce((sum, row) => sum + toNumber(row.totalAmount), 0);
     const closingBalance = openingBalance + soldAmount - intakeAmount - expenseAmount - advanceAmount;
 
     return {
@@ -202,11 +205,11 @@ function initDayMap<T>(daysInMonth: number, factory: (date: Date) => T, month: s
 export function buildMonthlyJournalView(params: {
     rawMonth: string;
     daysInMonth: number;
-    intakes: Array<{ date: Date; weightKg: number; totalAmount: number }>;
+    intakes: Array<{ date: Date; weightKg: number; totalAmount: MoneyInput; pricePerKg?: MoneyInput }>;
     presses: Array<{ date: Date; pressedKg: number; baleCount: number; operators: string | null }>;
-    sales: Array<{ date: Date; customerName: string; weightKg: number; baleCount: number; totalAmount: number; vehicleType: string | null; plateNumber: string | null }>;
-    expenses: Array<{ date: Date; expenseAmount: number; advanceAmount: number; comment: string | null }>;
-    cashLogs: Array<{ date: Date; openingBalance: number }>;
+    sales: Array<{ date: Date; customerName: string; weightKg: number; baleCount: number; totalAmount: MoneyInput; pricePerKg?: MoneyInput; vehicleType: string | null; plateNumber: string | null }>;
+    expenses: Array<{ date: Date; expenseAmount: MoneyInput; advanceAmount: MoneyInput; comment: string | null }>;
+    cashLogs: Array<{ date: Date; openingBalance: MoneyInput }>;
 }) {
     const intakeByDay = initDayMap<DailyIntakeRow>(params.daysInMonth, (date) => ({
         dateLabel: fmtDateLabel(date),
@@ -254,7 +257,7 @@ export function buildMonthlyJournalView(params: {
         const current = intakeByDay.get(row.date.getDate());
         if (!current) continue;
         current.weightKg += row.weightKg;
-        current.totalAmount += row.totalAmount;
+        current.totalAmount += toNumber(row.totalAmount);
         current.pricePerKg = current.weightKg > 0 ? current.totalAmount / current.weightKg : 0;
     }
 
@@ -274,7 +277,7 @@ export function buildMonthlyJournalView(params: {
         if (!current) continue;
         current.weightKg += row.weightKg;
         current.baleCount += row.baleCount;
-        current.totalAmount += row.totalAmount;
+        current.totalAmount += toNumber(row.totalAmount);
         current.pricePerKg = current.weightKg > 0 ? current.totalAmount / current.weightKg : 0;
         current.customers = uniqueJoin([...current.customers.split(';'), row.customerName]);
         current.vehicles = uniqueJoin([
@@ -290,8 +293,8 @@ export function buildMonthlyJournalView(params: {
     for (const row of params.expenses) {
         const current = expenseByDay.get(row.date.getDate());
         if (!current) continue;
-        current.expenseAmount += row.expenseAmount;
-        current.advanceAmount += row.advanceAmount;
+        current.expenseAmount += toNumber(row.expenseAmount);
+        current.advanceAmount += toNumber(row.advanceAmount);
         current.comments = uniqueJoin([
             ...current.comments.split(';'),
             ...(row.comment ? [row.comment] : []),
@@ -301,7 +304,7 @@ export function buildMonthlyJournalView(params: {
     for (const row of params.cashLogs) {
         const current = cashByDay.get(row.date.getDate());
         if (!current) continue;
-        current.openingBalance = row.openingBalance;
+        current.openingBalance = toNumber(row.openingBalance);
     }
 
     for (let day = 1; day <= params.daysInMonth; day += 1) {
@@ -326,14 +329,14 @@ export function buildMonthlyJournalView(params: {
         cashRows: Array.from(cashByDay.entries()).map(([day, value]) => ({ day, ...value })),
         totals: {
             intakeWeightKg: params.intakes.reduce((sum, row) => sum + row.weightKg, 0),
-            intakeAmount: params.intakes.reduce((sum, row) => sum + row.totalAmount, 0),
+            intakeAmount: params.intakes.reduce((sum, row) => sum + toNumber(row.totalAmount), 0),
             pressedKg: params.presses.reduce((sum, row) => sum + row.pressedKg, 0),
             pressBales: params.presses.reduce((sum, row) => sum + row.baleCount, 0),
             salesWeightKg: params.sales.reduce((sum, row) => sum + row.weightKg, 0),
             salesBales: params.sales.reduce((sum, row) => sum + row.baleCount, 0),
-            salesAmount: params.sales.reduce((sum, row) => sum + row.totalAmount, 0),
-            expenseAmount: params.expenses.reduce((sum, row) => sum + row.expenseAmount, 0),
-            advanceAmount: params.expenses.reduce((sum, row) => sum + row.advanceAmount, 0),
+            salesAmount: params.sales.reduce((sum, row) => sum + toNumber(row.totalAmount), 0),
+            expenseAmount: params.expenses.reduce((sum, row) => sum + toNumber(row.expenseAmount), 0),
+            advanceAmount: params.expenses.reduce((sum, row) => sum + toNumber(row.advanceAmount), 0),
         },
     };
 }

@@ -1,3 +1,6 @@
+import type { MoneyInput } from '@/lib/money';
+import { toNumber } from '@/lib/money';
+
 export function pctChange(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 1000) / 10;
@@ -49,7 +52,7 @@ export function buildReportsDateRange(
 }
 
 type OrderLike = {
-    totalAmount: number | null;
+    totalAmount: MoneyInput | null;
     status: string;
     contactPhone?: string | null;
 };
@@ -60,7 +63,7 @@ export function calculateOrderSummaries(
     repeatCount: number
 ) {
     const currentCount = periodOrders.length;
-    const currentRevenue = periodOrders.reduce((sum, order) => sum + (order.totalAmount ?? 0), 0);
+    const currentRevenue = periodOrders.reduce((sum, order) => sum + toNumber(order.totalAmount), 0);
     const currentCompleted = periodOrders.filter((order) => order.status === 'delivered').length;
     const currentCancelled = periodOrders.filter((order) => order.status === 'cancelled').length;
     const currentConversion = currentCount > 0
@@ -68,7 +71,7 @@ export function calculateOrderSummaries(
         : 0;
 
     const previousCount = prevPeriodOrders.length;
-    const previousRevenue = prevPeriodOrders.reduce((sum, order) => sum + (order.totalAmount ?? 0), 0);
+    const previousRevenue = prevPeriodOrders.reduce((sum, order) => sum + toNumber(order.totalAmount), 0);
     const previousCompleted = prevPeriodOrders.filter((order) => order.status === 'delivered').length;
     const previousConversion = previousCount > 0
         ? Math.round((previousCompleted / previousCount) * 100)

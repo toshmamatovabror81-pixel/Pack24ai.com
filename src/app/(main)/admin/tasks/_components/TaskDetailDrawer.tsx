@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { STATUS_LABELS, DEPARTMENT_LABELS, PRIORITY_LABELS } from '@/lib/domain/taskConstants';
 import type { TaskStatus, TaskDepartment, TaskPriority } from '@/lib/domain/taskConstants';
 
-interface TaskDetail {
+export interface TaskDetail {
     id: number;
     publicCode: string | null;
     title: string;

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireDriver } from '@/lib/auth/guards';
+import type { Prisma } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
     const guard = await requireDriver(req);
@@ -47,7 +48,7 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const updateData: UnsafeAny = {};
+        const updateData: Prisma.DriverUpdateInput = {};
 
         if (body.name?.trim()) updateData.name = body.name.trim();
         if (body.vehicleInfo !== undefined) updateData.vehicleInfo = body.vehicleInfo?.trim() || null;

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { toNumber } from '@/lib/money';
 
 export async function getFinanceReport(periodDays: number = 30) {
     const from = new Date();
@@ -18,9 +19,9 @@ export async function getFinanceReport(periodDays: number = 30) {
     // Agregatlar
     const totalWeight = allCollections.reduce((s, c) => s + c.actualWeight, 0);
     const totalEffectiveWeight = allCollections.reduce((s, c) => s + c.effectiveWeight, 0);
-    const totalAmount = allCollections.reduce((s, c) => s + c.totalAmount, 0);
-    const totalPaidToDrivers = allCollections.reduce((s, c) => s + (c.paymentToDriver ?? 0), 0);
-    const totalPaidToCustomers = allCollections.reduce((s, c) => s + (c.paymentToCustomer ?? 0), 0);
+    const totalAmount = allCollections.reduce((s, c) => s + toNumber(c.totalAmount), 0);
+    const totalPaidToDrivers = allCollections.reduce((s, c) => s + toNumber(c.paymentToDriver), 0);
+    const totalPaidToCustomers = allCollections.reduce((s, c) => s + toNumber(c.paymentToCustomer), 0);
     const avgDiscount = allCollections.length > 0
         ? allCollections.reduce((s, c) => s + c.discountPercent, 0) / allCollections.length
         : 0;
@@ -40,8 +41,8 @@ export async function getFinanceReport(periodDays: number = 30) {
         }
         driverStats[c.driverId].collections++;
         driverStats[c.driverId].totalWeight += c.actualWeight;
-        driverStats[c.driverId].totalAmount += c.totalAmount;
-        driverStats[c.driverId].paid += (c.paymentToDriver ?? 0);
+        driverStats[c.driverId].totalAmount += toNumber(c.totalAmount);
+        driverStats[c.driverId].paid += toNumber(c.paymentToDriver);
     }
 
     // 3. Hudud (baza) bo'yicha hisobot
@@ -58,7 +59,7 @@ export async function getFinanceReport(periodDays: number = 30) {
         }
         pointStats[point.id].collections++;
         pointStats[point.id].totalWeight += c.actualWeight;
-        pointStats[point.id].totalAmount += c.totalAmount;
+        pointStats[point.id].totalAmount += toNumber(c.totalAmount);
     }
 
     // 4. Kunlik hisobot (so'nggi N kun)
@@ -67,7 +68,7 @@ export async function getFinanceReport(periodDays: number = 30) {
         const date = c.createdAt.toISOString().slice(0, 10);
         if (!dailyMap[date]) dailyMap[date] = { weight: 0, amount: 0, count: 0 };
         dailyMap[date].weight += c.actualWeight;
-        dailyMap[date].amount += c.totalAmount;
+        dailyMap[date].amount += toNumber(c.totalAmount);
         dailyMap[date].count++;
     }
     const dailyReport = Object.entries(dailyMap)
@@ -81,7 +82,7 @@ export async function getFinanceReport(periodDays: number = 30) {
         if (!materialStats[mat]) materialStats[mat] = { count: 0, weight: 0, amount: 0 };
         materialStats[mat].count++;
         materialStats[mat].weight += c.actualWeight;
-        materialStats[mat].amount += c.totalAmount;
+        materialStats[mat].amount += toNumber(c.totalAmount);
     }
 
     return {

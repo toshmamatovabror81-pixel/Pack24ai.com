@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { BotAccessStatus } from '@prisma/client';
 import { createOrReuseBotAccessRequest } from '@/lib/telegram/botAccessRequests';
 
 export async function GET(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
         const role = searchParams.get('role') || 'all';
 
         const where: Prisma.BotAccessRequestWhereInput = {};
-        if (status !== 'all') where.status = status as UnsafeAny;
+        if (status !== 'all') where.status = status as BotAccessStatus;
         if (role !== 'all') where.role = role;
 
         const [items, summary] = await Promise.all([

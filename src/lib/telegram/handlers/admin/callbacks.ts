@@ -1,5 +1,6 @@
 import { Context, Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
+import { toNumber } from '@/lib/money';
 import { Lang, formatText, getText } from '../../i18n';
 import { createBotEvent } from '../../botEvents';
 import { notifyCustomer, notifyDriver } from '../../notifier';
@@ -334,7 +335,7 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
                     title: 'To\'lov tasdiqlandi',
                     message:
                         `${sup.name} ariza #${collection.requestId} bo'yicha ` +
-                        `${fmtN(Math.round(collection.totalAmount))} so'm to'lovni tasdiqladi.`,
+                        `${fmtN(Math.round(toNumber(collection.totalAmount)))} so'm to'lovni tasdiqladi.`,
                     requestId: collection.requestId,
                     collectionId: collection.id,
                     driverId: collection.driverId,
@@ -352,10 +353,10 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
                     await notifyCustomer(
                         collection.request.customerTgId,
                         lang === 'uz'
-                            ? `✅ <b>Ariza #${collection.requestId} yakunlandi!</b>\n\n💰 To'lov: ${fmtN(Math.round(collection.totalAmount))} so'm\n\nRahmat! ♻️`
+                            ? `✅ <b>Ariza #${collection.requestId} yakunlandi!</b>\n\n💰 To'lov: ${fmtN(Math.round(toNumber(collection.totalAmount)))} so'm\n\nRahmat! ♻️`
                             : lang === 'ru'
-                            ? `✅ <b>Заявка #${collection.requestId} завершена!</b>\n\n💰 Оплата: ${fmtN(Math.round(collection.totalAmount))} сум\n\nСпасибо! ♻️`
-                            : `✅ <b>Request #${collection.requestId} completed!</b>\n\n💰 Payment: ${fmtN(Math.round(collection.totalAmount))} UZS\n\nThank you! ♻️`
+                            ? `✅ <b>Заявка #${collection.requestId} завершена!</b>\n\n💰 Оплата: ${fmtN(Math.round(toNumber(collection.totalAmount)))} сум\n\nСпасибо! ♻️`
+                            : `✅ <b>Request #${collection.requestId} completed!</b>\n\n💰 Payment: ${fmtN(Math.round(toNumber(collection.totalAmount)))} UZS\n\nThank you! ♻️`
                     );
                 }
                 return;
@@ -432,7 +433,7 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
                     where: { supervisorId: sup.id, date: { gte: from } },
                 });
                 const totalWeight = collections.reduce((sum, row) => sum + row.actualWeight, 0);
-                const totalAmount = collections.reduce((sum, row) => sum + row.totalAmount, 0);
+                const totalAmount = collections.reduce((sum, row) => sum + toNumber(row.totalAmount), 0);
                 const activeDrivers = await prisma.driver.count({
                     where: {
                         isOnline: true,
@@ -440,13 +441,13 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
                     },
                 });
                 const intakeWeight = intakeLogs.reduce((sum, row) => sum + row.weightKg, 0);
-                const intakeAmount = intakeLogs.reduce((sum, row) => sum + row.totalAmount, 0);
+                const intakeAmount = intakeLogs.reduce((sum, row) => sum + toNumber(row.totalAmount), 0);
                 const pressedKg = pressLogs.reduce((sum, row) => sum + row.pressedKg, 0);
                 const baleCount = pressLogs.reduce((sum, row) => sum + row.baleCount, 0);
-                const expenseAmount = expenseLogs.reduce((sum, row) => sum + row.expenseAmount, 0);
-                const advanceAmount = expenseLogs.reduce((sum, row) => sum + row.advanceAmount, 0);
+                const expenseAmount = expenseLogs.reduce((sum, row) => sum + toNumber(row.expenseAmount), 0);
+                const advanceAmount = expenseLogs.reduce((sum, row) => sum + toNumber(row.advanceAmount), 0);
                 const soldWeight = salesLogs.reduce((sum, row) => sum + row.weightKg, 0);
-                const soldAmount = salesLogs.reduce((sum, row) => sum + row.totalAmount, 0);
+                const soldAmount = salesLogs.reduce((sum, row) => sum + toNumber(row.totalAmount), 0);
                 const soldBaleCount = salesLogs.reduce((sum, row) => sum + row.baleCount, 0);
 
                 const periodLabel = period === 'today' ? 'Bugun' : period === 'week' ? 'Hafta' : 'Oy';

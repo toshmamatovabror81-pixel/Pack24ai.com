@@ -165,7 +165,7 @@ export async function restoreSessionsFromDB(): Promise<void> {
 
 /* ─── Auto-Persist (har 5 daqiqada) ──────────────────────────── */
 
-function startAutoPersist(): void {
+export function startAutoPersist(): void {
     if (globalForTelegramSessionStore.__telegramSessionPersistTimer) return;
 
     globalForTelegramSessionStore.__telegramSessionPersistTimer = setInterval(() => {
@@ -173,8 +173,16 @@ function startAutoPersist(): void {
     }, 5 * 60 * 1000); // 5 daqiqada bir
 }
 
-// Dev/production da auto-persist boshlash
-if (typeof globalThis !== 'undefined') {
+export function stopAutoPersist(): void {
+    const timer = globalForTelegramSessionStore.__telegramSessionPersistTimer;
+    if (timer) {
+        clearInterval(timer);
+        globalForTelegramSessionStore.__telegramSessionPersistTimer = undefined;
+    }
+}
+
+// Dev/production da auto-persist boshlash (test muhitida timer leak oldini olish)
+if (typeof globalThis !== 'undefined' && process.env.NODE_ENV !== 'test') {
     startAutoPersist();
 }
 

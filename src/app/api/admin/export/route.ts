@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toNumber } from '@/lib/money';
 
 // ─── CSV Helper ──────────────────────────────────────────────────────────────
 function toCSV(headers: string[], rows: string[][]): string {
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
                     o.customerName ?? '',
                     o.contactPhone ?? '',
                     o.status,
-                    String(o.totalAmount),
+                    String(toNumber(o.totalAmount)),
                     o.paymentMethod ?? '',
                     o.deliveryMethod ?? '',
                     o.shippingAddress ?? '',
@@ -108,8 +109,8 @@ export async function GET(req: NextRequest) {
                     p.name,
                     p.sku ?? '',
                     p.category ?? '',
-                    String(p.price),
-                    String(p.originalPrice ?? ''),
+                    String(toNumber(p.price)),
+                    String(p.originalPrice != null ? toNumber(p.originalPrice) : ''),
                     p.inStock ? 'Ha' : 'Yo\'q',
                     String(p.rating),
                     String(p.reviews),
@@ -217,7 +218,7 @@ export async function GET(req: NextRequest) {
                         driver?.status ?? '',
                         String(g._count._all),
                         String(Number(g._sum.actualWeight ?? 0)),
-                        String(Number(g._sum.totalAmount ?? 0)),
+                        String(toNumber(g._sum.totalAmount)),
                     ];
                 });
 
@@ -283,7 +284,7 @@ export async function GET(req: NextRequest) {
                             String(assignedMap.get(sup.id) ?? 0),
                             String(completedMap.get(sup.id) ?? 0),
                             String(payment?._count._all ?? 0),
-                            String(Number(payment?._sum.totalAmount ?? 0)),
+                            String(toNumber(payment?._sum.totalAmount)),
                         ];
                     })
                     .sort((a, b) => Number(b[4]) - Number(a[4]));

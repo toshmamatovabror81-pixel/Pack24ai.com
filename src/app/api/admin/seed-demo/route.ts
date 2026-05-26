@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toDecimal } from '@/lib/money';
 
 /**
  * GET /api/admin/seed-demo
@@ -186,8 +187,8 @@ export async function GET() {
                 data: {
                     name:         p.name,
                     description:  p.description ?? '',
-                    price:        p.price,
-                    originalPrice: p.originalPrice ?? null,
+                    price:        toDecimal(p.price),
+                    originalPrice: p.originalPrice != null ? toDecimal(p.originalPrice) : null,
                     sku:          p.sku,
                     category:     p.category,
                     image:        p.image,

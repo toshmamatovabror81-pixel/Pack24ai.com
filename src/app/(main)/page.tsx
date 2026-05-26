@@ -6,6 +6,7 @@ import SectionSkeleton from '@/components/home/SectionSkeleton';
 import { OrganizationLd, WebSiteLd } from '@/components/seo/JsonLd';
 import { prisma } from '@/lib/prisma';
 import type { Product } from '@/lib/store/useProductStore';
+import { toNumber } from '@/lib/money';
 
 const ConfiguratorSection = dynamic(
     () => import('@/components/home/ConfiguratorSection'),
@@ -57,8 +58,8 @@ const getInitialProducts = unstable_cache(
                 id: p.id,
                 name: p.name,
                 description: p.description ?? undefined,
-                price: p.price,
-                originalPrice: p.originalPrice ?? undefined,
+                price: toNumber(p.price),
+                originalPrice: p.originalPrice != null ? toNumber(p.originalPrice) : undefined,
                 sku: p.sku ?? undefined,
                 category: p.category ?? undefined,
                 image: p.image,

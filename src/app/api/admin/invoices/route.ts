@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toNumber, toDecimal, serializeMoney } from '@/lib/money';
 
 // ─── GET /api/admin/invoices — Barcha hisob-fakturalar ───────────────────────
 export async function GET(req: NextRequest) {
@@ -39,15 +40,15 @@ export async function GET(req: NextRequest) {
 
         const stats = {
             total: all.length,
-            totalAmount: Math.round(all.reduce((s, i) => s + i.totalAmount, 0)),
-            totalPaid: Math.round(all.reduce((s, i) => s + i.paidAmount, 0)),
+            totalAmount: Math.round(all.reduce((s, i) => s + toNumber(i.totalAmount), 0)),
+            totalPaid: Math.round(all.reduce((s, i) => s + toNumber(i.paidAmount), 0)),
             issued: all.filter(i => i.status === 'issued').length,
             paid: all.filter(i => i.status === 'paid').length,
             overdue: all.filter(i => i.status === 'overdue').length,
             partial: all.filter(i => i.status === 'partial').length,
         };
 
-        return NextResponse.json({ invoices, stats });
+        return NextResponse.json({ invoices: serializeMoney(invoices), stats });
     } catch (error) {
         console.error('[Invoices GET]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
@@ -111,12 +112,12 @@ export async function POST(req: NextRequest) {
             _sum: { totalAmount: true, paidAmount: true },
         });
 
-        const currentDebt = (outstandingDebt._sum.totalAmount ?? 0) - (outstandingDebt._sum.paidAmount ?? 0);
-        const newDebt = currentDebt + order.totalAmount;
+        const currentDebt = toNumber(outstandingDebt._sum.totalAmount) - toNumber(outstandingDebt._sum.paidAmount);
+        const newDebt = currentDebt + toNumber(order.totalAmount);
 
-        if (contract.creditLimit > 0 && newDebt > contract.creditLimit) {
+        if (toNumber(contract.creditLimit) > 0 && newDebt > toNumber(contract.creditLimit)) {
             return NextResponse.json({
-                error: `Kredit limiti oshib ketadi. Limit: ${contract.creditLimit.toLocaleString()}, Joriy qarz: ${Math.round(currentDebt).toLocaleString()}, Yangi buyurtma: ${order.totalAmount.toLocaleString()}`,
+                error: `Kredit limiti oshib ketadi. Limit: ${toNumber(contract.creditLimit).toLocaleString()}, Joriy qarz: ${Math.round(currentDebt).toLocaleString()}, Yangi buyurtma: ${toNumber(order.totalAmount).toLocaleString()}`,
                 code: 'CREDIT_LIMIT_EXCEEDED',
             }, { status: 400 });
         }
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
         const invoiceNo = `INV-${year}-${String(nextNum).padStart(4, '0')}`;
 
         // QQS hisoblash
-        const subtotal = order.totalAmount;
+        const subtotal = toNumber(order.totalAmount);
         const vat = Number(vatPercent);
         const vatAmount = Math.round(subtotal * vat / 100);
         const totalAmount = subtotal + vatAmount;
@@ -150,10 +151,10 @@ export async function POST(req: NextRequest) {
                 invoiceNo,
                 contractId: contract.id,
                 orderId: order.id,
-                subtotal,
+                subtotal: toDecimal(subtotal),
                 vatPercent: vat,
-                vatAmount,
-                totalAmount,
+                vatAmount: toDecimal(vatAmount),
+                totalAmount: toDecimal(totalAmount),
                 dueDate,
             },
             include: {

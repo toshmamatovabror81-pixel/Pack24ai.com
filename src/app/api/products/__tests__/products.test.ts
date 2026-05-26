@@ -3,15 +3,21 @@
  * Prisma va fetch mock ishlatiladi, haqiqiy DB kerak emas.
  */
 
+import { toNumber, type MoneyInput } from '@/lib/money';
+
 // ── yordamchi funksiyalar (route mantiqidan ajratilgan) ──────────────────────
 function validateProduct(data: {
     name?: string;
-    price?: number;
+    price?: MoneyInput;
     image?: string;
 }) {
     if (!data.name || !data.name.trim()) return 'Mahsulot nomi kiritilishi shart';
     if (data.price === undefined || data.price === null) return 'Narx kiritilishi shart';
-    if (isNaN(data.price) || data.price < 0) return "Narx to'g'ri formatda bo'lishi kerak";
+    if (typeof data.price === 'number' && Number.isNaN(data.price)) {
+        return "Narx to'g'ri formatda bo'lishi kerak";
+    }
+    const price = toNumber(data.price);
+    if (isNaN(price) || price < 0) return "Narx to'g'ri formatda bo'lishi kerak";
     return null;
 }
 
@@ -23,8 +29,8 @@ function buildGallery(image: string, gallery: string[]): { image: string; galler
     };
 }
 
-function formatPrice(price: number, currency = 'UZS'): string {
-    return `${price.toLocaleString('uz-UZ')} ${currency}`;
+function formatPrice(price: MoneyInput, currency = 'UZS'): string {
+    return `${toNumber(price).toLocaleString('uz-UZ')} ${currency}`;
 }
 
 // ── Testlar ──────────────────────────────────────────────────────────────────

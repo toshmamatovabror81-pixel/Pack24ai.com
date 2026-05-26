@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import { parseProduct } from '@/lib/product-utils';
+import { toNumber } from '@/lib/money';
 
 export interface Product {
     id: number | string;
@@ -52,7 +54,7 @@ interface FetchFilters {
     search?: string;
 }
 
-interface ImportData {
+export interface ImportData {
     name: string;
     description?: string;
     price: number | string;
@@ -89,7 +91,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
             const res = await fetch(`/api/products?${params}`);
             if (res.ok) {
                 const data = await res.json();
-                set({ products: data });
+                set({
+                    products: (Array.isArray(data) ? data : []).map((p: Record<string, unknown>) =>
+                        parseProduct(p) as unknown as Product,
+                    ),
+                });
             }
         } catch (error) {
             console.error('Failed to fetch products', error);
@@ -106,7 +112,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
                 body: JSON.stringify(newProduct)
             });
             if (res.ok) {
-                const product = await res.json();
+                const product = parseProduct(await res.json()) as unknown as Product;
                 set(state => ({ products: [product, ...state.products] }));
                 toast.success('Mahsulot qo\'shildi');
             }
@@ -154,7 +160,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
         set(state => ({
             products: state.products.map(p => {
                 if (category === 'all' || p.category === category) {
-                    return { ...p, price: Math.max(0, Math.round(p.price * (1 + percentage / 100))) };
+                    return {
+                        ...p,
+                        price: Math.max(0, Math.round(toNumber(p.price) * (1 + percentage / 100))),
+                    };
                 }
                 return p;
             })
@@ -202,7 +211,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
             });
 
             if (res.ok) {
-                const product = await res.json();
+                const product = parseProduct(await res.json()) as unknown as Product;
                 set(state => ({ products: [product, ...state.products] }));
             } else {
                 throw new Error('Import failed');

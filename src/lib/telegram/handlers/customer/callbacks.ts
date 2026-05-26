@@ -9,6 +9,7 @@ import { haversineDistance } from '../../geo';
 import { notifyAdmin } from '../../notifier';
 import { createBotEvent } from '../../botEvents';
 import type { CustomerSession } from './types';
+import { toNumber } from '@/lib/money';
 
 export function registerCallbackHandlers(bot: Telegraf) {
     bot.on('callback_query', async (ctx) => {
@@ -144,7 +145,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                         await ctx.reply(lang === 'uz' ? '📦 Hali buyurtma bermagansiz.' : '📦 Нет заказов.');
                         return;
                     }
-                    const list = orders.map(o => `📦 <b>#${o.id}</b> — ${o.status} — ${o.totalAmount.toLocaleString('ru-RU')} so'm — ${new Date(o.createdAt).toLocaleDateString('ru-RU')}`).join('\n');
+                    const list = orders.map(o => `📦 <b>#${o.id}</b> — ${o.status} — ${toNumber(o.totalAmount).toLocaleString('ru-RU')} so'm — ${new Date(o.createdAt).toLocaleDateString('ru-RU')}`).join('\n');
                     await ctx.reply(`📦 <b>${lang === 'uz' ? 'Buyurtmalaringiz' : 'Ваши заказы'}:</b>\n\n${list}`, {
                         parse_mode: 'HTML',
                         reply_markup: { inline_keyboard: [[{ text: '◀️ Asosiy menyu', callback_data: 'back_main' }]] },
@@ -489,10 +490,10 @@ export function registerCallbackHandlers(bot: Telegraf) {
                 await ctx.answerCbQuery('✅');
                 await ctx.editMessageText(
                     lang === 'uz'
-                        ? `✅ <b>Tasdiqlandi!</b>\n\n⚖️ Og'irlik: <b>${collection.actualWeight} kg</b>\n💰 Jami: <b>${collection.totalAmount.toLocaleString('ru-RU')} so'm</b>\n\nTo'lov masul tomonidan amalga oshiriladi. ♻️`
+                        ? `✅ <b>Tasdiqlandi!</b>\n\n⚖️ Og'irlik: <b>${collection.actualWeight} kg</b>\n💰 Jami: <b>${toNumber(collection.totalAmount).toLocaleString('ru-RU')} so'm</b>\n\nTo'lov masul tomonidan amalga oshiriladi. ♻️`
                         : lang === 'ru'
-                        ? `✅ <b>Подтверждено!</b>\n\n⚖️ Вес: <b>${collection.actualWeight} кг</b>\n💰 Итого: <b>${collection.totalAmount.toLocaleString('ru-RU')} сум</b>\n\nОплата будет произведена ответственным. ♻️`
-                        : `✅ <b>Confirmed!</b>\n\n⚖️ Weight: <b>${collection.actualWeight} kg</b>\n💰 Total: <b>${collection.totalAmount.toLocaleString('ru-RU')} UZS</b>\n\nPayment will be made by the supervisor. ♻️`,
+                        ? `✅ <b>Подтверждено!</b>\n\n⚖️ Вес: <b>${collection.actualWeight} кг</b>\n💰 Итого: <b>${toNumber(collection.totalAmount).toLocaleString('ru-RU')} сум</b>\n\nОплата будет произведена ответственным. ♻️`
+                        : `✅ <b>Confirmed!</b>\n\n⚖️ Weight: <b>${collection.actualWeight} kg</b>\n💰 Total: <b>${toNumber(collection.totalAmount).toLocaleString('ru-RU')} UZS</b>\n\nPayment will be made by the supervisor. ♻️`,
                     { parse_mode: 'HTML' }
                 );
 
@@ -506,7 +507,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                             `✅ <b>Mijoz tasdiqladi — Ariza #${collection.requestId}</b>\n\n` +
                             `👤 ${collection.request.name}\n` +
                             `⚖️ ${collection.actualWeight} kg → ${collection.effectiveWeight} kg\n` +
-                            `💰 ${collection.totalAmount.toLocaleString('ru-RU')} so'm\n\n` +
+                            `💰 ${toNumber(collection.totalAmount).toLocaleString('ru-RU')} so'm\n\n` +
                             `To'lovni tasdiqlang 👇`,
                             {
                                 reply_markup: {
@@ -578,7 +579,7 @@ export function registerCallbackHandlers(bot: Telegraf) {
                             `👤 ${collection.request.name} (${collection.request.phone})\n` +
                             `🚚 Haydovchi: ${collection.driver?.name || '—'}\n` +
                             `⚖️ ${collection.actualWeight} kg → ${collection.effectiveWeight} kg\n` +
-                            `💰 ${collection.totalAmount.toLocaleString('ru-RU')} so'm\n\n` +
+                            `💰 ${toNumber(collection.totalAmount).toLocaleString('ru-RU')} so'm\n\n` +
                             `Mijoz bilan bog'laning va muammoni hal qiling.`
                         );
                     }

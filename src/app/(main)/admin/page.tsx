@@ -10,6 +10,7 @@ import {
     ArrowDownRight, RefreshCw, Users, DollarSign,
     Clock, AlertCircle
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 interface Stats {
@@ -53,7 +54,7 @@ function StatCard({
     value: string;
     sub?: string;
     growth?: number;
-    icon: UnsafeAny;
+    icon: LucideIcon;
     color: string;
     loading?: boolean;
 }) {

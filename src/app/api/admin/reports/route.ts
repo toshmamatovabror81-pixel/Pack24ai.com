@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';import { OrderStatus, RecycleRequestStatus } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { OrderStatus, RecycleRequestStatus } from '@prisma/client';
+import { toNumber } from '@/lib/money';
 import {
     buildReportsDateRange,
     calculateOrderSummaries,
@@ -194,12 +196,12 @@ export async function GET(req: NextRequest) {
         });
 
         const topProductsWithDetails = topProducts.map(tp => {
-            const prod = products.find((p: { id: number; name: string; price: number; image: string | null }) => p.id === tp.productId);
+            const prod = products.find((p) => p.id === tp.productId);
             return {
                 productId:  tp.productId,
                 name:       prod?.name ?? 'Mahsulot',
                 image:      prod?.image ?? null,
-                price:      prod?.price ?? 0,
+                price:      toNumber(prod?.price),
                 totalSold:  tp._sum.quantity ?? 0,
                 orderCount: tp._count.productId,
             };

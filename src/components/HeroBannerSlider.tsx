@@ -122,14 +122,14 @@ export default function HeroBannerSlider() {
                                 {banner.badge && (
                                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 border border-white/30 rounded-full text-xs font-semibold text-white mb-3 backdrop-blur-sm">
                                         {banner.emoji && <span>{banner.emoji}</span>}
-                                        {tField(banner.badge as UnsafeAny)}
+                                        {tField(banner.badge)}
                                     </div>
                                 )}
                                 <h1 className="text-2xl lg:text-4xl font-extrabold leading-tight tracking-tight mb-3">
                                     {banner.highlightText ? (
                                         (() => {
-                                            const title = tField(banner.title as UnsafeAny);
-                                            const highlight = tField(banner.highlightText as UnsafeAny);
+                                            const title = tField(banner.title);
+                                            const highlight = tField(banner.highlightText);
                                             const parts = title.split(highlight);
                                             return (
                                                 <>
@@ -142,11 +142,11 @@ export default function HeroBannerSlider() {
                                             );
                                         })()
                                     ) : (
-                                        tField(banner.title as UnsafeAny)
+                                        tField(banner.title)
                                     )}
                                 </h1>
                                 <p className="text-sm text-white/75 mb-5 leading-relaxed max-w-xl">
-                                    {tField(banner.subtitle as UnsafeAny)}
+                                    {tField(banner.subtitle)}
                                 </p>
                                 <Link
                                     href={banner.link}

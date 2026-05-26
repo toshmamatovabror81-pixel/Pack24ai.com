@@ -84,6 +84,43 @@ jobs:
           config-path: .gitleaks.toml
         continue-on-error: false
 
+  migrate-validate:
+    name: Prisma migrate validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: pack24_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/pack24_ci?schema=public
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/pack24_ci?schema=public
+        run: |
+          npx prisma migrate deploy
+          npx prisma validate
+
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest

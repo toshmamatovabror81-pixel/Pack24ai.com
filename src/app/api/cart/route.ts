@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 import { verifyMobileToken } from '@/lib/auth/verifyMobileToken';
+import { add, mul, roundUZS, toDecimal, toNumber } from '@/lib/money';
 
 // ─── GET /api/cart — Savatni olish ──────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
         const items = draftOrder.items.map(item => ({
             productId: item.productId,
             name: item.product.name,
-            price: item.price,
+            price: toNumber(item.price),
             qty: item.quantity,
             unit: 'dona',
             emoji: '📦',
@@ -57,7 +58,10 @@ export async function GET(req: NextRequest) {
             inStock: item.product.inStock,
         }));
 
-        const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+        const total = draftOrder.items.reduce(
+            (sum, i) => toNumber(add(sum, mul(i.price, i.quantity))),
+            0,
+        );
 
         return NextResponse.json({ items, total, orderId: draftOrder.id });
     } catch (error) {
@@ -104,10 +108,15 @@ export async function POST(req: NextRequest) {
         const orderItems = items.map(i => ({
             productId: i.productId,
             quantity: i.quantity,
-            price: priceMap.get(i.productId) ?? i.price,
+            price: priceMap.get(i.productId) ?? toDecimal(i.price),
         }));
 
-        const total = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        const total = roundUZS(
+            orderItems.reduce(
+                (sum, i) => toNumber(add(sum, mul(i.price, i.quantity))),
+                0,
+            ),
+        );
 
         // Mavjud draft ni yangilash yoki yangi yaratish
         const existingDraft = await prisma.order.findFirst({
@@ -149,7 +158,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             ok: true,
             orderId: order.id,
-            total,
+            total: toNumber(total),
             itemCount: order.items.length,
         });
     } catch (error) {

@@ -6,11 +6,12 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { ToggleLeft, ToggleRight, Info, CreditCard, Banknote, Smartphone, Wallet, X, Check } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface PaymentMethod {
     id: string;
     name: string;
-    icon: UnsafeAny;
+    icon: LucideIcon;
     status: 'active' | 'inactive' | 'not_connected';
     updatedAt: string;
     type: 'cash' | 'card' | 'wallet' | 'installment';

@@ -244,7 +244,7 @@ export default function FinanceTab() {
                                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtK} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                                    formatter={((value: number) => [`${fmt(value)} so'm`, 'Summa']) as UnsafeAny}
+                                    formatter={(value: number | string | undefined) => [`${fmt(Number(value))} so'm`, 'Summa']}
                                 />
                                 <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fill="url(#colorAmount)" />
                             </AreaChart>
@@ -266,7 +266,7 @@ export default function FinanceTab() {
                                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                                    formatter={((value: number) => [`${value} kg`, 'Og\'irlik']) as UnsafeAny}
+                                    formatter={(value: number | string | undefined) => [`${Number(value)} kg`, 'Og\'irlik']}
                                 />
                                 <Bar dataKey="weight" fill="#6366f1" radius={[6, 6, 0, 0]} />
                             </BarChart>
@@ -383,7 +383,7 @@ export default function FinanceTab() {
                                 />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                                    formatter={((value: number) => [`${fmt(Math.round(value))} kg`, 'Og\'irlik']) as UnsafeAny}
+                                    formatter={(value: number | string | undefined) => [`${fmt(Math.round(Number(value)))} kg`, 'Og\'irlik']}
                                 />
                             </PieChart>
                         </ResponsiveContainer>

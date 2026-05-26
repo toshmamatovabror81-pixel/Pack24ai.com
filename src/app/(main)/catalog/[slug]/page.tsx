@@ -11,10 +11,20 @@ import { useProductFilter } from '@/lib/hooks/useProductFilter';
 import { FilterSidebar } from '@/components/catalog/FilterSidebar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { SlidersHorizontal, Search, LayoutGrid, List, ShoppingCart, Heart, Star, ArrowUpDown, ChevronRight } from 'lucide-react';
-import { useCategoryStore } from '@/lib/store/useCategoryStore';
+import { useCategoryStore, type Category } from '@/lib/store/useCategoryStore';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { useCartStore } from '@/lib/store/useCartStore';
+import type { Language } from '@/lib/translations';
+import type { Product } from '@/lib/store/useProductStore';
 import { toast } from 'sonner';
+
+/** Category.name only declares uz/ru/en; persisted data may expose more locales at runtime */
+function localizedCategoryName(names: Category['name'], lang: Language): string {
+    const wider = names as Partial<Record<Language, string>>;
+    return wider[lang] ?? names.ru ?? names.uz ?? names.en ?? '';
+}
+
+type CatalogListingProduct = Product & { isNew?: boolean };
 
 // Sort options
 const SORT_OPTIONS = [
@@ -30,11 +40,12 @@ type SortValue = typeof SORT_OPTIONS[number]['value'];
 // Product Card - Grid view
 function ProductCardGrid({
     product, onAddToCart, format, language,
-}: { product: UnsafeAny; onAddToCart: (p: UnsafeAny) => void; format: (n: number) => string; language: string }) {
+}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: string }) {
     const [liked, setLiked] = useState(false);
     const [added, setAdded] = useState(false);
-    const isOnSale = product.originalPrice && product.originalPrice > product.price;
-    const discount = isOnSale ? Math.round((1 - product.price / product.originalPrice) * 100) : 0;
+    const listPrice = product.originalPrice;
+    const isOnSale = listPrice != null && listPrice > product.price;
+    const discount = isOnSale ? Math.round((1 - product.price / listPrice) * 100) : 0;
 
     const handleCart = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -109,8 +120,8 @@ function ProductCardGrid({
                         {product.price > 0 ? (
                             <>
                                 <p className="text-base font-extrabold text-blue-700">{format(product.price)}</p>
-                                {isOnSale && (
-                                    <p className="text-xs text-gray-400 line-through">{format(product.originalPrice)}</p>
+                                {isOnSale && listPrice != null && (
+                                    <p className="text-xs text-gray-400 line-through">{format(listPrice)}</p>
                                 )}
                             </>
                         ) : (
@@ -140,9 +151,10 @@ function ProductCardGrid({
 // Product Card - List view
 function ProductCardList({
     product, onAddToCart, format, language,
-}: { product: UnsafeAny; onAddToCart: (p: UnsafeAny) => void; format: (n: number) => string; language: string }) {
+}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: string }) {
     const [added, setAdded] = useState(false);
-    const isOnSale = product.originalPrice && product.originalPrice > product.price;
+    const listPrice = product.originalPrice;
+    const isOnSale = listPrice != null && listPrice > product.price;
 
     const handleCart = () => {
         onAddToCart(product);
@@ -176,7 +188,7 @@ function ProductCardList({
                     {product.price > 0 ? (
                         <>
                             <p className="font-extrabold text-blue-700">{format(product.price)}</p>
-                            {isOnSale && <p className="text-xs text-gray-400 line-through">{format(product.originalPrice)}</p>}
+                            {isOnSale && listPrice != null && <p className="text-xs text-gray-400 line-through">{format(listPrice)}</p>}
                         </>
                     ) : (
                         <p className="text-sm text-gray-500">{language === 'ru' ? 'По договорённости' : 'Kelishuv'}</p>
@@ -213,8 +225,14 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         params.then(p => setSlug(p.slug));
     }, [params]);
 
-    const handleAddToCart = (product: UnsafeAny) => {
-        addToCart({ productId: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 });
+    const handleAddToCart = (product: CatalogListingProduct) => {
+        addToCart({
+            productId: Number(product.id),
+            name: product.name,
+            price: product.price,
+            image: product.image || undefined,
+            quantity: 1,
+        });
         toast.success(t("Savatga qo'shildi!", "Добавлено в корзину!"));
     };
 
@@ -231,11 +249,15 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
     const category = useMemo(() => {
         if (!slug) return undefined;
-        const find = (cats: UnsafeAny[]): UnsafeAny => {
+        const find = (cats: Category[]): Category | undefined => {
             for (const c of cats) {
                 if (c.slug === slug) return c;
-                if (c.children) { const f = find(c.children); if (f) return f; }
+                if (c.children) {
+                    const f = find(c.children);
+                    if (f) return f;
+                }
             }
+            return undefined;
         };
         return find(categories);
     }, [slug, categories]);
@@ -267,7 +289,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
     if (!category && categories.length > 0) return notFound();
     if (!category) return null;
 
-    const hasSubCategories = category?.children?.length > 0;
+    const hasSubCategories = (category.children?.length ?? 0) > 0;
     const currentSort = SORT_OPTIONS.find(o => o.value === sortBy);
 
     return (
@@ -278,7 +300,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                 <ChevronRight size={12} />
                 <Link href="/catalog" className="hover:text-blue-600">{t("Katalog", "Каталог")}</Link>
                 <ChevronRight size={12} />
-                <span className="text-gray-800 font-medium">{category.name[language] || category.name['ru']}</span>
+                <span className="text-gray-800 font-medium">{localizedCategoryName(category.name, language)}</span>
             </nav>
 
             <div className="flex flex-col lg:flex-row gap-6">
@@ -305,7 +327,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                         <div>
                             <h1 className="text-xl font-extrabold text-gray-900">
-                                {category.name[language] || category.name['ru']}
+                                {localizedCategoryName(category.name, language)}
                             </h1>
                             <p className="text-xs text-gray-400 mt-0.5">
                                 {sortedProducts.length} {t("ta mahsulot", "товаров")}
@@ -400,7 +422,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                     {/* Sub-categories */}
                     {hasSubCategories && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6 border-b border-gray-100 pb-6">
-                            {category.children.map((sub: UnsafeAny) => (
+                            {(category.children ?? []).map((sub) => (
                                 <Link
                                     key={sub.id}
                                     href={`/catalog/${sub.slug}`}
@@ -410,7 +432,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                                         <CategoryIcon name={sub.icon} className="w-6 h-6" />
                                     </div>
                                     <h3 className="text-center text-xs font-semibold text-gray-700 group-hover:text-blue-700 transition-colors leading-tight">
-                                        {sub.name[language] || sub.name['ru']}
+                                        {localizedCategoryName(sub.name, language)}
                                     </h3>
                                 </Link>
                             ))}

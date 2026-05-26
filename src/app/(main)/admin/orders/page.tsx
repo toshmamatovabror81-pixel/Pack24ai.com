@@ -6,7 +6,7 @@ import {
     Search, Download, MapPin, Bot,
     RefreshCw, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react';
-import OrderDrawer from './_components/OrderDrawer';
+import OrderDrawer, { type AdminOrderDrawerPayload } from './_components/OrderDrawer';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -66,20 +66,20 @@ function OrdersContent() {
     const searchParams = useSearchParams();
     const initialSearch = searchParams.get('search') || searchParams.get('orderId') || '';
 
-    const [orders, setOrders] = useState<UnsafeAny[]>([]);
+    const [orders, setOrders] = useState<AdminOrderDrawerPayload[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState(initialSearch);
     const [status, setStatus] = useState(searchParams.get('status') || 'all');
     const [page, setPage] = useState(1);
-    const [selectedOrder, setSelectedOrder] = useState<UnsafeAny>(null);
+    const [selectedOrder, setSelectedOrder] = useState<AdminOrderDrawerPayload | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch('/api/orders');
-            const data = await res.json();
-            setOrders(Array.isArray(data) ? data : []);
+            const data = (await res.json()) as unknown;
+            setOrders(Array.isArray(data) ? (data as AdminOrderDrawerPayload[]) : []);
         } catch {
             toast.error("Buyurtmalarni yuklashda xatolik");
         } finally {

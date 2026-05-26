@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireDriver } from '@/lib/auth/guards';
+import { toDecimal, toNumber } from '@/lib/money';
 
 export async function GET(req: NextRequest) {
     const guard = await requireDriver(req);
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     // Aggregatlarni map'dan olish
     const get = (type: string, status: string) =>
-        grouped.find(g => g.type === type && g.status === status)?._sum.amount || 0;
+        toNumber(grouped.find(g => g.type === type && g.status === status)?._sum.amount);
 
     const totalEarnings = get('earning', 'completed');
     const totalWithdrawals = get('withdrawal', 'completed');
@@ -81,9 +82,9 @@ export async function POST(req: NextRequest) {
             ]);
 
             const balance =
-                (earningsAgg._sum.amount || 0) -
-                (withdrawnAgg._sum.amount || 0) -
-                (pendingAgg._sum.amount || 0);
+                toNumber(earningsAgg._sum.amount) -
+                toNumber(withdrawnAgg._sum.amount) -
+                toNumber(pendingAgg._sum.amount);
 
             if (amount > balance) throw new Error('INSUFFICIENT_BALANCE');
 
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     driverId: auth.driverId,
                     type: 'withdrawal',
-                    amount,
+                    amount: toDecimal(amount),
                     status: 'pending',
                     cardId,
                     description: `Yechib olish (${card.cardNumber.slice(-4)}) - ${card.cardHolder}`,
@@ -104,9 +105,10 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json(tx);
-    } catch (err: UnsafeAny) {
-        if (err.message === 'CARD_NOT_FOUND') return NextResponse.json({ error: 'Karta topilmadi' }, { status: 400 });
-        if (err.message === 'INSUFFICIENT_BALANCE') return NextResponse.json({ error: 'Balans yetarli emas' }, { status: 400 });
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg === 'CARD_NOT_FOUND') return NextResponse.json({ error: 'Karta topilmadi' }, { status: 400 });
+        if (msg === 'INSUFFICIENT_BALANCE') return NextResponse.json({ error: 'Balans yetarli emas' }, { status: 400 });
         console.error('[transactions POST]', err);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

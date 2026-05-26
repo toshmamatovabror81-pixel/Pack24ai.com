@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toDecimal, toNumber, type MoneyInput } from '@/lib/money';
 import { publishPlatformEvent } from '@/lib/platform/events';
 import { RequestValidationError, isPlainObject } from '@/lib/requestValidation';
 import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
@@ -157,8 +158,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // To'lov amalga oshirish
         if (paymentStatus) {
             updateData.paymentStatus = paymentStatus;
-            updateData.paymentToDriver = body.paymentToDriver ? parseFloat(String(body.paymentToDriver)) : null;
-            updateData.paymentToCustomer = body.paymentToCustomer ? parseFloat(String(body.paymentToCustomer)) : null;
+            updateData.paymentToDriver = body.paymentToDriver ? toDecimal(body.paymentToDriver as MoneyInput) : null;
+            updateData.paymentToCustomer = body.paymentToCustomer ? toDecimal(body.paymentToCustomer as MoneyInput) : null;
             updateData.paymentNote = paymentNote || null;
             updateData.paidBy = paidBy || null;
 
@@ -190,7 +191,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 // Adminga xabar
                 await notifySalesChats(
                     `✅ Ariza #${existing.requestId} to'liq yakunlandi\n` +
-                    `💵 ${existing.totalAmount.toLocaleString('ru-RU')} so'm`
+                    `💵 ${toNumber(existing.totalAmount).toLocaleString('ru-RU')} so'm`
                 );
             }
 
@@ -202,8 +203,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 existing,
                 payload: {
                     paymentStatus,
-                    paymentToDriver: updateData.paymentToDriver ?? null,
-                    paymentToCustomer: updateData.paymentToCustomer ?? null,
+                    paymentToDriver: updateData.paymentToDriver != null ? toNumber(updateData.paymentToDriver as MoneyInput) : null,
+                    paymentToCustomer: updateData.paymentToCustomer != null ? toNumber(updateData.paymentToCustomer as MoneyInput) : null,
                     paidBy: paidBy || null,
                 },
             });

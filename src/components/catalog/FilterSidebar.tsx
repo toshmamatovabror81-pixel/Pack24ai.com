@@ -3,8 +3,15 @@
 import { Slider } from '@/components/ui/Slider';
 import { Checkbox } from '@/components/ui/Checkbox';
 
+/** Mirrors `availableFilters` from `useProductFilter` */
+export interface CatalogAvailableFilters {
+    price: { min: number; max: number };
+    dimensions: { width: number; height: number; length: number };
+    attributes: Record<string, string[]>;
+}
+
 interface FilterSidebarProps {
-    availableFilters: UnsafeAny;
+    availableFilters: CatalogAvailableFilters;
     priceRange: [number, number];
     setPriceRange: (range: [number, number]) => void;
     selectedAttributes: Record<string, string[]>;
@@ -43,7 +50,7 @@ export function FilterSidebar({
                     min={availableFilters.price.min}
                     max={availableFilters.price.max}
                     step={1}
-                    onValueChange={(val: UnsafeAny) => setPriceRange(val as [number, number])}
+                    onValueChange={(val: number[]) => setPriceRange([val[0] ?? 0, val[1] ?? 0])}
                     className="mb-4"
                 />
                 <div className="flex items-center justify-between text-sm text-gray-600">
@@ -58,7 +65,7 @@ export function FilterSidebar({
             </div>
 
             {/* Dynamic Attributes */}
-            {Object.entries(availableFilters.attributes).map(([key, values]: [string, UnsafeAny]) => (
+            {Object.entries(availableFilters.attributes).map(([key, values]) => (
                 <div key={key}>
                     <h3 className="font-bold text-gray-900 mb-3 capitalize">{key.replace(/_/g, ' ')}</h3>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">

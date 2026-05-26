@@ -26,6 +26,25 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 type TabKey = 'orders' | 'cart' | 'settings';
 type OnStatsReady = (stats: { totalSpent: number; orderCount: number }) => void;
 
+interface DbProfileProductSnippet {
+    image?: string;
+    name?: string;
+}
+
+interface DbProfileOrderLine {
+    product?: DbProfileProductSnippet;
+    price: number;
+    quantity: number;
+}
+
+interface DbProfileOrderRow {
+    id: string | number;
+    status: string;
+    createdAt: string;
+    items?: DbProfileOrderLine[];
+    totalAmount?: number;
+}
+
 export default function ProfilePage() {
     const { user, logout, orders } = useAuthStore();
     const { status } = useSession();
@@ -403,7 +422,7 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
     t: (uz: string, ru: string) => string;
     onStatsReady?: OnStatsReady;
 }) {
-    const [dbOrders, setDbOrders] = useState<UnsafeAny[]>([]);
+    const [dbOrders, setDbOrders] = useState<DbProfileOrderRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchOrders = useCallback(async () => {
@@ -411,12 +430,12 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
         try {
             const res = await fetch('/api/orders');
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as DbProfileOrderRow[];
                 setDbOrders(data);
                 // Calculate totalSpent from delivered orders
                 const spent = data
-                    .filter((o: UnsafeAny) => o.status === 'delivered')
-                    .reduce((sum: number, o: UnsafeAny) => sum + (o.totalAmount ?? 0), 0);
+                    .filter((o) => o.status === 'delivered')
+                    .reduce((sum: number, o) => sum + (o.totalAmount ?? 0), 0);
                 onStatsReady?.({ totalSpent: spent, orderCount: data.length });
             }
         } catch (e) {
@@ -451,7 +470,7 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
 
     return (
         <>
-            {dbOrders.slice(0, 5).map((order: UnsafeAny) => {
+            {dbOrders.slice(0, 5).map((order) => {
                 const s = STATUS_STYLES[order.status] ?? STATUS_STYLES.new;
                 const date = new Date(order.createdAt);
                 return (
@@ -467,7 +486,7 @@ function ProfileOrdersList({ user: _user, language: _language, format, t, onStat
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.text}`}>{s.label}</span>
                         </div>
                         <div className="px-5 py-3">
-                            {(order.items ?? []).slice(0, 2).map((item: UnsafeAny, j: number) => (
+                            {(order.items ?? []).slice(0, 2).map((item, j: number) => (
                                 <div key={j} className="flex items-center gap-3 py-1.5">
                                     <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
                                         {item.product?.image ? <Image src={item.product.image} alt="" className="w-full h-full object-contain" width={300} height={300} /> : <Package size={12} className="m-auto mt-2 text-gray-300" />}

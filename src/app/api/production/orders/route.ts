@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
+import { WorkOrderStatus } from '@prisma/client';
 
 export async function GET(request: Request) {
     try {
@@ -7,10 +9,10 @@ export async function GET(request: Request) {
         const status = searchParams.get('status');
         const search = searchParams.get('search');
 
-        const where: UnsafeAny = {};
+        const where: Prisma.WorkOrderWhereInput = {};
 
-        if (status && status !== 'all') {
-            where.status = status;
+        if (status && status !== 'all' && (Object.values(WorkOrderStatus) as string[]).includes(status)) {
+            where.status = status as WorkOrderStatus;
         }
 
         if (search) {

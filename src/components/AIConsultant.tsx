@@ -193,7 +193,7 @@ export default function AIConsultant({ model, dims, totalPrice, unitPrice, mater
             dims,
             totalPrice,
             unitPrice,
-            language: language as UnsafeAny,
+            language,
             material,
             quantity,
         });
