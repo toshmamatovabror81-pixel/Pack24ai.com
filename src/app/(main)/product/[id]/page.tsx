@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { trackEvent } from '@/components/GoogleAnalytics';import { translateProductName, translateCategory } from '@/lib/product-translations';
+import { trackEvent } from '@/components/GoogleAnalytics';import { translateProductName, translateCategory, translateProductDescription, translateSpecifications } from '@/lib/product-translations';
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 function ProductSkeleton() {
@@ -395,6 +395,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
     const translatedName = translateProductName(product?.name ?? '', language);
     const translatedCategory = product?.category ? translateCategory(product.category, language) : '';
+    const translatedDescription = translateProductDescription(product?.description, language);
+    const translatedSpecs = translateSpecifications(product?.specifications, language);
 
     if (!mounted || !id) return <ProductSkeleton />;
     if (!product && id && mounted) return notFound();
@@ -437,7 +439,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             }>
                 {sticky && (
                     <>
-                        <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{product.name}</p>
+                        <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{translatedName}</p>
                         <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-extrabold text-blue-700">{format(product.price)}</span>
                             {isOnSale && <span className="text-base text-gray-400 line-through">{format(product.originalPrice!)}</span>}
@@ -510,9 +512,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     <Link href="/" className="hover:text-blue-600">{t("Bosh sahifa", "Главная")}</Link>
                     <ChevronRight size={12} />
                     <Link href="/catalog" className="hover:text-blue-600">{t("Katalog", "Каталог")}</Link>
-                    {product.category && <><ChevronRight size={12} /><span>{product.category}</span></>}
+                    {translatedCategory && <><ChevronRight size={12} /><span>{translatedCategory}</span></>}
                     <ChevronRight size={12} />
-                    <span className="text-gray-800 font-medium truncate max-w-[200px]">{product.name}</span>
+                    <span className="text-gray-800 font-medium truncate max-w-[200px]">{translatedName}</span>
                 </nav>
             </div>
 
@@ -534,7 +536,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                                 )}
                                 <ImageGallery
                                     images={galleryImages.length > 0 ? galleryImages : [product.image ?? '']}
-                                    name={product.name}
+                                    name={translatedName}
                                 />
 
                                 {/* Video bo'limi */}
@@ -651,7 +653,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                             <div className="p-6 text-sm text-gray-600">
                                 {tab === 'desc' && (
                                     <p className="leading-relaxed">
-                                        {product.description || t("Tavsif kiritilmagan.", "Описание не добавлено.")}
+                                        {translatedDescription || t("Tavsif kiritilmagan.", "Описание не добавлено.")}
                                     </p>
                                 )}
                                 {tab === 'spec' && (
@@ -670,7 +672,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                                                     <tbody>
                                                         {product.sizes!.map((s, i) => (
                                                             <tr key={i} className="hover:bg-blue-50 transition-colors">
-                                                                <td className="py-2 px-3 border border-gray-100 font-mono">{s.label}</td>
+                                                                <td className="py-2 px-3 border border-gray-100 font-mono">{translateProductName(s.label, language)}</td>
                                                                 <td className="py-2 px-3 border border-gray-100 text-right font-bold text-blue-600">{format(s.price)}</td>
                                                                 <td className="py-2 px-3 border border-gray-100 text-right text-gray-500">{s.minQty ?? 1}</td>
                                                             </tr>
@@ -680,13 +682,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                                             </div>
                                         )}
                                         <div className="space-y-2">
-                                            {Object.entries(product.specifications ?? {}).map(([k, v]) => (
-                                                <div key={k} className="flex justify-between py-2 border-b border-gray-50">
-                                                    <span className="text-gray-500">{k}</span>
-                                                    <span className="font-medium">{v as string}</span>
+                                            {translatedSpecs.map(({ key, value }) => (
+                                                <div key={key} className="flex justify-between py-2 border-b border-gray-50">
+                                                    <span className="text-gray-500">{key}</span>
+                                                    <span className="font-medium">{value}</span>
                                                 </div>
                                             ))}
-                                            {Object.keys(product.specifications ?? {}).length === 0 && !product.sizes?.length && (
+                                            {translatedSpecs.length === 0 && !product.sizes?.length && (
                                                 <p className="text-gray-400">{t("Ma'lumot yo'q.", "Данные отсутствуют.")}</p>
                                             )}
                                         </div>

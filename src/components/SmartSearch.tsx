@@ -9,6 +9,7 @@ import { useCurrencySafe } from '@/lib/contexts/CurrencyContext';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import Link from 'next/link';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { translateProductName, translateCategory } from '@/lib/product-translations';
 
 // ─── Popular searches ──────────────────────────────────────────────────────
 const POPULAR_SEARCHES = [
@@ -204,7 +205,12 @@ export function SmartSearch() {
                                     <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 px-1">
                                         <Package size={11} /> {t("Mahsulotlar", "Товары")}
                                     </p>
-                                    {results.map(product => (
+                                    {results.map(product => {
+                                        const translatedName = translateProductName(product.name, language);
+                                        const translatedCategory = product.category
+                                            ? translateCategory(product.category, language)
+                                            : undefined;
+                                        return (
                                         <Link
                                             key={product.id}
                                             href={`/product/${product.id}`}
@@ -213,18 +219,19 @@ export function SmartSearch() {
                                         >
                                             <div className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
                                                 {product.image && product.image !== '/placeholder.png' ? (
-                                                    <Image src={product.image} alt={product.name} className="w-full h-full object-contain" width={300} height={300} />
+                                                    <Image src={product.image} alt={translatedName} className="w-full h-full object-contain" width={300} height={300} />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-lg">📦</div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700">{product.name}</p>
-                                                {product.category && <p className="text-xs text-gray-400">{product.category}</p>}
+                                                <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700">{translatedName}</p>
+                                                {translatedCategory && <p className="text-xs text-gray-400">{translatedCategory}</p>}
                                             </div>
                                             <span className="text-sm font-extrabold text-blue-600 shrink-0">{format(product.price)}</span>
                                         </Link>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
 

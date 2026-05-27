@@ -16,6 +16,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { useCartStore } from '@/lib/store/useCartStore';
 import type { Language } from '@/lib/translations';
 import type { Product } from '@/lib/store/useProductStore';
+import { translateProductName, translateProductDescription } from '@/lib/product-translations';
 import { toast } from 'sonner';
 
 /** Category.name only declares uz/ru/en; persisted data may expose more locales at runtime */
@@ -40,12 +41,13 @@ type SortValue = typeof SORT_OPTIONS[number]['value'];
 // Product Card - Grid view
 function ProductCardGrid({
     product, onAddToCart, format, language,
-}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: string }) {
+}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: Language }) {
     const [liked, setLiked] = useState(false);
     const [added, setAdded] = useState(false);
     const listPrice = product.originalPrice;
     const isOnSale = listPrice != null && listPrice > product.price;
     const discount = isOnSale ? Math.round((1 - product.price / listPrice) * 100) : 0;
+    const translatedName = translateProductName(product.name, language);
 
     const handleCart = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -87,7 +89,7 @@ function ProductCardGrid({
                     {product.image ? (
                         <Image
                             src={product.image}
-                            alt={product.name}
+                            alt={translatedName}
                             className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" width={300} height={300}
                         />
                     ) : (
@@ -110,7 +112,7 @@ function ProductCardGrid({
 
                 <Link href={`/product/${product.id}`}>
                     <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 hover:text-blue-600 transition-colors leading-snug mb-3">
-                        {product.name}
+                        {translatedName}
                     </h3>
                 </Link>
 
@@ -151,10 +153,12 @@ function ProductCardGrid({
 // Product Card - List view
 function ProductCardList({
     product, onAddToCart, format, language,
-}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: string }) {
+}: { product: CatalogListingProduct; onAddToCart: (p: CatalogListingProduct) => void; format: (n: number) => string; language: Language }) {
     const [added, setAdded] = useState(false);
     const listPrice = product.originalPrice;
     const isOnSale = listPrice != null && listPrice > product.price;
+    const translatedName = translateProductName(product.name, language);
+    const translatedDescription = translateProductDescription(product.description, language);
 
     const handleCart = () => {
         onAddToCart(product);
@@ -172,9 +176,9 @@ function ProductCardList({
                     }
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-800 text-sm hover:text-blue-600 transition-colors line-clamp-1">{product.name}</h3>
-                    {product.description && (
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-1">{product.description}</p>
+                    <h3 className="font-semibold text-gray-800 text-sm hover:text-blue-600 transition-colors line-clamp-1">{translatedName}</h3>
+                    {translatedDescription && (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-1">{translatedDescription}</p>
                     )}
                     {product.rating > 0 && (
                         <div className="flex items-center gap-1 mt-1">

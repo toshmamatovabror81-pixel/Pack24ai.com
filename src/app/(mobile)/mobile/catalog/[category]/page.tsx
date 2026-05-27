@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';import { ArrowLeft, SlidersHorizontal, Box, ChevronRight } from 'lucide-react';
 import { useCategoryStore, Category } from '@/lib/store/useCategoryStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+import { translateProductName } from '@/lib/product-translations';
 
 interface Product {
     id: number;
@@ -146,7 +147,9 @@ export default function CategoryProductsPage() {
                                 <p>Mahsulotlar topilmadi</p>
                             </div>
                         ) : (
-                            products.map((product) => (
+                            products.map((product) => {
+                                const translatedName = translateProductName(product.name, language);
+                                return (
                                 <div
                                     key={product.id}
                                     className="bg-white p-3 rounded-2xl shadow-sm active:scale-98 transition-transform flex flex-col"
@@ -155,11 +158,11 @@ export default function CategoryProductsPage() {
                                     <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl overflow-hidden">
                                         <Image
                                             src={product.image}
-                                            alt={product.name}
+                                            alt={translatedName}
                                             className="w-full h-full object-cover" width={300} height={300}
                                         />
                                     </div>
-                                    <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-auto">{product.name}</h3>
+                                    <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-auto">{translatedName}</h3>
                                     <div className="mt-2 pt-2 border-t border-gray-50 flex items-center justify-between">
                                         <span className="text-sm font-bold text-brand-green">
                                             {product.price.toLocaleString()} co&apos;m
@@ -169,7 +172,8 @@ export default function CategoryProductsPage() {
                                         </div>
                                     </div>
                                 </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 )}
