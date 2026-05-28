@@ -394,9 +394,11 @@ model BotEvent {
 
 model Product {
   id             Int           @id @default(autoincrement())
-  name           String
-  description    String?
-  price          Decimal       @db.Decimal(18, 2)
+  name            String
+  description     String?
+  nameI18n        Json          @default("{}")   // {"uz":"...","ru":"...","en":"..."}
+  descriptionI18n Json          @default("{}")   // {"uz":"...","ru":"...","en":"..."}
+  price           Decimal       @db.Decimal(18, 2)
   originalPrice  Decimal?      @db.Decimal(18, 2)
   sku            String?
   category       String?

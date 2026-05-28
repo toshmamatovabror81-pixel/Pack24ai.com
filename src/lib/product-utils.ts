@@ -5,6 +5,7 @@
  * serialize/deserialize qiladi — JSON.parse/stringify kerak emas.
  */
 import { serializeMoney } from '@/lib/money';
+import type { Language } from './translations';
 
 export interface ProductSpecification {
     key: string;
@@ -60,4 +61,30 @@ export function parseProduct<T extends Record<string, unknown>>(raw: T) {
         specifications: ProductSpecification[];
         tags: string[];
     };
+}
+
+// ─── i18n Product helpers ─────────────────────────────────────────────────────
+
+interface ProductWithI18n {
+  name: string;
+  nameI18n?: Record<string, string> | null;
+  description?: string | null;
+  descriptionI18n?: Record<string, string> | null;
+}
+
+/**
+ * Mahsulot nomini tilga qarab qaytaradi.
+ * Avval nameI18n[lang] tekshiriladi, yo'q bo'lsa product.name ishlatiladi.
+ */
+export function getLocalizedName(product: ProductWithI18n, lang: Language): string {
+  const i18n = product.nameI18n as Record<string, string> | null;
+  return i18n?.[lang] || product.name;
+}
+
+/**
+ * Mahsulot tavsifini tilga qarab qaytaradi.
+ */
+export function getLocalizedDescription(product: ProductWithI18n, lang: Language): string {
+  const i18n = product.descriptionI18n as Record<string, string> | null;
+  return i18n?.[lang] || product.description || '';
 }

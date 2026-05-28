@@ -368,7 +368,7 @@ export default function CatalogIndexPage() {
                             {t('Kategoriyalar', 'Категории', 'Categories')}
                         </span>
                     </div>
-                    <div className="p-2 max-h-[70vh] overflow-y-auto">
+                    <div className="p-2 max-h-[50vh] overflow-y-auto">
                         <SidebarNav
                             activeCategories={activeCategories}
                             products={products}

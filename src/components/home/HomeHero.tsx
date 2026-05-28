@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { ChevronRight, ArrowRight, ShoppingCart, Package } from 'lucide-react';
 import CatalogSidebar from '@/components/CatalogSidebar';
 import HeroBannerSlider from '@/components/HeroBannerSlider';
-import { CategoryIcon } from '@/components/CategoryIcon';
-import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { useProductStore } from '@/lib/store/useProductStore';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
@@ -14,7 +12,7 @@ import { useAuthStore } from '@/lib/store/useAuthStore';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import type { Product } from '@/lib/store/useProductStore';
-import { translateCategory, translateProductName, getProductUI } from '@/lib/product-translations';
+import { translateProductName, translateCategory, getProductUI } from '@/lib/product-translations';
 
 interface Props {
     initialProducts?: Product[];
@@ -22,7 +20,6 @@ interface Props {
 
 export default function HomeHero({ initialProducts }: Props) {
     const { language } = useLanguage();
-    const categories = useCategoryStore((state) => state.categories);
     const products = useProductStore((state) => state.products);
     const loading = useProductStore((state) => state.loading);
     const { addToCart } = useCartStore();
@@ -50,20 +47,6 @@ export default function HomeHero({ initialProducts }: Props) {
         toast.success(getProductUI('addedToCart', language));
     };
 
-    /* ─── Kategoriya showcase ─── */
-    const activeCategories = categories.filter((c) => c.isActive);
-    const CAT_LABEL: Record<string, string> = {
-        uz: 'Kategoriyalar', ru: 'Категории', en: 'Categories', qr: 'Kategoriyalar',
-        zh: '类别', tr: 'Kategoriler', tg: 'Категорияҳо', kk: 'Санаттар', tk: 'Kategoriýalar', fa: 'دسته‌بندی‌ها',
-    };
-    const ALL_LABEL: Record<string, string> = {
-        uz: 'Katalog →', ru: 'Каталог →', en: 'Catalog →', qr: 'Katalog →',
-        zh: '目录 →', tr: 'Katalog →', tg: 'Каталог →', kk: 'Каталог →', tk: 'Katalog →', fa: 'کاتالوگ →',
-    };
-    const COUNT_LABEL: Record<string, string> = {
-        uz: 'ta', ru: 'шт', en: 'pcs', qr: 'ta',
-        zh: '件', tr: 'adet', tg: 'дона', kk: 'дана', tk: 'sany', fa: 'عدد',
-    };
     const POPULAR_LABEL: Record<string, string> = {
         uz: 'Mashhur Mahsulotlar', ru: 'Популярные товары', en: 'Popular Products', qr: 'Mashqur mahsulotlar',
         zh: '热门产品', tr: 'Popüler Ürünler', tg: 'Маҳсулоти машҳур', kk: 'Танымал тауарлар', tk: 'Meşhur harytlar', fa: 'محصولات محبوب',
@@ -72,22 +55,6 @@ export default function HomeHero({ initialProducts }: Props) {
         uz: "Barchasini ko'rish", ru: 'Смотреть все', en: 'View all', qr: "Bárin kóriw",
         zh: '查看全部', tr: 'Tümünü gör', tg: 'Ҳамаашро дидан', kk: 'Барлығын көру', tk: 'Hemmesini gör', fa: 'مشاهده همه',
     };
-
-    const categoryCards = activeCategories
-        .map((cat) => {
-            const catSlugs = new Set([cat.slug, ...(cat.children?.map((c) => c.slug) ?? [])]);
-            const catProducts = products.filter(
-                (p) => p.status === 'active' && p.category && catSlugs.has(p.category)
-            );
-            if (catProducts.length === 0) return null;
-            const rep = catProducts.find((p) => p.isFeatured) ?? catProducts[0];
-            return { cat, rep, count: catProducts.length };
-        })
-        .filter(Boolean) as {
-            cat: typeof activeCategories[0];
-            rep: (typeof products)[0];
-            count: number;
-        }[];
 
     const popularProducts = products.filter((p) => p.status === 'active').slice(0, 10);
 
@@ -106,49 +73,6 @@ export default function HomeHero({ initialProducts }: Props) {
                         <HeroBannerSlider />
                     </div>
 
-                    {/* ── Kategoriya showcase ── */}
-                    {categoryCards.length > 0 && (
-                        <div>
-                            <div className="flex items-center justify-between mb-2 px-0.5">
-                                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-widest">
-                                    {CAT_LABEL[language] ?? CAT_LABEL.uz}
-                                </h2>
-                                <Link href="/catalog" className="text-xs text-blue-600 hover:underline font-medium">
-                                    {ALL_LABEL[language] ?? ALL_LABEL.uz}
-                                </Link>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
-                                {categoryCards.map(({ cat, rep, count }) => (
-                                    <Link
-                                        key={cat.id}
-                                        href={`/category/${cat.slug}`}
-                                        className="group relative rounded-xl overflow-hidden border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-200 bg-white"
-                                    >
-                                        <div className="h-24 bg-gray-50 flex items-center justify-center overflow-hidden">
-                                            {rep.image && rep.image !== '/placeholder.png' ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                    src={rep.image}
-                                                    alt={rep.name}
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                />
-                                            ) : (
-                                                <CategoryIcon name={cat.icon} className="w-10 h-10 text-gray-300" preferEmoji />
-                                            )}
-                                        </div>
-                                        <div className="p-2">
-                                            <p className="text-xs font-semibold text-gray-800 line-clamp-1">
-                                                {translateCategory(cat.slug, language)}
-                                            </p>
-                                            <p className="text-[10px] text-gray-400 mt-0.5">
-                                                {count} {COUNT_LABEL[language] ?? COUNT_LABEL.uz}
-                                            </p>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                     {/* ── Mashhur mahsulotlar (baner ostida birlashtirish) ── */}
                     <div className="mt-2">

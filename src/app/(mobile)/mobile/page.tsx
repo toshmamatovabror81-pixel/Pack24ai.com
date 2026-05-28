@@ -57,9 +57,7 @@ export default function MobileHomePage() {
             {/* Categories List (Vertical Cards with Images) */}
             <div className="flex flex-col px-4 pb-4 gap-4">
                 {categories.filter(c => c.isActive).map((cat) => {
-                    // Generate a placeholder image based on category for now
-                    // In real app, this would use cat.image property
-                    const imageUrl = `https://placehold.co/150/f1f5f9/475569.png?text=${encodeURIComponent(cat.name[language as 'uz' | 'ru' | 'en']?.substring(0, 2) || 'IMG')}`;
+                    const imageUrl = cat.image || '/images/no-image.svg';
 
                     return (
                         <Link

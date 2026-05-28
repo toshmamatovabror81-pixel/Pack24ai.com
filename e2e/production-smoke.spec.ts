@@ -58,4 +58,38 @@ test.describe('Production-only checks', () => {
         await page.goto('/');
         expect(page.url()).toMatch(/^https:\/\/(www\.)?pack24\.uz/);
     });
+
+    test('security headerlar — HSTS', async ({ request }) => {
+        const res = await request.get('/');
+        const hsts = res.headers()['strict-transport-security'];
+        expect(hsts).toBeDefined();
+        expect(hsts).toContain('max-age=');
+    });
+
+    test('security headerlar — CSP', async ({ request }) => {
+        const res = await request.get('/');
+        const csp = res.headers()['content-security-policy'];
+        expect(csp).toBeDefined();
+        expect(csp).toContain("default-src 'self'");
+    });
+
+    test('security headerlar — X-Frame-Options', async ({ request }) => {
+        const res = await request.get('/');
+        const xfo = res.headers()['x-frame-options'];
+        expect(xfo).toBe('DENY');
+    });
+
+    test('SEO — robots.txt mavjud', async ({ request }) => {
+        const res = await request.get('/robots.txt');
+        expect(res.status()).toBe(200);
+        const body = await res.text();
+        expect(body).toContain('Sitemap:');
+    });
+
+    test('SEO — sitemap.xml mavjud', async ({ request }) => {
+        const res = await request.get('/sitemap.xml');
+        expect(res.status()).toBe(200);
+        const body = await res.text();
+        expect(body).toContain('<urlset');
+    });
 });

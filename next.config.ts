@@ -38,6 +38,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.telegram.org' },
       // Local dev
       { protocol: 'http',  hostname: 'localhost' },
+      // Pacdora AI CDN
+      { protocol: 'https', hostname: 'cdn.pacdora.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],

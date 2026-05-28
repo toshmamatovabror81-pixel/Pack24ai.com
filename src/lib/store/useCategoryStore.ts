@@ -10,6 +10,7 @@ export interface Category {
         en: string;
     };
     icon: string; // Lucide icon name or image URL
+    image?: string; // Kategoriya rasmi (Supabase/CDN URL)
     slug: string;
     productCount: number;
     isActive: boolean;

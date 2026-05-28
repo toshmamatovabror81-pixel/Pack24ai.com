@@ -105,7 +105,7 @@ export default function CategoryProductsPage() {
                     /* Sub-categories List */
                     <div className="flex flex-col gap-3">
                         {currentCategory.children.map((sub) => {
-                            const imageUrl = `https://placehold.co/150/f1f5f9/475569.png?text=${encodeURIComponent(sub.name[language as keyof typeof sub.name]?.substring(0, 2) || 'SUB')}`;
+                            const imageUrl = sub.image || '/images/no-image.svg';
 
                             return (
                                 <Link
