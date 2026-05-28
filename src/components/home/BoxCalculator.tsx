@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, Box, Ruler, Layers, RotateCcw } from 'lucide-react';
+import { Calculator, Box, Ruler, Layers, RotateCcw, Package, Palette, FileText, Info } from 'lucide-react';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -14,13 +14,36 @@ const T: Record<string, Record<string, string>> = {
     height:      { uz: 'Balandlik (mm)', ru: 'Высота (мм)', en: 'Height (mm)' },
     volume:      { uz: 'Hajm', ru: 'Объём', en: 'Volume' },
     area:        { uz: 'Yuza (sirt)', ru: 'Площадь', en: 'Surface area' },
-    dieline:     { uz: 'Dieline o\'lchami', ru: 'Размер развёртки', en: 'Dieline size' },
-    material:    { uz: 'Material', ru: 'Материал', en: 'Material' },
-    reset:       { uz: 'Tozalash', ru: 'Сбросить', en: 'Reset' },
     result:      { uz: 'Natija', ru: 'Результат', en: 'Result' },
     hint:        { uz: 'O\'lchamlarni kiriting', ru: 'Введите размеры', en: 'Enter dimensions' },
-    sheetSize:   { uz: 'Varaq o\'lchami', ru: 'Размер листа', en: 'Sheet size' },
-    perimeter:   { uz: 'Perimetr', ru: 'Периметр', en: 'Perimeter' },
+    reset:       { uz: 'Tozalash', ru: 'Сбросить', en: 'Reset' },
+    
+    // Yangi qo'shimchalar
+    type:        { uz: 'Chop etish turi', ru: 'Тип печати', en: 'Print type' },
+    offset:      { uz: 'Ofset (Ofsetniy)', ru: 'Офсет', en: 'Offset' },
+    flexo:       { uz: 'Flekso (Fleksografiya)', ru: 'Флексо', en: 'Flexo' },
+    
+    layers:      { uz: 'Gofra qavati', ru: 'Слои гофры', en: 'Corrugated layers' },
+    layer3:      { uz: '3 qavatli', ru: '3-слойная', en: '3 layers' },
+    layer5:      { uz: '5 qavatli', ru: '5-слойная', en: '5 layers' },
+    
+    paper:       { uz: 'Qog\'oz turi', ru: 'Тип бумаги', en: 'Paper type' },
+    paperWhite:  { uz: 'Oq (Faqat oq)', ru: 'Белая (Только белая)', en: 'White (Only white)' },
+    paperWhiteF: { uz: 'Oq', ru: 'Белая', en: 'White' },
+    paperKraft:  { uz: 'Kraft', ru: 'Крафт', en: 'Kraft' },
+    paperPlain:  { uz: 'Oddiy (Prastoy)', ru: 'Простая', en: 'Plain' },
+    
+    needsPrint:  { uz: 'Pechat bo\'ladimi?', ru: 'С печатью?', en: 'With print?' },
+    yes:         { uz: 'Ha', ru: 'Да', en: 'Yes' },
+    no:          { uz: 'Yo\'q', ru: 'Нет', en: 'No' },
+    
+    qty:         { uz: 'Soni (dona)', ru: 'Количество (шт)', en: 'Quantity (pcs)' },
+    qtyMinErr:   { uz: 'Eng kamida 1000 dona bo\'lishi kerak', ru: 'Минимум 1000 шт.', en: 'Minimum 1000 pcs required' },
+    
+    pricePrint:  { uz: 'Pechat xizmati', ru: 'Услуги печати', en: 'Print service' },
+    priceDesign: { uz: 'Dizayner xizmati', ru: 'Услуги дизайнера', en: 'Designer service' },
+    priceDie:    { uz: 'Qolip pichog\'i', ru: 'Штанцформа', en: 'Die-cut mold' },
+    sepPrice:    { uz: 'Alohida hisoblanadi', ru: 'Считается отдельно', en: 'Calculated separately' },
 };
 const t = (key: string, lang: string) => T[key]?.[lang] || T[key]?.uz || '';
 
@@ -29,97 +52,173 @@ const t = (key: string, lang: string) => T[key]?.[lang] || T[key]?.uz || '';
    ═══════════════════════════════════════════════════════════════════════════ */
 export default function BoxCalculator() {
     const { language } = useLanguage();
+    
+    // Asosiy o'lchamlar
     const [length, setLength] = useState('');
     const [width, setWidth] = useState('');
     const [height, setHeight] = useState('');
+    const [qty, setQty] = useState('');
+
+    // Yangi variantlar
+    const [printType, setPrintType] = useState<'offset' | 'flexo'>('offset');
+    const [layers, setLayers] = useState<'3' | '5'>('3');
+    const [paper, setPaper] = useState<'white' | 'kraft' | 'plain'>('white');
+    const [needsPrint, setNeedsPrint] = useState<boolean>(true);
 
     const L = parseFloat(length) || 0;
     const W = parseFloat(width) || 0;
     const H = parseFloat(height) || 0;
+    const Q = parseInt(qty) || 0;
     const hasInput = L > 0 && W > 0 && H > 0;
+
+    // Offset tanlanganda paper albatta Oq bo'ladi
+    if (printType === 'offset' && paper !== 'white') {
+        setPaper('white');
+    }
 
     const calc = useMemo(() => {
         if (!hasInput) return null;
-
-        // Surface area (6 yuz) = 2(LW + LH + WH)
-        const surfaceArea = 2 * (L * W + L * H + W * H);
-        // Volume = L × W × H
         const volume = L * W * H;
-        // Dieline flat sheet — tuck end box uchun taxminiy
-        // Kenglik: W + H + W + H + 15mm (yopish qismi)
-        // Uzunlik: L + H + H + 20mm (tutqich/qopqoq)
-        const dielineW = W + H + W + H + 15;
-        const dielineL = L + H + H + 20;
-        const sheetArea = dielineW * dielineL;
-        // Perimeter
-        const perimeter = 4 * (L + W + H);
-
-        return {
-            volume,
-            volumeL: volume / 1e6, // litr
-            surfaceArea,
-            surfaceCm2: surfaceArea / 100,
-            dielineW,
-            dielineL,
-            sheetArea,
-            sheetCm2: sheetArea / 100,
-            perimeter,
-        };
+        return { volume, volumeL: volume / 1e6 };
     }, [L, W, H, hasInput]);
 
-    const reset = () => { setLength(''); setWidth(''); setHeight(''); };
-
-    const fmt = (n: number) => {
-        if (n >= 1e6) return `${(n / 1e6).toFixed(2)} L`;
-        if (n >= 1e4) return n.toLocaleString('uz-UZ', { maximumFractionDigits: 0 });
-        return n.toLocaleString('uz-UZ', { maximumFractionDigits: 1 });
+    const reset = () => { 
+        setLength(''); setWidth(''); setHeight(''); setQty('');
+        setPrintType('offset'); setLayers('3'); setPaper('white'); setNeedsPrint(true);
     };
 
+    const fmtNum = (n: number) => n.toLocaleString('uz-UZ');
+
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col h-full">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center gap-2">
                 <Calculator size={18} className="text-white" />
                 <h3 className="text-sm font-bold text-white">{t('title', language)}</h3>
             </div>
 
-            {/* Inputs */}
-            <div className="p-4 space-y-3">
-                <InputField icon={Ruler} label={t('length', language)} value={length} onChange={setLength} color="text-blue-500" />
-                <InputField icon={Ruler} label={t('width', language)} value={width} onChange={setWidth} color="text-emerald-500" />
-                <InputField icon={Ruler} label={t('height', language)} value={height} onChange={setHeight} color="text-amber-500" />
+            {/* Scrollable Content */}
+            <div className="p-4 space-y-4 overflow-y-auto max-h-[70vh]">
+                
+                {/* ── Type Selection ── */}
+                <div>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('type', language)}</label>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button 
+                            onClick={() => { setPrintType('offset'); setPaper('white'); }}
+                            className={`flex-1 text-xs py-1.5 font-semibold rounded-md transition-all ${printType === 'offset' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            {t('offset', language)}
+                        </button>
+                        <button 
+                            onClick={() => setPrintType('flexo')}
+                            className={`flex-1 text-xs py-1.5 font-semibold rounded-md transition-all ${printType === 'flexo' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            {t('flexo', language)}
+                        </button>
+                    </div>
+                </div>
 
-                {/* Mini 3D box preview */}
+                {/* ── Dimensions ── */}
+                <div className="space-y-2">
+                    <InputField icon={Ruler} label={t('length', language)} value={length} onChange={setLength} color="text-blue-500" />
+                    <InputField icon={Ruler} label={t('width', language)} value={width} onChange={setWidth} color="text-emerald-500" />
+                    <InputField icon={Ruler} label={t('height', language)} value={height} onChange={setHeight} color="text-amber-500" />
+                </div>
+
+                {/* ── Mini 3D box preview ── */}
                 {hasInput && (
-                    <div className="flex justify-center py-2">
+                    <div className="flex justify-center py-2 bg-indigo-50/50 rounded-xl border border-indigo-50">
                         <MiniBoxPreview l={L} w={W} h={H} />
                     </div>
                 )}
 
-                {/* Results */}
-                {calc ? (
-                    <div className="space-y-2 pt-2 border-t border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('result', language)}</p>
-
-                        <ResultRow icon={Box} label={t('volume', language)} value={`${fmt(calc.volume)} mm³`} sub={`${calc.volumeL.toFixed(2)} L`} />
-                        <ResultRow icon={Layers} label={t('area', language)} value={`${fmt(calc.surfaceCm2)} cm²`} />
-                        <ResultRow icon={Ruler} label={t('perimeter', language)} value={`${fmt(calc.perimeter)} mm`} />
-
-                        <div className="bg-indigo-50 rounded-xl p-3 mt-2">
-                            <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">{t('sheetSize', language)}</p>
-                            <p className="text-sm font-extrabold text-indigo-900">
-                                {fmt(calc.dielineW)} × {fmt(calc.dielineL)} mm
-                            </p>
-                            <p className="text-[11px] text-indigo-500 mt-0.5">{fmt(calc.sheetCm2)} cm²</p>
+                {/* ── Configuration ── */}
+                <div className="space-y-3 pt-1">
+                    {/* Layers */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('layers', language)}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <SelectBox selected={layers === '3'} onClick={() => setLayers('3')} label={t('layer3', language)} />
+                            <SelectBox selected={layers === '5'} onClick={() => setLayers('5')} label={t('layer5', language)} />
                         </div>
                     </div>
-                ) : (
-                    <p className="text-xs text-gray-400 text-center py-3 italic">{t('hint', language)}</p>
+
+                    {/* Paper */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('paper', language)}</label>
+                        {printType === 'offset' ? (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 font-medium cursor-not-allowed">
+                                {t('paperWhite', language)}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                                <SelectBox selected={paper === 'white'} onClick={() => setPaper('white')} label={t('paperWhiteF', language)} />
+                                <SelectBox selected={paper === 'kraft'} onClick={() => setPaper('kraft')} label={t('paperKraft', language)} />
+                                <SelectBox selected={paper === 'plain'} onClick={() => setPaper('plain')} label={t('paperPlain', language)} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Print Toggle (Flexo only) */}
+                    {printType === 'flexo' && (
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('needsPrint', language)}</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <SelectBox selected={needsPrint === true} onClick={() => setNeedsPrint(true)} label={t('yes', language)} />
+                                <SelectBox selected={needsPrint === false} onClick={() => setNeedsPrint(false)} label={t('no', language)} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Quantity */}
+                    {printType === 'flexo' && (
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{t('qty', language)}</label>
+                            <div className="relative">
+                                <InputField icon={Package} label={t('qty', language)} value={qty} onChange={setQty} color="text-indigo-500" />
+                                {Q > 0 && Q < 1000 && (
+                                    <p className="text-[10px] text-red-500 mt-1 font-medium">{t('qtyMinErr', language)}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Results & Pricing Info ── */}
+                {calc && (
+                    <div className="space-y-2 pt-3 border-t border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t('result', language)}</p>
+
+                        {/* Volume stat */}
+                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg mb-3">
+                            <span className="text-xs text-gray-500 font-medium">{t('volume', language)}</span>
+                            <span className="text-xs font-bold text-gray-900">{calc.volumeL.toFixed(2)} L</span>
+                        </div>
+
+                        {/* Fixed Pricing Display */}
+                        {printType === 'offset' ? (
+                            <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 space-y-2">
+                                <PriceRow label={t('pricePrint', language)} val="450 000 UZS" icon={Palette} />
+                                <PriceRow label={t('priceDesign', language)} val="450 000 UZS" icon={FileText} />
+                                <PriceRow label={t('priceDie', language)} val={t('sepPrice', language)} icon={Layers} isWarning />
+                            </div>
+                        ) : (
+                            <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100 space-y-2">
+                                {needsPrint && <PriceRow label={t('pricePrint', language)} val={t('sepPrice', language)} icon={Palette} isWarning />}
+                                <PriceRow label={t('priceDie', language)} val={t('sepPrice', language)} icon={Layers} isWarning />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {!calc && (
+                    <p className="text-[10px] text-gray-400 text-center py-2 italic">{t('hint', language)}</p>
                 )}
 
                 {/* Reset */}
-                {hasInput && (
-                    <button onClick={reset} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 py-2 transition-colors">
+                {(hasInput || Q > 0) && (
+                    <button onClick={reset} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 py-2 transition-colors border-t border-gray-100 mt-2">
                         <RotateCcw size={12} /> {t('reset', language)}
                     </button>
                 )}
@@ -128,9 +227,35 @@ export default function BoxCalculator() {
     );
 }
 
-/* ── Input field ── */
+/* ── UI Helpers ── */
+
+function SelectBox({ selected, onClick, label }: { selected: boolean; onClick: () => void; label: string }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`py-1.5 px-2 text-xs font-semibold rounded-lg border transition-colors ${
+                selected ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+            }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+function PriceRow({ label, val, icon: Icon, isWarning }: { label: string; val: string; icon: any; isWarning?: boolean }) {
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                <Icon size={12} className={isWarning ? 'text-amber-500' : 'text-blue-500'} />
+                <span>{label}:</span>
+            </div>
+            <span className={`text-[11px] font-bold ${isWarning ? 'text-amber-600' : 'text-gray-900'}`}>{val}</span>
+        </div>
+    );
+}
+
 function InputField({ icon: Icon, label, value, onChange, color }: {
-    icon: typeof Ruler; label: string; value: string; onChange: (v: string) => void; color: string;
+    icon: any; label: string; value: string; onChange: (v: string) => void; color: string;
 }) {
     return (
         <div className="flex items-center gap-2">
@@ -151,41 +276,24 @@ function InputField({ icon: Icon, label, value, onChange, color }: {
     );
 }
 
-/* ── Result row ── */
-function ResultRow({ icon: Icon, label, value, sub }: {
-    icon: typeof Box; label: string; value: string; sub?: string;
-}) {
-    return (
-        <div className="flex items-center justify-between py-1">
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                <Icon size={12} /> {label}
-            </span>
-            <div className="text-right">
-                <span className="text-xs font-bold text-gray-900">{value}</span>
-                {sub && <span className="text-[10px] text-gray-400 ml-1">({sub})</span>}
-            </div>
-        </div>
-    );
-}
-
 /* ── Mini isometric box preview ── */
 function MiniBoxPreview({ l, w, h }: { l: number; w: number; h: number }) {
     const max = Math.max(l, w, h, 1);
-    const scale = 60 / max;
+    const scale = 50 / max;
     const bL = Math.max(l * scale, 8);
     const bW = Math.max(w * scale, 6);
     const bH = Math.max(h * scale, 8);
 
     return (
-        <svg width="120" height="100" viewBox="0 0 120 100" className="text-indigo-500">
+        <svg width="100" height="85" viewBox="0 0 120 100" className="text-indigo-500">
             {/* Front face */}
             <rect x={30} y={100 - bH - 5} width={bL} height={bH} fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5" rx="1" />
-            {/* Top face (parallelogram) */}
+            {/* Top face */}
             <polygon
                 points={`${30},${100 - bH - 5} ${30 + bW * 0.6},${100 - bH - 5 - bW * 0.4} ${30 + bL + bW * 0.6},${100 - bH - 5 - bW * 0.4} ${30 + bL},${100 - bH - 5}`}
                 fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1.5"
             />
-            {/* Right face (parallelogram) */}
+            {/* Right face */}
             <polygon
                 points={`${30 + bL},${100 - bH - 5} ${30 + bL + bW * 0.6},${100 - bH - 5 - bW * 0.4} ${30 + bL + bW * 0.6},${100 - 5 - bW * 0.4} ${30 + bL},${100 - 5}`}
                 fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5"
