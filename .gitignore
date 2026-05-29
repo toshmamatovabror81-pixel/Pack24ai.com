@@ -31,6 +31,7 @@
 # misc
 .DS_Store
 *.pem
+data/box-calculator.json
 
 # debug
 npm-debug.log*
