@@ -15,6 +15,7 @@ import { translateCategory, translateProductName, getProductUI } from '@/lib/pro
 import type { Language } from '@/lib/translations';
 import { toast } from 'sonner';
 import type { Product } from '@/lib/store/useProductStore';
+import BoxCalculator from '@/components/home/BoxCalculator';
 
 const SORT_OPTIONS = [
     { value: 'default', uz: 'Standart', ru: 'По умолчанию', en: 'Default', zh: '默认', tr: 'Varsayılan' },
@@ -346,6 +347,9 @@ export default function CatalogIndexPage() {
                             <h2 className="font-bold text-gray-900">{t('Kategoriyalar', 'Категории')}</h2>
                             <button type="button" onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
                         </div>
+                        <div className="mb-4">
+                            <BoxCalculator />
+                        </div>
                         <SidebarNav
                             activeCategories={activeCategories}
                             products={products}
@@ -360,7 +364,8 @@ export default function CatalogIndexPage() {
             )}
 
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:block w-60 shrink-0 mr-5 self-start sticky top-[80px]">
+            <aside className="hidden lg:block w-60 shrink-0 mr-5 self-start sticky top-[80px] space-y-3">
+                <BoxCalculator />
                 <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                     <div className="px-4 py-3 bg-brand-navy text-white flex items-center gap-2">
                         <LayoutGrid size={14} />
