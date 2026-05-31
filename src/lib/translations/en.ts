@@ -17,6 +17,8 @@ export const en = {
     'view.2d': 'Dieline (Layout)',
     'view.3d': '3D View',
     'model.fefco0201': 'Standard Box (FEFCO 0201)',
+    'model.fefco0203': 'Fully Overlapping Box (FEFCO 0203)',
+    'model.fefco0200': 'Open Top Tray (FEFCO 0200)',
     'model.fefco0427': 'Mailer Box (FEFCO 0427)',
     'model.pizza': 'Pizza Box (FEFCO 0426)',
     'part.lid': 'LID',

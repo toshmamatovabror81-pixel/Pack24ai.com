@@ -1,6 +1,6 @@
 import React from 'react';
 import { BoxModel, BoxModelProps, BoxDimensions } from '../../lib/types';
-import { useTexture } from '@react-three/drei';
+import { useCardboardMaterial } from '../../lib/hooks/useCardboardMaterial';
 
 // ------------------------------------------------------------------
 // GEOMETRY & CALCULATIONS
@@ -18,41 +18,6 @@ const getDielineSpecs = (dims: BoxDimensions) => {
         // Ofsetlar (chizishni boshlash nuqtasi)
         offset: { x: 50, y: 50 }
     };
-};
-
-const TexturedMeshMaterial: React.FC<{
-    material: BoxModelProps['material'];
-    textureUrl: string;
-}> = ({ material, textureUrl }) => {
-    const texture = useTexture(textureUrl);
-
-    return (
-        <meshStandardMaterial
-            color={material.color}
-            map={texture}
-            side={2}
-            roughness={0.7}
-            metalness={0.1}
-        />
-    );
-};
-
-const BoxMeshMaterial: React.FC<{
-    material: BoxModelProps['material'];
-    textureUrl?: string;
-}> = ({ material, textureUrl }) => {
-    if (textureUrl) {
-        return <TexturedMeshMaterial material={material} textureUrl={textureUrl} />;
-    }
-
-    return (
-        <meshStandardMaterial
-            color={material.color}
-            side={2}
-            roughness={0.7}
-            metalness={0.1}
-        />
-    );
 };
 
 // ------------------------------------------------------------------
@@ -88,36 +53,32 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
     // 5. Qulf (Tuck)
     const s5 = foldProgress > 0.8 ? Math.min((foldProgress - 0.8) / 0.2, 1) * (Math.PI / 2.2) : 0;
 
-    const mat = <BoxMeshMaterial material={material} textureUrl={textureUrl} />;
+    const { surfaceMat } = useCardboardMaterial(material, textureUrl);
 
     return (
         <group>
             {/* ASOS (BASE) */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow material={surfaceMat}>
                 <planeGeometry args={[l, w]} />
-                {mat}
             </mesh>
 
             {/* YON DEVORLAR (SIDES) */}
             {[1, -1].map((side) => (
                 <group key={side} position={[side * l / 2, 0, 0]} rotation={[0, 0, -side * s2]}>
                     {/* Tashqi Yon Devor */}
-                    <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                    <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={surfaceMat}>
                         <planeGeometry args={[h, w]} />
-                        {mat}
                     </mesh>
 
                     {/* Ichki Yon Devor (Double Wall) */}
                     <group position={[side * h, 0, 0]} rotation={[0, 0, -side * s1]}>
-                        <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                        <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={surfaceMat}>
                             <planeGeometry args={[h - 2 * t, w]} /> {/* Birkichkina kichikroq sig'ishi uchun */}
-                            {mat}
                         </mesh>
 
                         {/* Qulflash tili (Side Locking Tabs - vizual) */}
-                        <mesh position={[side * h, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                        <mesh position={[side * h, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={surfaceMat}>
                             <planeGeometry args={[t, w * 0.5]} />
-                            {mat}
                         </mesh>
                     </group>
                 </group>
@@ -125,16 +86,14 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
 
             {/* OLD DEVOR (FRONT WALL) */}
             <group position={[0, 0, w / 2]} rotation={[-s3, 0, 0]}>
-                <mesh position={[0, h / 2, 0]}>
+                <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                     <planeGeometry args={[l, h]} />
-                    {mat}
                 </mesh>
                 {/* Old devor qanotlari (Dust Flaps for Front) */}
                 {[1, -1].map((side) => (
                     <group key={side} position={[side * l / 2, h / 2, 0]} rotation={[0, -side * Math.PI / 2, 0]}>
-                        <mesh position={[h / 2, 0, 0]}>
+                        <mesh position={[h / 2, 0, 0]} material={surfaceMat}>
                             <planeGeometry args={[h - 0.005, h - 0.005]} />
-                            {mat}
                         </mesh>
                     </group>
                 ))}
@@ -143,9 +102,8 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
             {/* ORQA DEVOR (BACK WALL) */}
             <group position={[0, 0, -w / 2]} rotation={[s4, 0, 0]}>
                 {/* Back Panel */}
-                <mesh position={[0, h / 2, 0]}>
+                <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                     <planeGeometry args={[l, h]} />
-                    {mat}
                 </mesh>
 
                 {/* QOPQOQ (LID) */}
@@ -157,26 +115,23 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, 
                         So Total Lid angle relative to ground is 180 (flat on top).
                     */}
                     <group rotation={[s4 * 0.2, 0, 0]}> {/* Slight curve or just flat */}
-                        <mesh position={[0, w / 2, 0]}>
+                        <mesh position={[0, w / 2, 0]} material={surfaceMat}>
                             <planeGeometry args={[l, w]} />
-                            {mat}
                         </mesh>
 
                         {/* YON QULOQLAR (DUST FLAPS - Lid Sides) */}
                         {[1, -1].map((s) => (
                             <group key={s} position={[s * l / 2, w / 2, 0]} rotation={[0, s * Math.PI / 2, 0]}>
-                                <mesh position={[0, 0, 0]}>
+                                <mesh position={[0, 0, 0]} material={surfaceMat}>
                                     <planeGeometry args={[w, h]} /> {/* Full depth flaps */}
-                                    {mat}
                                 </mesh>
                             </group>
                         ))}
 
                         {/* QULFLASH TILI (TUCK FLAP) */}
                         <group position={[0, w, 0]} rotation={[s5, 0, 0]}>
-                            <mesh position={[0, h / 2, 0]}>
+                            <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                                 <planeGeometry args={[l, h]} />
-                                {mat}
                             </mesh>
                         </group>
                     </group>

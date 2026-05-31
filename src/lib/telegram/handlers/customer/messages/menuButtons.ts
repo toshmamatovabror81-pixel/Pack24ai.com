@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sessions, getUserByTgId, getUserLang } from '../helpers';
-import { Lang, getText, formatText } from '../../../i18n';
-import { btn, customerMainKeyboard, shareLocationKeyboard } from '../../../keyboards';
+import { getText, formatText } from '../../../i18n';
+import { btn, shareLocationKeyboard } from '../../../keyboards';
 
 /**
  * Handle menu button presses in text handler.

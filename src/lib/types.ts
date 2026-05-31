@@ -24,6 +24,7 @@ export interface BoxModelProps {
     foldProgress: number; // 0 to 1
     t?: (key: string) => string; // Translation function
     textureUrl?: string; // Custom texture URL for AI Design
+    logoUrl?: string; // Optional mock/logo URL
 }
 
 export interface BoxModel {

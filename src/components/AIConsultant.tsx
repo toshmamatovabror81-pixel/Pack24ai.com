@@ -5,6 +5,8 @@ import { Paperclip, X } from 'lucide-react';
 import { useLanguage } from '../lib/contexts/LanguageContext';
 import { useAI } from '../lib/hooks/useAI';
 import { BoxModel, BoxDimensions, Material } from '../lib/types';
+import Mini3DViewer from './Mini3DViewer';
+import ExternalModelViewer from './ExternalModelViewer';
 
 type Message = {
     id: number;
@@ -132,27 +134,47 @@ const renderMessageText = (text: string) => {
     // Replace markdown bullet points with a standard dash
     cleanText = cleanText.replace(/(^|\n)\s*\*\s/g, '$1- ');
 
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    // Matches links, old [MODEL:...], and new [GENERATE_3D: "..."]
+    const tokenRegex = /(\[([^\]]+)\]\(([^)]+)\))|(\[MODEL:([^\]]+)\])|(\[GENERATE_3D:\s*"([^"]+)"\])/g;
     const parts = [];
     let lastIndex = 0;
     let match;
 
-    while ((match = linkRegex.exec(cleanText)) !== null) {
+    while ((match = tokenRegex.exec(cleanText)) !== null) {
         if (match.index > lastIndex) {
             parts.push(cleanText.substring(lastIndex, match.index));
         }
-        parts.push(
-            <a 
-                key={match.index} 
-                href={match[2]} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-300 hover:text-blue-100 underline decoration-blue-300/50 underline-offset-2 font-bold transition-colors"
-                onClick={e => e.stopPropagation()}
-            >
-                {match[1]}
-            </a>
-        );
+        
+        if (match[4]) {
+            // Legacy MODEL token
+            const inner = match[5];
+            const partsArr = inner.split('|');
+            const modelId = partsArr[0];
+            let textureUrl, logoUrl;
+            partsArr.forEach(p => {
+                if (p.startsWith('TEXTURE:')) textureUrl = p.replace('TEXTURE:', '');
+                if (p.startsWith('LOGO:')) logoUrl = p.replace('LOGO:', '');
+            });
+            parts.push(<Mini3DViewer key={`model-${match.index}`} modelId={modelId} textureUrl={textureUrl} logoUrl={logoUrl} />);
+        } else if (match[6]) {
+            // New GENERATE_3D token
+            const prompt = match[7];
+            parts.push(<ExternalModelViewer key={`gen3d-${match.index}`} prompt={prompt} />);
+        } else {
+            // Link token
+            parts.push(
+                <a 
+                    key={`link-${match.index}`} 
+                    href={match[3]} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-300 hover:text-blue-100 underline decoration-blue-300/50 underline-offset-2 font-bold transition-colors"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {match[2]}
+                </a>
+            );
+        }
         lastIndex = match.index + match[0].length;
     }
     if (lastIndex < cleanText.length) {

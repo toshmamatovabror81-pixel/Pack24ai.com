@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, ContactShadows, Environment } from '@react-three/drei';
 import { useBoxModel } from '../lib/hooks/useBoxModel';
@@ -23,10 +23,11 @@ export default function BoxConfigurator() {
     validation
   } = useBoxModel({ initialModel: defaultModel });
 
-  const [fold, setFold] = useState(0.5);
+  const [fold, setFold] = useState(0.2); // Start slightly folded
   const [quantity, setQuantity] = useState(100);
   const [_langMenuOpen, _setLangMenuOpen] = useState(false);
-  const [textureUrl, setTextureUrl] = useState<string | undefined>(undefined);
+  const [textureUrl, setTextureUrl] = useState<string | undefined>();
+  const [logoUrl, setLogoUrl] = useState<string | undefined>();
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Alias components for JSX
@@ -200,7 +201,9 @@ export default function BoxConfigurator() {
                 <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
 
                 {/* DYNAMIC MODEL RENDER */}
-                <ActiveModel3D dimensions={dims} material={material} foldProgress={fold} textureUrl={textureUrl} />
+                <Suspense fallback={null}>
+                  <ActiveModel3D dimensions={dims} material={material} foldProgress={fold} textureUrl={textureUrl} logoUrl={logoUrl} />
+                </Suspense>
 
                 <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} />
                 <Environment preset="city" />
@@ -214,39 +217,77 @@ export default function BoxConfigurator() {
               {/* AI DESIGN GENERATOR */}
               <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
                 <label className="text-xs font-bold text-blue-800 mb-2 block uppercase flex items-center gap-2">
-                  <span className="text-lg">🎨</span> {language === 'uz' ? 'AI Dizayn' : 'AI Design'}
+                  <span className="text-lg">🎨</span> {language === 'uz' ? 'AI Dizayn / Logo' : 'AI Design / Logo'}
                 </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder={language === 'uz' ? "Masalan: Yashil o'rmon va qahva..." : "E.g., Green forest and coffee..."}
-                    className="flex-1 p-2 text-sm border border-blue-200 rounded-lg outline-none focus:border-blue-500"
-                  />
-                  <button
-                    onClick={() => {
-                      setIsGenerating(true);
-                      // Simulate generic design generation
-                      setTimeout(() => {
-                        // Using a placeholders for now. In real app, this comes from backend.
-                        // A nice pattern texture.
-                        setTextureUrl('https://images.unsplash.com/photo-1620641788421-7f1c918e749e?q=80&w=1000&auto=format&fit=crop');
-                        setIsGenerating(false);
-                      }, 2000);
-                    }}
-                    disabled={isGenerating}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                  >
-                    {isGenerating ? (
-                      <span className="animate-spin block">↻</span>
-                    ) : (
-                      'GO'
-                    )}
-                  </button>
+                <div className="flex flex-col gap-2 mb-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder={language === 'uz' ? "Masalan: Yashil o'rmon va qahva..." : "E.g., Green forest and coffee..."}
+                        className="flex-1 p-2 text-sm border border-blue-200 rounded-lg outline-none focus:border-blue-500"
+                      />
+                      <button
+                        onClick={() => {
+                          setIsGenerating(true);
+                          setTimeout(() => {
+                            setTextureUrl('https://images.unsplash.com/photo-1620641788421-7f1c918e749e?q=80&w=1000&auto=format&fit=crop');
+                            setIsGenerating(false);
+                          }, 2000);
+                        }}
+                        disabled={isGenerating}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <span className="animate-spin block">↻</span>
+                        ) : (
+                          'GO'
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Logo Section */}
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-blue-200">
+                        <label className="flex-1 cursor-pointer bg-white border border-blue-200 hover:border-blue-500 rounded-lg p-2 text-sm text-center text-blue-700 font-semibold transition-colors">
+                            {language === 'uz' ? '🖼️ Logo yuklash' : '🖼️ Upload Logo'}
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const url = URL.createObjectURL(file);
+                                        setLogoUrl(url);
+                                    }
+                                }} 
+                            />
+                        </label>
+                        <button 
+                            onClick={() => {
+                                // Default pack24 logo test
+                                setLogoUrl('/icon-512x512.png');
+                            }}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-xs font-bold transition-colors"
+                            title="Test Logo"
+                        >
+                            Test
+                        </button>
+                    </div>
                 </div>
-                {textureUrl && (
-                  <button onClick={() => setTextureUrl(undefined)} className="text-xs text-red-500 hover:underline w-full text-right">
-                    {language === 'uz' ? "Dizaynni o'chirish" : "Remove Design"}
-                  </button>
+                
+                {(textureUrl || logoUrl) && (
+                  <div className="flex justify-between items-center mt-2">
+                    {textureUrl && (
+                        <button onClick={() => setTextureUrl(undefined)} className="text-xs text-red-500 hover:underline">
+                        {language === 'uz' ? "Dizaynni o'chirish" : "Remove Design"}
+                        </button>
+                    )}
+                    {logoUrl && (
+                        <button onClick={() => setLogoUrl(undefined)} className="text-xs text-red-500 hover:underline">
+                        {language === 'uz' ? "Logoni o'chirish" : "Remove Logo"}
+                        </button>
+                    )}
+                  </div>
                 )}
               </div>
 

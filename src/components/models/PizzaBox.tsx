@@ -1,5 +1,21 @@
-import React from 'react';
 import { BoxModel, BoxModelProps, BoxDimensions } from '../../lib/types';
+import { useCardboardMaterial } from '../../lib/hooks/useCardboardMaterial';
+import { Decal, useTexture } from '@react-three/drei';
+
+const LogoDecal = ({ url, l, w }: { url: string, l: number, w: number }) => {
+    const texture = useTexture(url);
+    // Auto-scale logo to fit nicely on the lid (max 60% of width/length)
+    const scale = Math.min(l, w) * 0.6;
+    return (
+        <Decal
+            position={[0, 0, 0.002]} // Slightly above the surface
+            rotation={[0, 0, 0]}
+            scale={[scale, scale, scale]} // Decal scale
+            map={texture}
+            depthTest={true}
+        />
+    );
+};
 
 // ------------------------------------------------------------------
 // GEOMETRY & CALCULATIONS
@@ -21,7 +37,7 @@ const getDielineSpecs = (dims: BoxDimensions) => {
 // ------------------------------------------------------------------
 // 3D MODEL COMPONENT
 // ------------------------------------------------------------------
-const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress }) => {
+const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress, textureUrl, logoUrl }) => {
     const { l: L_mm, w: W_mm, h: H_mm } = dimensions;
     const l = L_mm / 1000;
     const w = W_mm / 1000;
@@ -43,55 +59,50 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress }
     // Locking tabs / Tuck on front
     const s5 = foldProgress > 0.8 ? Math.min((foldProgress - 0.8) / 0.2, 1) * (Math.PI / 2) : 0;
 
-    const mat = <meshStandardMaterial color={material.color} side={2} roughness={0.7} metalness={0.1} />;
+    const { surfaceMat } = useCardboardMaterial(material, textureUrl);
 
     return (
         <group>
             {/* Base */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow material={surfaceMat}>
                 <planeGeometry args={[l, w]} />
-                {mat}
             </mesh>
 
             {/* Side Walls (Attached to Base) */}
             {[1, -1].map((side) => (
                 <group key={side} position={[side * l / 2, 0, 0]} rotation={[0, 0, -side * s1]}>
-                    <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                    <mesh position={[side * h / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={surfaceMat}>
                         <planeGeometry args={[h, w]} />
-                        {mat}
                     </mesh>
                 </group>
             ))}
 
             {/* Front Wall (Attached to Base) */}
             <group position={[0, 0, w / 2]} rotation={[-s1, 0, 0]}>
-                <mesh position={[0, h / 2, 0]}>
+                <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                     <planeGeometry args={[l, h]} />
-                    {mat}
                 </mesh>
             </group>
 
             {/* Back Wall (Attached to Base) */}
             <group position={[0, 0, -w / 2]} rotation={[s2, 0, 0]}>
-                <mesh position={[0, h / 2, 0]}>
+                <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                     <planeGeometry args={[l, h]} />
-                    {mat}
                 </mesh>
 
                 {/* Lid (Attached to Back) */}
                 <group position={[0, h, 0]} rotation={[s3, 0, 0]}>
-                    <mesh position={[0, w / 2, 0]}>
+                    <mesh position={[0, w / 2, 0]} material={surfaceMat}>
                         <planeGeometry args={[l, w]} />
-                        {mat}
+                        {logoUrl && <LogoDecal url={logoUrl} l={l} w={w} />}
                     </mesh>
 
                     {/* Side Dust Flaps (On Lid) - tuck inside base sides */}
                     {[1, -1].map((s) => (
                         <group key={s} position={[s * l / 2, w / 2, 0]} rotation={[0, s * Math.PI / 2, 0]}>
                             <group rotation={[s4, 0, 0]}> {/* Angle inward to tuck */}
-                                <mesh position={[0, 0, 0]}>
+                                <mesh position={[0, 0, 0]} material={surfaceMat}>
                                     <planeGeometry args={[w * 0.8, h]} />
-                                    {mat}
                                 </mesh>
                             </group>
                         </group>
@@ -99,9 +110,8 @@ const Model3D: React.FC<BoxModelProps> = ({ dimensions, material, foldProgress }
 
                     {/* Front Tuck Flap (On Lid) */}
                     <group position={[0, w, 0]} rotation={[s5, 0, 0]}>
-                        <mesh position={[0, h / 2, 0]}>
+                        <mesh position={[0, h / 2, 0]} material={surfaceMat}>
                             <planeGeometry args={[l, h]} />
-                            {mat}
                         </mesh>
                     </group>
                 </group>

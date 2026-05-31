@@ -405,6 +405,10 @@ model User {
   performanceRecorded  TaskPerformanceEntry[] @relation("PerformanceAuthor")
   taskNotifications    TaskNotification[]     @relation("NotificationRecipient")
 
+  // Stories
+  stories      Story[]
+  storyViews   StoryView[] @relation("StoryViews")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1403,4 +1407,35 @@ model CorporateInvoice {
   @@index([contractId, status])
   @@index([orderId])
   @@index([dueDate, status])
+}
+
+// ─── Stories ─────────────────────────────────────────────────────────────────
+
+model Story {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaUrl    String      // Base64 data URI or external URL
+  mediaType   String      @default("image") // "image" | "video"
+  caption     String?
+  textOverlay Json?       // {text, x, y, color, fontSize}
+  viewCount   Int         @default(0)
+  expiresAt   DateTime    // createdAt + 24h
+  createdAt   DateTime    @default(now())
+  views       StoryView[]
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model StoryView {
+  id       Int      @id @default(autoincrement())
+  storyId  Int
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewerId Int
+  viewer   User     @relation("StoryViews", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([storyId, viewerId])
+  @@index([viewerId])
 }

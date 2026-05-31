@@ -1,7 +1,9 @@
 import { Telegraf } from 'telegraf';
-import { registerRegistrationHandlers } from './messages/registration';
-import { registerCalculatorMessageHandlers } from './messages/calculator';
-import { registerMenuButtonHandlers } from './messages/menuButtons';
+import {
+    registerRegistrationHandlers,
+    registerCalculatorMessageHandlers,
+    registerMenuButtonHandlers,
+} from './messages/index';
 
 export function registerMessageHandlers(bot: Telegraf) {
     registerRegistrationHandlers(bot);

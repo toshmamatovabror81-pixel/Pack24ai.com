@@ -51,10 +51,10 @@ export function registerNavigationCallbacks(bot: Telegraf) {
 
         // BEKOR QILISH
         if (data === 'reg_cancel' || data === 'register_cancel') {
+            const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
             registrationSessions.delete(tgId);
             sessions.delete(tgId);
             await ctx.answerCbQuery('❌');
-            const lang = (sessions.get(tgId)?.lang || 'uz') as Lang;
             await ctx.editMessageText(
                 lang === 'ru' ? '❌ Отменено. Нажмите /start чтобы начать заново.' : '❌ Bekor qilindi. Qayta boshlash uchun /start bosing.'
             );

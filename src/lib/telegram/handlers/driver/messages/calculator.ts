@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { getDriver, sessions } from '../helpers';
-import { Lang, getText, formatText } from '../../../i18n';
+import { getText, formatText } from '../../../i18n';
 import { calcConfirmKeyboard } from '../../../keyboards';
 import { fmtN } from '../types';
 import { toNumber } from '@/lib/money';

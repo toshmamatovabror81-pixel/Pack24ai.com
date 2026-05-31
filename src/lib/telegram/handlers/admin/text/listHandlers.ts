@@ -4,7 +4,6 @@ import { Lang, getText, formatText } from '../../../i18n';
 import { btn, paymentApproveKeyboard, pointToggleKeyboard } from '../../../keyboards';
 import {
     fmtN,
-    getSupervisor,
     statusLabels,
     volLabel,
 } from '../../../adminBot.shared';

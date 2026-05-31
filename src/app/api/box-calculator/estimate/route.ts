@@ -3,11 +3,15 @@ import {
     computeBoxPricing,
     isFlexoQtyValid,
     roundSalePrice,
+    PAPER_LAYER_PROFILES,
     type PaperLayerProfileId,
 } from '@/lib/domain/boxCalculator';
 import { readBoxCalculatorConfig } from '@/lib/domain/boxCalculatorConfigStore';
 
 export const dynamic = 'force-dynamic';
+
+const VALID_PROFILE_IDS = new Set(PAPER_LAYER_PROFILES.map(p => p.id));
+const MAX_DIMENSION_MM = 10000;
 
 type EstimateBody = {
     l?: number;
@@ -27,10 +31,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Noto\'g\'ri so\'rov' }, { status: 400 });
     }
 
-    const l = Number(body.l) || 0;
-    const w = Number(body.w) || 0;
-    const h = Number(body.h) || 0;
-    const profileId = (body.profileId ?? 'e-flute') as PaperLayerProfileId;
+    const l = Math.min(Number(body.l) || 0, MAX_DIMENSION_MM);
+    const w = Math.min(Number(body.w) || 0, MAX_DIMENSION_MM);
+    const h = Math.min(Number(body.h) || 0, MAX_DIMENSION_MM);
+    const rawProfileId = body.profileId ?? 'e-flute';
+    const profileId = (VALID_PROFILE_IDS.has(rawProfileId as PaperLayerProfileId) ? rawProfileId : 'e-flute') as PaperLayerProfileId;
     const printType = body.printType === 'flexo' ? 'flexo' : 'offset';
     const needsPrint = body.needsPrint !== false;
     const qty = Math.max(0, Math.floor(Number(body.qty) || 0));

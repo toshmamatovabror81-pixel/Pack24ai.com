@@ -13,7 +13,7 @@ import { handleJournalFlow } from '../../../adminBot.text.flows';
 export async function authenticateAndPrepare(
     ctx: Context,
     tgId: string,
-    text: string,
+    _text: string,
 ) {
     const sup = await getSupervisor(tgId);
     if (!sup) {

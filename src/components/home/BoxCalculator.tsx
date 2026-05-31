@@ -130,7 +130,10 @@ export default function BoxCalculator() {
 
     const selectPrintType = (type: 'offset' | 'flexo') => {
         setPrintType(type);
-        if (type === 'offset') setPaper('white');
+        if (type === 'offset') {
+            setPaper('white');
+            setNeedsPrint(true);
+        }
     };
 
     const reset = () => {

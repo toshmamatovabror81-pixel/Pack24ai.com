@@ -1,7 +1,9 @@
 import { Telegraf } from 'telegraf';
-import { registerTaskLifecycleCallbacks } from './callbacks/taskLifecycle';
-import { registerCalculatorCallbacks } from './callbacks/calculator';
-import { registerCompletionCallbacks } from './callbacks/completion';
+import {
+    registerTaskLifecycleCallbacks,
+    registerCalculatorCallbacks,
+    registerCompletionCallbacks,
+} from './callbacks/index';
 
 export function registerCallbackHandlers(bot: Telegraf) {
     registerTaskLifecycleCallbacks(bot);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/adminAuth';
-import { mergeBoxCalculatorConfig, type BoxCalculatorConfig } from '@/lib/domain/boxCalculatorConfig';
+import type { BoxCalculatorConfig } from '@/lib/domain/boxCalculatorConfig';
 import { readBoxCalculatorConfig, writeBoxCalculatorConfig } from '@/lib/domain/boxCalculatorConfigStore';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function PUT(request: NextRequest) {
 
     try {
         const body = (await request.json()) as Partial<BoxCalculatorConfig>;
-        const saved = await writeBoxCalculatorConfig(mergeBoxCalculatorConfig(body));
+        const saved = await writeBoxCalculatorConfig(body);
         return NextResponse.json(saved);
     } catch {
         return NextResponse.json({ error: 'Saqlashda xatolik' }, { status: 400 });

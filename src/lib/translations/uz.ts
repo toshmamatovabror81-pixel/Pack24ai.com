@@ -17,6 +17,8 @@ export const uz = {
     'view.2d': 'Chizma (Lekal)',
     'view.3d': "3D Ko'rinish",
     'model.fefco0201': 'Standart Quti (FEFCO 0201)',
+    'model.fefco0203': "To'liq Yopiladigan Quti (FEFCO 0203)",
+    'model.fefco0200': 'Ochiq Taglik Quti (FEFCO 0200)',
     'model.fefco0427': 'Pochta Qutisi (FEFCO 0427)',
     'model.pizza': 'Pizza Qutisi (FEFCO 0426)',
     'part.lid': 'QOPQOQ',

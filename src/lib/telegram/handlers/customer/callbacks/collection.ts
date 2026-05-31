@@ -9,7 +9,7 @@ export function registerCollectionCallbacks(bot: Telegraf) {
     bot.on('callback_query', async (ctx, next) => {
         const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : '';
         if (!data) return next();
-        const tgId = ctx.from.id.toString();
+        const _tgId = ctx.from.id.toString();
 
         // MIJOZ: HISOB-KITOBNI TASDIQLASH
         if (data.startsWith('cust_confirm_')) {

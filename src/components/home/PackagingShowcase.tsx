@@ -39,6 +39,7 @@ const T: Record<string, Record<string, string>> = {
     card2Desc:     { uz: 'Professional 3D qadoqlash modellash vositasi', ru: 'Профессиональный инструмент 3D-моделирования', en: 'Professional 3D packaging modeling tool' },
     card3Title:    { uz: 'Dieline\nTemplate Maker', ru: 'Создатель\nРазвёрток', en: 'Dieline\nTemplate Maker' },
     card3Desc:     { uz: 'Ishlab chiqarish uchun tayyor dieline chizmalar', ru: 'Готовые развёртки для производства', en: 'Production-ready dieline templates' },
+    toolHint:      { uz: 'Ijodiy sayohatingizni mukammal mockup tanlashdan boshlang.', ru: 'Начните ваше творческое путешествие с выбора идеального мокапа.', en: 'Start your creative journey by picking a perfect mockup.' },
 };
 const t = (key: string, lang: string) => T[key]?.[lang] || T[key]?.uz || '';
 
@@ -250,7 +251,7 @@ export default function PackagingShowcase() {
                     <div className="lg:col-span-2 flex flex-col justify-center py-4 lg:py-8">
                         <h3 className="text-2xl lg:text-3xl font-extrabold text-gray-900 leading-tight mb-5">{t('toolTitle', language)}</h3>
                         <p className="text-gray-500 leading-relaxed mb-3 text-sm lg:text-base">{t('toolDesc', language)}</p>
-                        <p className="text-sm text-gray-400 mb-8 italic">Start your creative journey by picking a perfect mockup.</p>
+                        <p className="text-sm text-gray-400 mb-8 italic">{t('toolHint', language)}</p>
                         <div className="flex flex-wrap gap-3">
                             <a href={P('/mockups')} target="_blank" rel="noopener noreferrer"
                                className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-7 py-3.5 rounded-lg text-sm transition-colors">

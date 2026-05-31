@@ -1,5 +1,4 @@
 import { Telegraf } from 'telegraf';
-import { sessions } from './helpers';
 import {
     registerRegistrationHandlers,
     handleOtpVerification,

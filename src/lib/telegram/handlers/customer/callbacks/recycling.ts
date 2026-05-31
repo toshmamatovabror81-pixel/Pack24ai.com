@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { sessions, getUserLang } from '../helpers';
-import { Lang, getText, formatText } from '../../../i18n';
+import { getText, formatText } from '../../../i18n';
 import { volumeKeyboard, photoOrSkipKeyboard } from '../../../keyboards';
 import { submitTruckRequest } from '../truckRequest';
 import { MAT, fmtN } from '../types';

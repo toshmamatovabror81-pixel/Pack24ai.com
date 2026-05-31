@@ -1,5 +1,4 @@
 import { sessions, getUserLang } from '../helpers';
-import { Lang } from '../../../i18n';
 import { customerMainKeyboard } from '../../../keyboards';
 import { askAI } from '../../../aiChat';
 

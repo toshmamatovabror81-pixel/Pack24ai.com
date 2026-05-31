@@ -18,13 +18,16 @@ export async function readBoxCalculatorConfig(): Promise<BoxCalculatorConfig> {
         const parsed = JSON.parse(raw) as Partial<BoxCalculatorConfig>;
         cache = mergeBoxCalculatorConfig(parsed);
         return cache;
-    } catch {
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.warn('[BoxCalcConfig] read error:', err);
+        }
         cache = { ...DEFAULT_BOX_CALCULATOR_CONFIG, profilePricePerSqM: { ...DEFAULT_BOX_CALCULATOR_CONFIG.profilePricePerSqM } };
         return cache;
     }
 }
 
-export async function writeBoxCalculatorConfig(config: BoxCalculatorConfig): Promise<BoxCalculatorConfig> {
+export async function writeBoxCalculatorConfig(config: Partial<BoxCalculatorConfig>): Promise<BoxCalculatorConfig> {
     const merged = mergeBoxCalculatorConfig(config);
     await mkdir(path.dirname(CONFIG_PATH), { recursive: true });
     await writeFile(CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf-8');
