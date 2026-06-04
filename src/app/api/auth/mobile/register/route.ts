@@ -147,7 +147,7 @@ export async function POST(request: Request) {
             const createdUser = await tx.user.create({
                 data: {
                     name: name.trim(),
-                    phone: cleanPhone,
+                    phone: cleanPhone || `+000${Date.now().toString().slice(-9)}`,
                     email: cleanEmail,
                     passwordHash: await hashPassword(password),
                     role: 'user',

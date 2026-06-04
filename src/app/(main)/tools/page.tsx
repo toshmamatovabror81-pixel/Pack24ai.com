@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLanguage } from '@/lib/contexts/LanguageContext';import { Box, Cpu, Scissors, Sparkles, Image, ArrowRight, Star, Zap, Globe, Package } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/LanguageContext';import { Box, Cpu, Scissors, Sparkles, Image, ArrowRight, Star, Zap, Globe, Package, RotateCcw } from 'lucide-react';
 
 // ─── Tool Card ───────────────────────────────────────────────────
 const TOOLS = [
@@ -64,6 +64,30 @@ const TOOLS = [
         en: { title: 'AI Background', sub: 'Professional product photos', desc: 'Upload product image — AI adds professional studio backgrounds instantly.' },
         href: '/tools/ai-background',
         categories: ['Studio', 'Nature', 'Abstract', 'Minimal', 'Gradient'],
+    },
+    {
+        id: 'ai-designer',
+        icon: Sparkles,
+        color: 'from-violet-500 to-purple-600',
+        badge: 'AI',
+        count: '',
+        uz: { title: 'AI Dizayner', sub: 'Qadoqlash dizaynini yarating', desc: 'Mahsulot turini tanlang — AI professional qadoqlash dizayni va tavsiyalar yaratadi.' },
+        ru: { title: 'AI Дизайнер', sub: 'Создайте дизайн упаковки', desc: 'Выберите тип продукта — AI создаст профессиональный дизайн упаковки с рекомендациями.' },
+        en: { title: 'AI Designer', sub: 'Create packaging design', desc: 'Select product type — AI generates professional packaging design with recommendations.' },
+        href: '/tools/ai-designer',
+        categories: ['Minimalist', 'Premium', 'Eco', 'Colorful', 'Custom'],
+    },
+    {
+        id: '3d-preview',
+        icon: RotateCcw,
+        color: 'from-sky-500 to-cyan-600',
+        badge: 'FREE',
+        count: '',
+        uz: { title: '3D Ko\'rinish', sub: 'Qutingizni 360° ko\'ring', desc: 'O\'lchamlar, rang va yozuvni sozlang — real vaqtda 3D formatda ko\'ring.' },
+        ru: { title: '3D Просмотр', sub: 'Просмотрите упаковку в 360°', desc: 'Настройте размеры, цвет и надпись — смотрите в реальном времени в 3D.' },
+        en: { title: '3D Preview', sub: 'View your packaging in 360°', desc: 'Customize dimensions, color and label — see it in real-time 3D.' },
+        href: '/tools/3d-preview',
+        categories: ['Box', '360°', 'Rotate', 'Customize', 'Preview'],
     },
 ] as const;
 

@@ -13,7 +13,8 @@ import {
     Package, Loader2, ChevronRight, ArrowLeft,
     Truck, CheckCircle, XCircle, Box, ClipboardCheck,
     ShoppingCart, RefreshCw, Search, RotateCcw,
-    AlertTriangle, X, ShoppingBag, ChevronDown, Calendar
+    AlertTriangle, X, ShoppingBag, ChevronDown, Calendar,
+    Activity, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Language } from '@/lib/translations';
@@ -39,6 +40,7 @@ const TX: Record<string, Partial<Record<Language, string>>> = {
     orderCount:    { uz: 'ta buyurtma', ru: 'заказов', en: 'orders', qr: 'buyırtpa', zh: '个订单', tr: 'sipariş', tg: 'фармоиш', kk: 'тапсырыс', tk: 'sargyt', fa: 'سفارش' },
     cancel:        { uz: 'Bekor qilish', ru: 'Отменить', en: 'Cancel', qr: 'Biykar etiw', zh: '取消', tr: 'İptal et', tg: 'Бекор кардан', kk: 'Бас тарту', tk: 'Ýatyrmak', fa: 'لغو' },
     reorder:       { uz: 'Qayta buyurtma', ru: 'Повторить заказ', en: 'Reorder', qr: 'Qayta buyırtpa', zh: '重新下单', tr: 'Tekrar sipariş', tg: 'Фармоиши такрорӣ', kk: 'Қайта тапсырыс', tk: 'Gaýtadan sargyt', fa: 'سفارش مجدد' },
+    trackProd:     { uz: 'Jarayonni kuzatish', ru: 'Отслеживать', en: 'Track Production', qr: 'Jarayondı kúzetiw', zh: '追踪生产', tr: 'Üretimi İzle', tg: 'Пайгирии истеҳсолот', kk: 'Өндірісті қадағалау', tk: 'Önümçiligi yzarla', fa: 'پیگیری تولید' },
     cancelConfirm: { uz: "Buyurtmani bekor qilmoqchimisiz?", ru: 'Отменить заказ?', en: 'Cancel this order?', qr: 'Buyırtpanı biykar etesizbе?', zh: '确定取消订单？', tr: 'Siparişi iptal et?', tg: 'Фармоишро бекор мекунед?', kk: 'Тапсырысты бас тарту?', tk: 'Sargydy ýatyrmak?', fa: 'لغو سفارش؟' },
     cancelWarning: { uz: "Bu amalni ortga qaytarib bo'lmaydi", ru: 'Это действие необратимо', en: 'This action cannot be undone', qr: 'Bu ámeldi qaytarıp bolmaydı', zh: '此操作无法撤销', tr: 'Bu işlem geri alınamaz', tg: 'Ин амал бебозгашт аст', kk: 'Бұл әрекетті кері қайтару мүмкін емес', tk: 'Bu hereket yzyna gaýtarylyp bilinmez', fa: 'این عملیات قابل بازگشت نیست' },
     yes:           { uz: 'Ha, bekor qilish', ru: 'Да, отменить', en: 'Yes, cancel', qr: 'Áwа, biykar etiw', zh: '是的，取消', tr: 'Evet, iptal et', tg: 'Бале, бекор кунед', kk: 'Иә, бас тарту', tk: 'Hawa, ýatyrmak', fa: 'بله، لغو کن' },
@@ -48,6 +50,8 @@ const TX: Record<string, Partial<Record<Language, string>>> = {
     reorderSuccess:{ uz: "Mahsulotlar savatga qo'shildi", ru: 'Товары добавлены в корзину', en: 'Items added to cart', qr: 'Mallar sawatqa qosıldı', zh: '商品已加入购物车', tr: 'Ürünler sepete eklendi', tg: 'Маҳсулот ба сабад илова шуд', kk: 'Тауарлар себетке қосылды', tk: 'Harytlar sebede goşuldy', fa: 'محصولات به سبد اضافه شد' },
     totalSpent:    { uz: 'Jami xarid', ru: 'Всего потрачено', en: 'Total spent', qr: 'Jami xarıd', zh: '总消费', tr: 'Toplam harcama', tg: 'Ҷамъ харид', kk: 'Жалпы шығын', tk: 'Jemi çykdajy', fa: 'مجموع خرید' },
     loadMore:      { uz: "Ko'proq ko'rsatish", ru: 'Показать ещё', en: 'Show more', qr: "Kóbirek kórsetiw", zh: '显示更多', tr: 'Daha fazla göster', tg: 'Бештар нишон диҳед', kk: 'Көбірек көрсету', tk: 'Köpräk görkez', fa: 'نمایش بیشتر' },
+    smartReorder:  { uz: 'Aqlli qayta buyurtma', ru: 'Умный повтор', en: 'Smart Reorder', qr: 'Aqıllı qayta buyırtpa', zh: '智能复购', tr: 'Akıllı Tekrar', tg: 'Фармоиши ақлонӣ', kk: 'Ақылды қайта тапсырыс', tk: 'Akylly gaýtadan sargyt', fa: 'سفارش مجدد هوشمند' },
+    smartReorderHint: { uz: 'Sizga mos tavsiyalar mavjud', ru: 'Есть рекомендации для вас', en: 'Recommendations available', qr: 'Sizge mas táwsiyalar bar', zh: '为您提供建议', tr: 'Öneriler mevcut', tg: 'Тавсияҳо барои шумо мавҷуданд', kk: 'Сізге ұсыныстар бар', tk: 'Maslahatlar bar', fa: 'پیشنهاداتی برای شما موجود است' },
 };
 
 const t = (key: string, lang: Language): string =>
@@ -347,6 +351,25 @@ export default function MyOrdersPage() {
                     </div>
                 </div>
 
+                {/* Smart Reorder Banner */}
+                {orders.filter(o => o.status === 'delivered').length >= 2 && (
+                    <Link
+                        href="/my-orders/smart-reorder"
+                        className="block mb-5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                <Zap size={18} className="text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-blue-900 text-sm">{t('smartReorder', language)}</p>
+                                <p className="text-xs text-blue-500 mt-0.5">{t('smartReorderHint', language)}</p>
+                            </div>
+                            <ChevronRight size={16} className="text-blue-400 group-hover:text-blue-600 transition-colors shrink-0" />
+                        </div>
+                    </Link>
+                )}
+
                 {/* Loading */}
                 {loading && (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -382,6 +405,7 @@ export default function MyOrdersPage() {
                             const date = new Date(order.createdAt);
                             const canCancel = ['new', 'processing'].includes(order.status);
                             const canReorder = ['delivered', 'cancelled'].includes(order.status);
+                            const canTrack = ['processing', 'shipping'].includes(order.status);
 
                             return (
                                 <div
@@ -456,8 +480,18 @@ export default function MyOrdersPage() {
                                     </Link>
 
                                     {/* Action buttons */}
-                                    {(canCancel || canReorder) && (
+                                    {(canCancel || canReorder || canTrack) && (
                                         <div className="px-5 py-3 border-t border-gray-50 bg-gray-50/50 flex items-center gap-2">
+                                            {canTrack && (
+                                                <Link
+                                                    href={`/orders/${order.id}/track`}
+                                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-bold transition-colors"
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <Activity size={12} />
+                                                    {t('trackProd', language)}
+                                                </Link>
+                                            )}
                                             {canReorder && (
                                                 <button
                                                     onClick={(e) => { e.preventDefault(); handleReorder(order); }}

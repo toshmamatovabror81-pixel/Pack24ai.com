@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trees, Droplets, CloudFog, Trophy, Leaf, Zap, History } from "lucide-react";
+import { Trees, Droplets, CloudFog, Trophy, Leaf, Zap, History, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
@@ -185,7 +185,56 @@ export default function EcoDashboard() {
         </div>
       </div>
 
-      {/* History Section */}
+      {/* Leaderboard Link Card */}
+      <Link href="/eco-dashboard/leaderboard" className="block group">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-50 via-emerald-50 to-teal-50 dark:from-amber-950/20 dark:via-emerald-950/20 dark:to-teal-950/20 border border-emerald-200 dark:border-emerald-800/40 px-6 py-6 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/50 group-hover:scale-110 transition-transform">
+                <Trophy className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  🏆 Shaharlar Yashil Reytingi
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  Sizning shahringiz qaysi o&apos;rinda? Ko&apos;ring va raqobatda g&apos;olib bo&apos;ling!
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm group-hover:translate-x-1 transition-transform">
+              Ko&apos;rish
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Virtual Forest Link Card */}
+      <Link href="/eco-dashboard/forest" className="block group">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-50 via-green-50 to-lime-50 dark:from-emerald-950/20 dark:via-green-950/20 dark:to-lime-950/20 border border-green-200 dark:border-green-800/40 px-6 py-6 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-200/50 dark:shadow-green-900/50 group-hover:scale-110 transition-transform">
+                <Trees className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  🌳 Virtual O&apos;rmoningiz
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  Qayta ishlash ta&apos;siringizni 3D o&apos;rmonda ko&apos;ring
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm group-hover:translate-x-1 transition-transform">
+              Ko&apos;rish
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      </Link>
+
       {stats?.recentRequests && stats.recentRequests.length > 0 && (
         <Card className="shadow-sm border-emerald-100">
           <CardHeader>
