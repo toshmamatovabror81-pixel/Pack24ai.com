@@ -1,12 +1,11 @@
-import { BotAccessRequest, Driver, RecyclePoint, Supervisor } from '@prisma/client';
+import { BotAccessRequest, BotAccessRole, Driver, RecyclePoint, Supervisor } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { createBotEvent } from './botEvents';
 import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
 import { generateReadablePassword, hashPassword, formatDriverCredentialsMessage } from './driverCredentials';
 import { notifyDriver, notifyAdmin } from './notifier';
 
-export type BotAccessRole = 'supervisor' | 'driver';
-export type BotAccessStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type { BotAccessRole } from '@prisma/client';
 
 export interface CreateBotAccessRequestInput {
     role: BotAccessRole;

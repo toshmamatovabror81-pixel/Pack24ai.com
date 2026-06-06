@@ -87,7 +87,10 @@ export async function createRecycleCollection(body: Record<string, unknown>) {
                 request: { include: { point: true } },
                 driver: true,
             },
-        });
+        }) as Awaited<ReturnType<typeof tx.recycleCollection.create>> & {
+            request: { id: number; customerTgId: string | null; supervisorId: number | null } & Record<string, unknown>;
+            driver: { name: string } & Record<string, unknown>;
+        };
 
         const updatedRequest = await tx.recycleRequest.update({
             where: { id: requestId },

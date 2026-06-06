@@ -31,9 +31,11 @@ function detectBrowserLang(): Language {
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     const [language, setLangState] = useState<Language>('uz');
+    const [mounted, setMounted] = useState(false);
 
     // Hydration uchun — client mount'da til aniqlanadi
     useEffect(() => {
+        setMounted(true);
         setLangState(detectBrowserLang());
     }, []);
 
@@ -45,11 +47,14 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
         document.documentElement.lang = lang;
     };
 
-    const t = (key: string): string => translations[language]?.[key] ?? key;
-    const tm = (key: string): string => materialTranslations[language]?.[key] ?? key;
+    // Mount bo'lguncha server default tilini ishlatamiz (hydration mos kelishi uchun)
+    const activeLang = mounted ? language : 'uz';
+
+    const t = (key: string): string => translations[activeLang]?.[key] ?? key;
+    const tm = (key: string): string => materialTranslations[activeLang]?.[key] ?? key;
 
     return (
-        <LanguageContext.Provider value={{ language, setLanguage, t, tm, languageNames: LANGUAGE_NAMES }}>
+        <LanguageContext.Provider value={{ language: activeLang, setLanguage, t, tm, languageNames: LANGUAGE_NAMES }}>
             {children}
         </LanguageContext.Provider>
     );

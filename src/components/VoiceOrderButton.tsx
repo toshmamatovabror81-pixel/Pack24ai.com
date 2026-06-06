@@ -463,17 +463,13 @@ export default function VoiceOrderButton() {
                                     value={textQuery || transcript}
                                     onChange={(e) => handleTextSearch(e.target.value)}
                                     placeholder={tl('search_placeholder')}
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200
-                                        text-sm text-gray-800 placeholder:text-gray-400
-                                        focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400
-                                        transition-all"
+                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all"
                                     autoFocus={!isSupported}
                                 />
                                 {isSupported && state !== 'listening' && (
                                     <button
                                         onClick={handleMicClick}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full
-                                            hover:bg-blue-50 transition-colors text-[#0c2340]"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-blue-50 transition-colors text-[#0c2340]"
                                         aria-label={tl('voice_order')}
                                     >
                                         <Mic className="w-4 h-4" />
@@ -536,8 +532,7 @@ export default function VoiceOrderButton() {
                                             {results.map((product) => (
                                                 <div
                                                     key={product.id}
-                                                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100
-                                                        hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
+                                                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
                                                 >
                                                     {/* Product image */}
                                                     <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
@@ -569,9 +564,7 @@ export default function VoiceOrderButton() {
                                                     <button
                                                         onClick={() => handleAddToCart(product)}
                                                         disabled={!product.inStock}
-                                                        className="flex-shrink-0 p-2.5 rounded-xl bg-[#0c2340] text-white
-                                                            hover:bg-[#0c2340]/90 active:scale-95 transition-all
-                                                            disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        className="flex-shrink-0 p-2.5 rounded-xl bg-[#0c2340] text-white hover:bg-[#0c2340]/90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                                         aria-label={tl('added_to_cart')}
                                                     >
                                                         <ShoppingCart className="w-4 h-4" />
@@ -591,8 +584,7 @@ export default function VoiceOrderButton() {
                                     <>
                                         <div
                                             onClick={handleMicClick}
-                                            className="w-20 h-20 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center
-                                                cursor-pointer hover:bg-blue-100 transition-colors"
+                                            className="w-20 h-20 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors"
                                         >
                                             <Mic className="w-8 h-8 text-blue-600" />
                                         </div>

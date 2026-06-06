@@ -44,8 +44,8 @@ describe('GET /api/referral', () => {
             ecoPoints: 18,
             referralCode: 'PACK24-ABC123',
             referrals: [
-                { id: 1, name: 'Ali', createdAt: new Date('2026-04-20'), ecoPoints: 0 },
-                { id: 2, name: 'Vali', createdAt: new Date('2026-04-21'), ecoPoints: 0 },
+                { id: 1, name: 'Ali', createdAt: new Date('2026-04-20'), ecoPoints: 0, referrals: [] },
+                { id: 2, name: 'Vali', createdAt: new Date('2026-04-21'), ecoPoints: 0, referrals: [] },
             ],
         });
 
@@ -56,12 +56,28 @@ describe('GET /api/referral', () => {
             where: { id: 7 },
             include: {
                 referrals: {
-                    select: { id: true, name: true, createdAt: true, ecoPoints: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        createdAt: true,
+                        ecoPoints: true,
+                        referrals: {
+                            select: {
+                                id: true,
+                                name: true,
+                                createdAt: true,
+                                ecoPoints: true,
+                                referrals: {
+                                    select: { id: true, name: true, createdAt: true, ecoPoints: true },
+                                },
+                            },
+                        },
+                    },
                 },
             },
         });
         expect(payload.referralCode).toBe('PACK24-ABC123');
-        expect(payload.referralBonusPoints).toBe(10);
+        expect(payload.totalBonusPoints).toBe(1000); // 2 × 500 = 1000 (level1)
         expect(updateMock).not.toHaveBeenCalled();
     });
 });

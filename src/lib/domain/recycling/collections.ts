@@ -1,10 +1,16 @@
+import { MaterialType } from '@prisma/client';
+
+const VALID_MATERIAL_TYPES = new Set<string>([
+    'qogoz', 'karton', 'gazeta', 'jurnal', 'ofis', 'kitob', 'aralash', 'sellofan', 'plastik',
+]);
+
 export interface CreateCollectionInput {
     requestId: number;
     driverId: number;
     actualWeight: number;
     discountPercent: number;
     pricePerKg: number;
-    materialType: string | null;
+    materialType: MaterialType | null;
     notes: string | null;
     discountReason: string | null;
 }
@@ -79,8 +85,8 @@ export function normalizeCreateCollectionInput(body: Record<string, unknown>): {
             actualWeight,
             discountPercent,
             pricePerKg,
-            materialType: typeof body.materialType === 'string' && body.materialType.trim()
-                ? body.materialType.trim()
+            materialType: typeof body.materialType === 'string' && VALID_MATERIAL_TYPES.has(body.materialType.trim())
+                ? body.materialType.trim() as MaterialType
                 : null,
             notes: typeof body.notes === 'string' && body.notes.trim()
                 ? body.notes.trim()
