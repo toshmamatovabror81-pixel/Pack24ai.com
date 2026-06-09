@@ -34,9 +34,17 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
     { name: 'Boshqaruv paneli', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Buyurtmalar', href: '/admin/orders', icon: ShoppingCart },
+    {
+        name: 'Buyurtmalar',
+        href: '/admin/orders',
+        icon: ShoppingCart,
+        hasDropdown: true,
+        subItems: [
+            { name: 'B2B ishlab chiqarish', href: '/admin/production' },
+            { name: 'B2C tayyor mahsulotlar savdosi', href: '/admin/orders' },
+        ],
+    },
     { name: 'Hisobotlar', href: '/admin/reports', icon: TrendingUp },
-    { name: 'Ishlab chiqarish (B2B)', href: '/admin/production', icon: Factory },
     {
         name: 'Mijozlar (CRM)',
         href: '/admin/customers',

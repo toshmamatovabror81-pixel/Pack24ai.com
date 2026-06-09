@@ -344,7 +344,7 @@ enum CustomerLang {
 }
 
 enum MaterialType {
-  qogoz    @map("qog'oz")
+  qogoz
   karton
   gazeta
   jurnal
@@ -767,6 +767,22 @@ model WorkOrder {
 
   progress     Int             @default(0) // 0-100%
   currentStage ProductionStage @default(gofra)
+
+  // ─── Gofrokarton / Qadoq xususiyatlari ───
+  size         String? // Mahsulot o'lchami ("Размер")
+  sheetLength  Float?  // List uzunligi
+  sheetWidth   Float?  // List kengligi
+  areaPerPiece Float?  // 1 dona uchun maydon (m2)
+  totalArea    Float?  // Umumiy maydon (m2)
+  
+  layerCount   Int?    // Qatlamlar soni (Слой)
+  layer1       String? // 1-qatlam
+  layer2       String? // 2-qatlam
+  layer3       String? // 3-qatlam
+  layer4       String? // 4-qatlam
+  layer5       String? // 5-qatlam
+  
+  printType    String? // Pechat turi (п/б)
 
   stages WorkOrderStage[]
 

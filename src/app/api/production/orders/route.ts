@@ -40,7 +40,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { clientName, productName, quantity, deadline, priority } = body;
+        const { 
+            clientName, productName, quantity, deadline, priority,
+            size, sheetLength, sheetWidth, areaPerPiece, totalArea,
+            layerCount, layer1, layer2, layer3, layer4, layer5, printType
+        } = body;
 
         if (!clientName || !productName || !quantity || !deadline) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -57,6 +61,14 @@ export async function POST(request: Request) {
                 quantity: parseInt(quantity),
                 deadline: new Date(deadline),
                 priority: priority || 'normal',
+                size,
+                sheetLength: sheetLength ? parseFloat(sheetLength) : null,
+                sheetWidth: sheetWidth ? parseFloat(sheetWidth) : null,
+                areaPerPiece: areaPerPiece ? parseFloat(areaPerPiece) : null,
+                totalArea: totalArea ? parseFloat(totalArea) : null,
+                layerCount: layerCount ? parseInt(layerCount) : null,
+                layer1, layer2, layer3, layer4, layer5,
+                printType,
                 status: 'planned',
                 progress: 0,
                 currentStage: 'gofra',

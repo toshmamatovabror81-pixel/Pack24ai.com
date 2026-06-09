@@ -141,6 +141,9 @@ export default function ProductionDashboard() {
                     <p className="text-slate-500 text-sm mt-1">Hozirgi vaqtda sexlardagi holat va buyurtmalar ijrosi</p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" className="text-slate-600 bg-white" onClick={() => window.location.href = '/admin/production/orders-list'}>
+                        Batafsil Ro'yxat
+                    </Button>
                     <Button onClick={() => setIsNewOrderOpen(true)} className="bg-brand-green hover:bg-[#053d2e]">
                         <Plus className="w-4 h-4 mr-2" />
                         Yangi Buyurtma
