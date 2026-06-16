@@ -9,8 +9,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { trackEvent } from '@/components/GoogleAnalytics';import { translateProductName, translateCategory, translateProductDescription, translateSpecifications } from '@/lib/product-translations';
+import { translateProductName, translateCategory, translateProductDescription, translateSpecifications } from '@/lib/product-translations';
 
+const trackEvent = (eventName: string, params: any) => {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+        window.gtag('event', eventName, params);
+    }
+};
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 function ProductSkeleton() {
     return (
