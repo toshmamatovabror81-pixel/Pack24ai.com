@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
@@ -8,18 +9,18 @@ module.exports = {
       /* ─── Brand Colors ──────────────────────────────── */
       colors: {
         brand: {
-          navy:    '#0c2340',
-          dark:    '#102a45',
-          deeper:  '#0c1a2e',
-          red:     '#e33326',
-          accent:  '#1a4a7c',
+          navy:    'var(--brand-navy)',
+          dark:    'var(--brand-dark)',
+          deeper:  'var(--brand-deeper)',
+          red:     'var(--brand-red)',
+          accent:  'var(--brand-accent)',
           green:   '#064E3B',
           purple:  '#5D5FEF',
         },
         surface: {
-          page:    '#f5f6fa',
-          card:    '#ffffff',
-          hover:   '#fef7f6',
+          page:    'var(--surface-page)',
+          card:    'var(--surface-card)',
+          hover:   'var(--surface-hover)',
         },
       },
       /* ─── Typography ────────────────────────────────── */

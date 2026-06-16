@@ -27,19 +27,19 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
     };
 
     return (
-        <aside className="w-[260px] h-screen bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50 overflow-hidden shadow-[2px_0_24px_rgba(0,0,0,0.02)]">
+        <aside className="w-[260px] h-screen bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col fixed left-0 top-0 z-50 overflow-hidden shadow-[2px_0_24px_rgba(0,0,0,0.02)] transition-colors">
             {/* Header: Project Selector */}
-            <div className="h-16 flex items-center px-5 border-b border-gray-100 justify-between shrink-0 bg-white z-10">
+            <div className="h-16 flex items-center px-5 border-b border-gray-100 dark:border-slate-800 justify-between shrink-0 bg-white dark:bg-slate-900 z-10 transition-colors">
                 <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center shrink-0">
                         <span className="font-bold text-sm">A</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-900 truncate">Antigravity AI</span>
-                        <span className="text-[10px] text-slate-400">Project ID: #8832</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">Antigravity AI</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Project ID: #8832</span>
                     </div>
                 </div>
-                <button className="text-emerald-500 hover:bg-emerald-50 p-1.5 rounded-md transition-colors" aria-label="Add New" title="Add New">
+                <button className="text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 p-1.5 rounded-md transition-colors" aria-label="Add New" title="Add New">
                     <Plus size={18} />
                 </button>
             </div>
@@ -67,19 +67,19 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
                                         className={cn(
                                             "flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-pointer",
                                             isActive
-                                                ? "bg-blue-50 text-blue-700 font-semibold"
-                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold"
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            {Icon && <Icon size={18} strokeWidth={isActive ? 2 : 1.8} className={cn(isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />}
+                                            {Icon && <Icon size={18} strokeWidth={isActive ? 2 : 1.8} className={cn(isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300")} />}
                                             <span className="text-[14px]">{item.name}</span>
                                         </div>
                                         {item.hasDropdown && (
                                             <ChevronDown
                                                 size={14}
                                                 className={cn(
-                                                    "text-slate-400 transition-transform duration-200",
+                                                    "text-slate-400 dark:text-slate-500 transition-transform duration-200",
                                                     openDropdowns[item.name] ? "rotate-180" : ""
                                                 )}
                                             />
@@ -92,10 +92,10 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
                                         {item.subItems ? (
                                             item.subItems.map((sub) => (
                                                 <li key={sub.name}>
-                                                    <Link href={sub.href} className="flex items-center justify-between px-3 py-1.5 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 rounded-md transition-colors">
+                                                    <Link href={sub.href} className="flex items-center justify-between px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
                                                         <span>{sub.name}</span>
                                                         {sub.badge && (
-                                                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded ml-2">{sub.badge}</span>
+                                                            <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded ml-2">{sub.badge}</span>
                                                         )}
                                                     </Link>
                                                 </li>
@@ -103,7 +103,7 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
                                         ) : (
                                             ['Ro\'yxat', 'Qo\'shish'].map((sub) => (
                                                 <li key={sub}>
-                                                    <Link href="#" className="block px-3 py-1.5 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 rounded-md transition-colors">
+                                                    <Link href="#" className="block px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
                                                         {sub}
                                                     </Link>
                                                 </li>
@@ -117,7 +117,7 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
                 </ul>
 
                 {/* Settings Separator */}
-                <div className="my-4 border-t border-gray-100 mx-5"></div>
+                <div className="my-4 border-t border-gray-100 dark:border-slate-800 mx-5"></div>
 
                 <ul className="px-3">
                     <li>
@@ -126,11 +126,11 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                                 pathname === '/admin/settings'
-                                    ? "bg-blue-50 text-blue-700 font-semibold"
-                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold"
+                                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
                             )}
                         >
-                            <Settings size={18} strokeWidth={1.8} className={cn(pathname === '/admin/settings' ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />
+                            <Settings size={18} strokeWidth={1.8} className={cn(pathname === '/admin/settings' ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300")} />
                             <span className="text-[14px]">Sozlamalar</span>
                         </Link>
                     </li>
@@ -138,10 +138,10 @@ export default function AdminSidebar({ onLogout }: AdminSidebarProps) {
             </nav>
 
             {/* Footer / Logout */}
-            <div className="p-4 border-t border-gray-100 shrink-0 bg-white">
+            <div className="p-4 border-t border-gray-100 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 transition-colors">
                 <button
                     onClick={onLogout}
-                    className="flex w-full items-center justify-center space-x-2 text-slate-500 hover:text-red-600 hover:bg-red-50 py-2 rounded-lg transition-all text-sm font-medium"
+                    className="flex w-full items-center justify-center space-x-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-lg transition-all text-sm font-medium"
                 >
                     <LogOut size={16} />
                     <span>Tizimdan chiqish</span>

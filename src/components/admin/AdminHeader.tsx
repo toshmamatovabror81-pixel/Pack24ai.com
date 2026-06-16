@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';import { Bell, Search, ChevronDown } from 'lucide-react';
 import { navItems } from './adminNavConfig';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AdminHeaderProps {
     newOrdersCount: number;
@@ -11,9 +12,9 @@ export default function AdminHeader({ newOrdersCount }: AdminHeaderProps) {
     const pathname = usePathname();
 
     return (
-        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm transition-all">
+        <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 h-16 flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm transition-all">
             <div>
-                <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
                     {navItems.find(i => pathname.startsWith(i.href))?.name || 'Boshqaruv Paneli'}
                 </h2>
             </div>
@@ -25,10 +26,10 @@ export default function AdminHeader({ newOrdersCount }: AdminHeaderProps) {
                     <input
                         type="text"
                         placeholder="Global qidiruv (Mijoz, Buyurtma ID, Telefon)..."
-                        className="w-full bg-gray-50/50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
+                        className="w-full bg-gray-50/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400 dark:placeholder:text-slate-500"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
-                        <kbd className="hidden group-focus-within:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 bg-gray-100 rounded border border-gray-200">
+                        <kbd className="hidden group-focus-within:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 bg-gray-100 dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600">
                             <span className="text-xs">⌘</span>K
                         </kbd>
                     </div>
@@ -36,7 +37,9 @@ export default function AdminHeader({ newOrdersCount }: AdminHeaderProps) {
             </div>
 
             <div className="flex items-center space-x-4">
-                <button className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" aria-label="Bildirishnomalar">
+                <ThemeToggle />
+                
+                <button className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Bildirishnomalar">
                     <Bell size={20} />
                     {newOrdersCount > 0 && (
                         <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white px-0.5">

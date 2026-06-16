@@ -26,6 +26,8 @@ export const metadata: Metadata = {
     robots: { index: true, follow: true },
 };
 
+import { ThemeProvider } from '@/components/ThemeProvider';
+
 export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="uz" suppressHydrationWarning>
@@ -33,7 +35,9 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 className="antialiased min-h-screen flex flex-col"
                 suppressHydrationWarning
             >
-                {children}
+                <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+                    {children}
+                </ThemeProvider>
             </body>
         </html>
     );

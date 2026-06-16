@@ -2,8 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Package, Heart, ShoppingCart } from 'lucide-react';
+import { Package, Heart, ShoppingCart, Minus, Plus } from 'lucide-react';
 import type { Product } from '@/lib/store/useProductStore';
+import { useCartStore } from '@/lib/store/useCartStore';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { translateProductName, translateCategory, getProductUI } from '@/lib/product-translations';
 
@@ -14,6 +15,9 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAdd }: ProductCardProps) {
     const { language } = useLanguage();
+    const { items, updateQuantity, removeFromCart } = useCartStore();
+    
+    const cartItem = items.find(item => item.productId === Number(product.id));
 
     const isHit =
         (product.rating ?? 0) >= 4.5 ||
@@ -99,13 +103,49 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
                             )}
                         </div>
                     </div>
-                    <button
-                        onClick={() => onAdd(product)}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors active:scale-95"
-                    >
-                        <ShoppingCart size={13} />
-                        <span>{getProductUI('addToCart', language)}</span>
-                    </button>
+                    {cartItem ? (
+                        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl px-2 py-1.5 h-9">
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (cartItem.quantity > 1) {
+                                        updateQuantity(cartItem.productId, cartItem.quantity - 1);
+                                    } else {
+                                        removeFromCart(cartItem.productId);
+                                    }
+                                }}
+                                className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 shadow-sm transition-colors"
+                            >
+                                <Minus size={14} strokeWidth={2.5} />
+                            </button>
+                            <span className="text-xs font-bold w-4 text-center text-blue-800 dark:text-blue-300">
+                                {cartItem.quantity}
+                            </span>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    updateQuantity(cartItem.productId, cartItem.quantity + 1);
+                                }}
+                                className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 shadow-sm transition-colors"
+                            >
+                                <Plus size={14} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAdd(product);
+                            }}
+                            className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 h-9 rounded-xl transition-colors active:scale-95"
+                        >
+                            <ShoppingCart size={13} />
+                            <span>{getProductUI('addToCart', language)}</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Stock status */}

@@ -14,7 +14,23 @@
     --surface-page: #f5f6fa;
     --surface-card: #ffffff;
     --surface-hover:#fef7f6;
+    
+    --background: #f5f6fa;
+    --foreground: #0f172a;
   }
+  
+  .dark {
+    --brand-navy:   #1e293b;
+    --brand-dark:   #0f172a;
+    --brand-deeper: #020617;
+    --surface-page: #0f172a;
+    --surface-card: #1e293b;
+    --surface-hover:#334155;
+    
+    --background: #0f172a;
+    --foreground: #f8fafc;
+  }
+  
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
@@ -25,7 +41,8 @@
 body {
   margin: 0;
   padding: 0;
-  background: var(--surface-page);
+  background: var(--background);
+  color: var(--foreground);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 

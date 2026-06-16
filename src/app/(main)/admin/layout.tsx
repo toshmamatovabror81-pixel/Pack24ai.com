@@ -115,12 +115,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <div className="min-h-screen bg-[#f3f4f6] flex font-sans text-slate-900">
+        <div className="min-h-screen bg-[#f3f4f6] dark:bg-slate-900 flex font-sans text-slate-900 dark:text-slate-100 transition-colors">
             {/* Fixed Sidebar */}
             <AdminSidebar onLogout={handleLogout} />
 
             {/* Main Content Area (Offset by Sidebar width) */}
-            <div className="flex-1 flex flex-col min-w-0 ml-[260px] bg-[#f8fafc]">
+            <div className="flex-1 flex flex-col min-w-0 ml-[260px] bg-[#f8fafc] dark:bg-slate-950 transition-colors">
                 {/* Clean Header */}
                 <AdminHeader newOrdersCount={newOrdersCount} />
 
