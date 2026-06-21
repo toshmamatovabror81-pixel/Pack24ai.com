@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStaff, createStaff, getStaffStats } from '@/lib/domain/staffService';
 import type { StaffDepartment } from '@/lib/domain/staffService';
+import { USER_ROLES } from '@/lib/domain/userRoles';
+import { readOptionalEnum, RequestValidationError } from '@/lib/requestValidation';
 
 /** GET /api/admin/staff — Xodimlar ro'yxati */
 export async function GET(req: NextRequest) {
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
             name: body.name.trim(),
             phone: body.phone.trim(),
             email: body.email?.trim() || undefined,
-            role: body.role || 'staff',
+            role: readOptionalEnum(body.role, 'role', USER_ROLES) || 'staff',
             department: body.department || undefined,
             position: body.position?.trim() || undefined,
             password: body.password || Math.random().toString(36).slice(2, 10),
@@ -53,6 +55,9 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(staff, { status: 201 });
     } catch (err: unknown) {
+        if (err instanceof RequestValidationError) {
+            return NextResponse.json({ error: err.message }, { status: err.status });
+        }
         const msg = err instanceof Error ? err.message : '';
         if (msg.includes('Unique constraint')) {
             return NextResponse.json({ error: 'Bu telefon raqam allaqachon mavjud' }, { status: 409 });

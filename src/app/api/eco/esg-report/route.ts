@@ -4,8 +4,22 @@
  * HTML format (PDF uchun brauzerdan chop etiladi)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from '@/lib/prisma';
-import { RecycleRequestStatus } from '@prisma/client';
+import { rateLimit, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
+
+const esgReportLimiter = rateLimit({ windowMs: 60_000, max: 5 });
+
+// ─── HTML Escape Helper ─────────────────────────────────────
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 const MONTH_NAMES_UZ = [
     'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
@@ -14,10 +28,27 @@ const MONTH_NAMES_UZ = [
 
 export async function GET(req: NextRequest) {
     try {
+        // Authentication
+        const session = await getServerSession(authOptions);
+        const sessionUserId = Number(session?.user?.id);
+        if (!Number.isFinite(sessionUserId)) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Rate limiting
+        const ip = getClientIp(req);
+        const rl = esgReportLimiter.check(`esg-report:${ip}`);
+        if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
+
         const userId = parseInt(req.nextUrl.searchParams.get('userId') || '0');
         const year = parseInt(req.nextUrl.searchParams.get('year') || String(new Date().getFullYear()));
 
         if (!userId) return NextResponse.json({ error: 'userId talab qilinadi' }, { status: 400 });
+
+        // User can only generate their own report
+        if (userId !== sessionUserId) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
 
         const user = await prisma.user.findUnique({
             where: { id: userId },
@@ -35,7 +66,7 @@ export async function GET(req: NextRequest) {
         const requests = await prisma.recycleRequest.findMany({
             where: {
                 userId,
-                status: { in: [RecycleRequestStatus.collected, RecycleRequestStatus.completed, RecycleRequestStatus.confirmed] },
+                status: { in: ['collected', 'completed', 'confirmed'] as any },
                 completedAt: { gte: startDate, lt: endDate },
             },
             select: { material: true, volume: true, completedAt: true },
@@ -61,6 +92,10 @@ export async function GET(req: NextRequest) {
         const totalTrees = Math.floor(totalCO2 / 60);
         const totalWater = Math.round(totalKg * 50);
         const reportDate = new Date().toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Sanitize user-provided strings for safe HTML insertion
+        const safeName = escapeHtml(user.name || '');
+        const safeCompanyName = user.companyName ? escapeHtml(user.companyName) : '';
 
         // HTML hisobot (premium dizayn)
         const html = `<!DOCTYPE html>
@@ -149,7 +184,7 @@ export async function GET(req: NextRequest) {
     <div class="company-info">
       <div class="info-item">
         <label>Tashkilot / Foydalanuvchi</label>
-        <span>${user.companyName || user.name}</span>
+        <span>${safeCompanyName || safeName}</span>
       </div>
       <div class="info-item">
         <label>Hisobot sanasi</label>
@@ -231,7 +266,7 @@ export async function GET(req: NextRequest) {
       <div class="cert-seal">🌍</div>
       <div class="cert-title">Ekologik Javobgarlik Sertifikati</div>
       <div class="cert-sub">Ushbu sertifikat quyidagi tashkilotga beriladi:</div>
-      <div class="cert-company">${user.companyName || user.name}</div>
+      <div class="cert-company">${safeCompanyName || safeName}</div>
       <div class="cert-year">${year}-yilda atrof-muhitni muhofaza qilishdagi faol ishtiroki uchun</div>
       <div class="cert-stats">
         <div class="cert-stat">

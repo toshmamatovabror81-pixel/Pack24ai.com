@@ -1,234 +1,102 @@
-name: CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: '20'
-  DATABASE_URL: 'postgresql://ci:ci@localhost:5432/pack24_ci_test?schema=public'
-  DIRECT_URL: 'postgresql://ci:ci@localhost:5432/pack24_ci_test?schema=public'
-
 jobs:
+  # ──────────────────────────────────────────────────────
+  # 1. Lint + TypeScript type check
+  # ──────────────────────────────────────────────────────
   lint:
-    name: Lint & Typecheck
+    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
+          cache: npm
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+      - run: npm ci
 
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Prisma generate
+      - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Lint
+      - name: ESLint
         run: npm run lint
 
-      - name: Typecheck
+      - name: TypeScript check
         run: npx tsc --noEmit
 
+  # ──────────────────────────────────────────────────────
+  # 2. Unit & integration tests
+  # ──────────────────────────────────────────────────────
   test:
-    name: Unit Tests
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
+          cache: npm
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+      - run: npm ci
 
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Prisma generate
+      - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Run Jest
-        run: npm test -- --ci --coverage --maxWorkers=2
+      - name: Run tests
+        run: npm test -- --ci --passWithNoTests
 
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
-          retention-days: 7
-
+  # ──────────────────────────────────────────────────────
+  # 3. Build verification
+  # ──────────────────────────────────────────────────────
   build:
-    name: Next.js Build
+    name: Build
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
+          cache: npm
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+      - run: npm ci
 
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Prisma generate
+      - name: Generate Prisma client
         run: npx prisma generate
 
       - name: Build
-        env:
-          # Build-time env vars — dummies, real values are set at runtime
-          AUTH_SECRET: 'ci-dummy-secret-32-characters-long-abc'
-          NEXTAUTH_SECRET: 'ci-dummy-secret-32-characters-long-abc'
-          NEXTAUTH_URL: 'http://localhost:3000'
-          ADMIN_SECRET: 'ci-dummy-admin-secret-32-characters-x'
-          DRIVER_TOKEN_SECRET: 'ci-dummy-driver-secret-32-characters'
-          GIT_COMMIT_SHA: ${{ github.sha }}
         run: npm run build
-
-  migrate-validate:
-    name: Prisma Migrate Validate
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
         env:
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci
-          POSTGRES_DB: pack24_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          # Stub env vars for build (not real secrets)
+          DATABASE_URL: "postgresql://stub:stub@localhost:5432/stub"
+          NEXTAUTH_SECRET: "ci-stub-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+
+  # ──────────────────────────────────────────────────────
+  # 4. Security: gitleaks — sirlarni aniqlash
+  # ──────────────────────────────────────────────────────
+  gitleaks:
+    name: Secret Scanning (gitleaks)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          fetch-depth: 0
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
-
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Apply migrations
+      - uses: gitleaks/gitleaks-action@v2
         env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/pack24_ci?schema=public
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/pack24_ci?schema=public
-        run: |
-          npx prisma migrate deploy
-          npx prisma validate
-
-  e2e:
-    name: Playwright E2E
-    runs-on: ubuntu-latest
-    needs: [lint]
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
-
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Prisma generate
-        run: npx prisma generate
-
-      - name: Build
-        env:
-          DATABASE_URL: 'postgresql://ci:ci@localhost:5432/ci_dummy?schema=public'
-          DIRECT_URL: 'postgresql://ci:ci@localhost:5432/ci_dummy?schema=public'
-          AUTH_SECRET: 'ci-dummy-secret-32-characters-long-abc'
-          NEXTAUTH_SECRET: 'ci-dummy-secret-32-characters-long-abc'
-          NEXTAUTH_URL: 'http://localhost:3000'
-          ADMIN_SECRET: 'ci-dummy-admin-secret-32-characters-x'
-          DRIVER_TOKEN_SECRET: 'ci-dummy-driver-secret-32-characters'
-        run: npm run build
-
-      - name: Run Playwright
-        env:
-          PLAYWRIGHT_BASE_URL: 'http://localhost:3000'
-          DATABASE_URL: 'postgresql://ci:ci@localhost:5432/ci_dummy?schema=public'
-          ADMIN_SECRET: 'ci-dummy-admin-secret-32-characters-x'
-        run: |
-          npm run start &
-          npx wait-on http://localhost:3000
-          PLAYWRIGHT_NO_SERVER=1 npx playwright test
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

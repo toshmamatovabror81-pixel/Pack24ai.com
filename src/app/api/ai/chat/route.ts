@@ -7,7 +7,11 @@
  */
 import { NextResponse } from 'next/server';
 import { KNOWLEDGE_BASE, FALLBACK_RESPONSES } from '@/lib/ai-knowledge';
-import { rateLimit } from '@/lib/rateLimit';
+
+// ─── HTML Strip Helper ───────────────────────────────────────
+function stripHtml(str: string): string {
+    return str.replace(/<[^>]*>/g, '').trim();
+}
 
 // ─── Types ────────────────────────────────────────────────────
 interface ChatMessage {
@@ -17,7 +21,6 @@ interface ChatMessage {
 
 interface ChatRequest {
     message: string;
-    inlineData?: { data: string; mimeType: string };
     language?: string;
     history?: ChatMessage[];
     context?: {
@@ -31,9 +34,70 @@ interface ChatRequest {
     };
 }
 
-// Rate limit konfiguratsiyasi shared `rateLimit` helper'iga ko'chirildi (P1.4)
-const AI_RATE_LIMIT = 30;          // IP bo'yicha max so'rov
-const AI_RATE_WINDOW_MS = 60_000;  // per minute
+// ─── Rate Limiting (in-memory, per IP + per user) ────────────
+interface RateLimitEntry {
+    count: number;
+    resetAt: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_IP = 30;         // IP uchun max so'rovlar
+const RATE_LIMIT_USER = 50;       // Autentifikatsiya qilingan foydalanuvchi uchun
+const RATE_WINDOW = 60_000;       // per minute
+
+/**
+ * IP manzilni aniqlash — proxy, load balancer, CDN ortida ham to'g'ri ishlaydi
+ */
+function extractClientIP(req: Request): string {
+    // Cloudflare
+    const cfIP = req.headers.get('cf-connecting-ip');
+    if (cfIP) return cfIP.trim();
+
+    // Standard proxy headers
+    const forwarded = req.headers.get('x-forwarded-for');
+    if (forwarded) {
+        // Birinchi IP — haqiqiy client IP
+        const firstIP = forwarded.split(',')[0]?.trim();
+        if (firstIP) return firstIP;
+    }
+
+    const realIP = req.headers.get('x-real-ip');
+    if (realIP) return realIP.trim();
+
+    // Vercel
+    const vercelIP = req.headers.get('x-vercel-forwarded-for');
+    if (vercelIP) return vercelIP.split(',')[0]?.trim() || 'unknown';
+
+    return 'unknown';
+}
+
+function checkRateLimit(identifier: string, limit: number = RATE_LIMIT_IP): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(identifier);
+
+    if (!entry || now > entry.resetAt) {
+        rateLimitMap.set(identifier, { count: 1, resetAt: now + RATE_WINDOW });
+        return true;
+    }
+
+    if (entry.count >= limit) return false;
+    entry.count++;
+    return true;
+}
+
+/**
+ * Eskirgan yozuvlarni tozalash — memory leak oldini olish
+ * Har 5 daqiqada bir marta
+ */
+if (typeof globalThis !== 'undefined') {
+    const cleanup = () => {
+        const now = Date.now();
+        for (const [key, val] of rateLimitMap) {
+            if (now > val.resetAt) rateLimitMap.delete(key);
+        }
+    };
+    setInterval(cleanup, 300_000);
+}
 
 // ─── Analytics Tracker (shared module) ───────────────────────
 import { trackAnalytics } from '@/lib/ai-analytics';
@@ -70,23 +134,22 @@ function buildSystemPrompt(lang: string, ctx?: ChatRequest['context']): string {
         }
     }
 
-    return `Siz Pack24 kompaniyasining professional, xushmuomala va tajribali B2B savdo menejerisiz (AI yordamchi).
+    return `Sen Pack24 AI maslahatchisisan — O'zbekistondagi yetakchi qadoqlash (packaging) kompaniyasining aqlli yordamchisi.
 
-## ASOSIY QOIDALAR (CRITICAL):
-1. Foydalanuvchi bilan FAQAT ${langLabel} tilida gaplashishingiz shart.
-2. Mijozga yordam berish, savollariga aniq va professional javob berish sizning vazifangiz.
-3. MUHIM: Yozuvda HECH QACHON yulduzcha (*) belgisini ishlatmang (na ro'yxat uchun, na qalin yozish uchun, na matematika uchun). Matematik ko'paytirish uchun faqatgina nuqta (.) ishlating (masalan: 100 . 200). Ro'yxatlar uchun faqat tire (-) yoki raqam ishlating.
-4. Javoblaringiz konkret bo'lsin. Juda uzun doston yozmang.
-5. Mijozga buyurtma berish majburiyatini qo'ymang. Faqat u xohlasagina yordam bering.
-6. Agar kontekstda narx mavjud bo'lsa (totalPrice yoki unitPrice), doimo o'sha narxni ishlating.
-7. O'zingizdan Pack24 da yo'q xizmatlarni yoki narxlarni to'qimang. Agar aniq ma'lumot bo'lmasa: "Bu bo'yicha aniq ma'lumotni menejerlarimizdan bilib olishingiz mumkin" deb javob bering.
-8. Boshqa kompaniyalar (raqobatchilar) haqida yomon gapirmang.
+## ROL VA XULQ-ATVOR
+- Sen do'stona, professional va qisqa javob beruvchi AI maslahatchisan
+- Foydalanuvchi bilan FAQAT ${langLabel} tilida gaplash
+- Har doim qisqa va aniq javob ber (3-5 jumla). Ortiqcha ma'lumot berma
+- Emoji ishlatish mumkin, lekin haddan tashqari ko'p emas (1-2 ta)
+- Agar savol Pack24 ga tegishli bo'lmasa, muloyimlik bilan qadoqlash mavzusiga qaytargina
+- Agar narx so'ralsa va kontekstda narx mavjud bo'lsa, aynan o'sha narxni ayt
+- Agar savol noaniq bo'lsa, aniqlashtiruvchi savol ber
 
 ## PACK24 HAQIDA MA'LUMOTLAR
 - Pack24 — O'zbekistondagi yetakchi qadoqlash kompaniyasi
 - Manzil: Toshkent sh., Chilonzor tumani
-- Telefon: +998 88 055 78 88
-- Telegram: [@pack24ai](https://t.me/pack24ai) (Telegram manzilini berayotganda faqtgina [@pack24ai](https://t.me/pack24ai) shaklida yozing, bu mijozga link bo'lib ko'rinadi)
+- Telefon: +998 90 123-45-67
+- Telegram: @pack24uz
 - Sayt: pack24.uz
 - Minimal buyurtma yo'q (Zero MOQ) — 72 donadan boshlash mumkin
 - Materiallar: 3 qavatli va 5 qavatli gofrokarton (Kraft va Sellyuloza)
@@ -97,48 +160,31 @@ function buildSystemPrompt(lang: string, ctx?: ChatRequest['context']): string {
 - AI dizayn xizmati mavjud — 3D modellashtirish va dizayn yaratish
 - GLOBAL G.A.P standartlariga muvofiq ekologik qadoqlash
 
-## NARX HISOBLASH FORMULASI (KALKULYATOR)
-Agar mijoz qutining o'lchamlarini (Uzunlik x Kenglik x Balandlik) aytib narxini so'rasa va u hozirgi kontekstda bo'lmasa, quyidagi formula bo'yicha hisoblab bering:
-1. Material narxlari:
-   - 3 qavatli karton (E-Flute, B-Flute): 7000 so'm / 1 m²
-   - 5 qavatli karton (EB-Flute): 11000 so'm / 1 m²
-2. Kvadrat metrni hisoblash (FEFCO 0201 standart quti):
-   Uzunlik (L), Kenglik (W), Balandlik (H) (millimetrda).
-   - List Uzunligi = (L . 2) + (W . 2) + 35
-   - List Balandligi = H + W
-   - Yuzasi (m²) = (List Uzunligi / 1000) . (List Balandligi / 1000)
-3. 1 dona quti narxi = Yuzasi (m²) . Material Narxi.
-Hisobni aniq ko'rsatib, 1 dona va 100 dona quti narxini aytib bering. Mantiqan xato qilmang, matematikani to'g'ri ishlating!
+## BILIM BAZASI JAVOBLARI
+${knowledgeSections}${contextBlock}
 
-## RASM VA CHIZMALARNI TAHLIL QILISH (VISION)
-Agar mijoz sizga rasm yuborsa (quti chizmasi, blueprint yoki shunga o'xshash), uni diqqat bilan o'rganib chiqing:
-1. Rasmda qanday o'lchamlar ko'rsatilganini (Uzunlik, Kenglik, Balandlik) aniqlang.
-2. Agar hamma o'lchamlar mavjud bo'lsa, mijozdan material turini (masalan: 3 qavatli yoki 5 qavatli) so'rang, keyin narx hisoblab bering.
-3. Agar o'lchamlar to'liq bo'lmasa, mijozga aynan qaysi o'lcham yetishmayotganini ayting.
-4. Har doim rasmga mos tarzda qisqa va aniq javob bering.
+## BUYURTMA OQIMI (Order Flow)
+Agar foydalanuvchi buyurtma bermoqchi bo'lsa, quyidagi tartibda savol ber:
+1. Avval qanday mahsulot kerakligini aniqlash — Agar kontekstda modelName bo'lsa, tasdiqlash: "Sizga [modelName] kerak ekan, to'g'rimi?"
+2. Pechat turini so'rash: "Ofset (premium, aniq rasmlar) yoki Flekso (arzon, tezkor) bosma kerakmi?"
+3. Yetkazib berish kerakligini so'rash: "Yetkazib berish xizmati kerakmi yoki olib ketasizmi?"
+4. Agar yetkazish kerak bo'lsa — manzilni so'rash: "Manzilingizni yozib yuboring (Tuman, ko'cha, mo'ljal)"
+5. Telefon raqamini so'rash: "Telefon raqamingizni qoldiring"
+6. To'lov usulini so'rash: "Naqd, Pul o'tkazish yoki Click/Payme?"
+7. Muddatni so'rash: "Buyurtma qachonga tayyor bo'lishi kerak?"
+8. Yakuniy hisobot chiqarish — barcha ma'lumotlarni yig'ib, chiroyli xulosa yoz
 
-## TASHQI 3D AI Dvigatel (GENERATIVE 3D)
-Mijoz quti (pitsa qutisi, pochta qutisi va hk) so'rasa, endi bizning ichki bazamizdan foydalanmaysiz!
-Sizning vazifangiz tashqi 3D AI tarmog'iga (Meshy/Tripo3D kabi) murojaat qilib, qutining 3D modelini yasatishdir.
-Buning uchun javobingizda doimo quyidagi maxsus kodni qoldiring:
-'[GENERATE_3D: "Detailed description of the box in english for 3D AI generation"]'
+MUHIM: Har bir qadamda FAQAT bitta savol ber. Barcha savollarni bir vaqtda BERMA.
+Agar foydalanuvchi bir nechta ma'lumotni birdaniga bersa, qabul qilib keyingi savolga o't.
 
-Misollar:
-Mijoz: "Menga oq fonli pitsa qutisi kerak"
-Sizning javobingizda qatnashishi kerak: '[GENERATE_3D: "A clean white cardboard pizza box with closed lid"]'
-
-Mijoz: "Sovg'a uchun yurak shaklidagi qizil quti"
-Sizning javobingizda qatnashishi kerak: '[GENERATE_3D: "A beautiful red heart-shaped gift box"]'
-
-Bu teglarni doimo matningiz oxiriga probel tashlab qo'ying. Hech qachon mijozga [GENERATE_3D:...] kodini tushuntirmang, bu tizim uchun yashirin buyruq.
-
-## FAQ (BILIM BAZASI JAVOBLARI)
-Quyidagi ma'lumotlardan foydalanib mijoz savollariga javob bering:
-${knowledgeSections}
-${contextBlock}
-
-## MULOQOT USLUBI
-Mijozga doim yordam berishga tayyor, erkin, lekin rasmiy menejer kabi muloqot qiling. Tabiiy ko'ring. Bitta savolga bir nechta variantlar taklif qilishingiz mumkin. Emoji ishlating (lekin me'yorida, har gapga emas).`;
+## MUHIM QOIDALAR
+1. FAQAT ${langLabel} tilida javob ber
+2. Markdown formatini ISHLATMA — oddiy matn yoz
+3. Narx so'ralganda va kontekstda totalPrice/unitPrice bo'lsa, o'sha raqamlarni ber
+4. Raqobatchilar haqida salbiy gapirma
+5. Bilmagan narsani to'qima — "Bu haqda menejerimiz batafsil ma'lumot beradi" de
+6. Javob 300 so'zdan oshmasin
+7. Buyurtma oqimida har safar foydalanuvchining oldingi javoblarini eslash va takrorlamaslik`;
 }
 
 // ─── Legacy Keyword Matcher (fallback) ───────────────────────
@@ -207,8 +253,7 @@ async function geminiResponse(
     message: string,
     language: string,
     history: ChatMessage[],
-    context?: ChatRequest['context'],
-    inlineData?: { data: string; mimeType: string }
+    context?: ChatRequest['context']
 ): Promise<string> {
     const { GoogleGenAI } = await import('@google/genai');
 
@@ -222,10 +267,6 @@ async function geminiResponse(
     // Add history (last 10 messages max for token efficiency)
     const recentHistory = history.slice(-10);
     for (const msg of recentHistory) {
-        // If the historical message contains an image, we should theoretically pass it if supported.
-        // For simplicity, we just pass the text of history here to avoid bloating tokens too much,
-        // unless you specifically store inlineData in history. 
-        // We'll pass the current message's inlineData below.
         contents.push({
             role: msg.role === 'user' ? 'user' : 'model',
             parts: [{ text: msg.text }],
@@ -233,17 +274,9 @@ async function geminiResponse(
     }
 
     // Add current message
-    const currentParts: any[] = [];
-    if (message) currentParts.push({ text: message });
-    if (inlineData) {
-        currentParts.push({ inlineData });
-    }
-    
-    if (currentParts.length === 0) currentParts.push({ text: "Hello" }); // Fallback
-
     contents.push({
         role: 'user',
-        parts: currentParts,
+        parts: [{ text: message }],
     });
 
     const response = await ai.models.generateContent({
@@ -251,8 +284,8 @@ async function geminiResponse(
         contents,
         config: {
             systemInstruction: systemPrompt,
-            maxOutputTokens: 1500,
-            temperature: 0.3,
+            maxOutputTokens: 500,
+            temperature: 0.7,
             topP: 0.9,
             topK: 40,
         },
@@ -267,24 +300,36 @@ async function geminiResponse(
 // ─── POST Handler ────────────────────────────────────────────
 export async function POST(req: Request) {
     try {
-        const rl = await rateLimit(req, {
-            bucket: 'ai-chat',
-            limit: AI_RATE_LIMIT,
-            windowMs: AI_RATE_WINDOW_MS,
-        });
-        if (!rl.ok) return rl.response;
+        // Rate limiting — IP + user token
+        const ip = extractClientIP(req);
+
+        if (!checkRateLimit(`ip:${ip}`, RATE_LIMIT_IP)) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please try again later.' },
+                { status: 429 }
+            );
+        }
 
         const body: ChatRequest = await req.json();
-        const { message, inlineData, language = 'uz', context, history = [] } = body;
+        const { message, language = 'uz', context, history = [] } = body;
         const startTime = Date.now();
 
         // Input validation
-        if (!message?.trim() && !inlineData) {
-            return NextResponse.json({ error: 'Message or image is required' }, { status: 400 });
+        if (!message?.trim()) {
+            return NextResponse.json({ error: 'Message is required' }, { status: 400 });
         }
 
         // Sanitize & limit message length
         const sanitizedMessage = message.trim().slice(0, 500);
+
+        // Sanitize context fields — strip HTML from user-provided strings
+        if (context) {
+            if (context.modelName) context.modelName = stripHtml(context.modelName).slice(0, 200);
+            if (context.material) context.material = stripHtml(context.material).slice(0, 200);
+        }
+
+        // Cap history to max 10 entries server-side (don't trust client)
+        const safeHistory = Array.isArray(history) ? history.slice(-10) : [];
 
         let responseText: string;
         let engine: 'gemini' | 'legacy' = 'legacy';
@@ -293,7 +338,7 @@ export async function POST(req: Request) {
         const geminiKey = process.env.GEMINI_API_KEY?.trim();
         if (geminiKey && geminiKey.length > 10) {
             try {
-                responseText = await geminiResponse(sanitizedMessage, language, history, context, inlineData);
+                responseText = await geminiResponse(sanitizedMessage, language, safeHistory, context);
                 engine = 'gemini';
             } catch (err) {
                 console.warn('[AI Chat] Gemini failed, using legacy fallback:', err);

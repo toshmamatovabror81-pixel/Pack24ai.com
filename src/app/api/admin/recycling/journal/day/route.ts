@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyAdminAuth } from '@/lib/adminAuth';
 
 function dayRange(dateParam?: string | null) {
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
@@ -18,6 +19,9 @@ function dayRange(dateParam?: string | null) {
 }
 
 export async function GET(req: NextRequest) {
+    const authError = await verifyAdminAuth(req);
+    if (authError) return authError;
+
     try {
         const { searchParams } = new URL(req.url);
         const date = searchParams.get('date');

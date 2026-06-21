@@ -3,11 +3,20 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
+
+const leaderboardLimiter = rateLimit({ windowMs: 60_000, max: 30 });
 
 export async function GET(req: NextRequest) {
     try {
+        // Rate limiting
+        const ip = getClientIp(req);
+        const rl = leaderboardLimiter.check(`eco-leaderboard:${ip}`);
+        if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
+
         const period = req.nextUrl.searchParams.get('period') || 'month';
-        const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '50'), 100);
+        const rawLimit = parseInt(req.nextUrl.searchParams.get('limit') || '50');
+        const limit = Math.max(1, Math.min(isNaN(rawLimit) ? 50 : rawLimit, 100));
         const currentUserId = parseInt(req.nextUrl.searchParams.get('userId') || '0');
 
         const users = await prisma.user.findMany({
@@ -60,7 +69,11 @@ export async function GET(req: NextRequest) {
 
         const total = await prisma.user.count({ where: { totalRecycledWeight: { gt: 0 } } });
 
-        return NextResponse.json({ leaderboard, period, currentUserRank, total });
+        return NextResponse.json({ leaderboard, period, currentUserRank, total }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+            },
+        });
     } catch (error) {
         console.error('[leaderboard]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });

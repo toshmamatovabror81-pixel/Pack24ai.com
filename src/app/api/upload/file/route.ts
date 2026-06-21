@@ -4,42 +4,56 @@ export const runtime = 'nodejs';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { uploadBufferToSupabase } from '@/lib/supabase-storage';
-import { requireAdminOrUser } from '@/lib/auth/guards';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { ADMIN_AUTH_COOKIE, ADMIN_AUTH_HEADER, validateAdminToken } from '@/lib/adminAuthShared';
 
-// P0.4 audit: SVG va boshqa xavfli MIME tiplarni rad etish
-const ALLOWED_IMAGE_MIMES = new Set([
+async function isAuthorized(request: NextRequest): Promise<boolean> {
+    // 1) NextAuth session (foydalanuvchi yoki admin)
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) return true;
+
+    // 2) Admin HMAC token (cookie yoki header)
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (adminSecret) {
+        const cookie = request.cookies.get(ADMIN_AUTH_COOKIE)?.value;
+        if (cookie) {
+            const v = await validateAdminToken(cookie, adminSecret);
+            if (v.valid) return true;
+        }
+        const header = request.headers.get(ADMIN_AUTH_HEADER);
+        if (header) {
+            const v = await validateAdminToken(header, adminSecret);
+            if (v.valid) return true;
+        }
+    }
+
+    return false;
+}
+
+/** Allowed MIME types for file upload */
+const ALLOWED_MIME_TYPES = new Set([
     'image/jpeg',
     'image/jpg',
     'image/png',
     'image/webp',
     'image/gif',
     'image/avif',
-]);
-
-const ALLOWED_VIDEO_MIMES = new Set([
     'video/mp4',
     'video/webm',
     'video/quicktime',
-]);
-
-const ALLOWED_EXTENSIONS = new Set([
-    '.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif',
-    '.mp4', '.webm', '.mov',
+    'application/pdf',
 ]);
 
 /**
  * POST /api/upload/file
  * multipart/form-data: field "file"
  * Qaytaradi: { success: true, url: "https://..." }
- *
- * Xavfsizlik:
- *  - MIME allowlist: faqat oddiy rasm va video
- *  - SVG va shunga o'xshash skript ishga tushiruvchi tiplar rad etiladi (XSS)
- *  - Extension whitelist
  */
 export async function POST(request: NextRequest) {
-    const auth = await requireAdminOrUser(request);
-    if (!auth.ok) return auth.response;
+    if (!(await isAuthorized(request))) {
+        return NextResponse.json({ error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
+    }
 
     try {
         const data = await request.formData();
@@ -49,21 +63,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Fayl yuklanmadi' }, { status: 400 });
         }
 
-        const mime = (file.type || '').toLowerCase().split(';')[0].trim();
-        const isImage = ALLOWED_IMAGE_MIMES.has(mime);
-        const isVideo = ALLOWED_VIDEO_MIMES.has(mime);
-
-        if (!isImage && !isVideo) {
+        if (!ALLOWED_MIME_TYPES.has(file.type)) {
             return NextResponse.json(
-                {
-                    error: 'Bu fayl turi qo\'llab-quvvatlanmaydi',
-                    detail: `MIME=${mime || 'unknown'}. Ruxsat: JPEG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV. SVG yuklash rad etiladi.`,
-                },
+                { error: `Ruxsat etilmagan fayl turi: ${file.type}` },
                 { status: 415 }
             );
         }
 
-        const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+        const maxSize = file.type.startsWith('video/') ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
         if (file.size > maxSize) {
             return NextResponse.json(
                 { error: `Fayl hajmi oshib ketdi (max ${maxSize / 1024 / 1024} MB)` },
@@ -71,10 +78,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const rawExt = path.extname(file.name || '').toLowerCase();
-        const extension = ALLOWED_EXTENSIONS.has(rawExt)
-            ? rawExt
-            : (isVideo ? '.mp4' : '.jpg');
+        const extension = path.extname(file.name) || (file.type.startsWith('video/') ? '.mp4' : '.jpg');
         const filename = `${uuidv4()}${extension}`;
 
         const bytes = await file.arrayBuffer();

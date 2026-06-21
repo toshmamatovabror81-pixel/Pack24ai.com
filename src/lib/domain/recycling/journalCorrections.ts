@@ -270,3 +270,193 @@ export async function rejectJournalCorrectionRequest(
 
     return req;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Domain helpers extracted from adminBot.journalCorrection.ts
+   ───────────────────────────────────────────────────────────────── */
+
+/**
+ * Fetch journal rows of a given entity type for a supervisor on a specific day.
+ *
+ * Pure data-fetching — no Telegram interaction.
+ */
+export async function fetchCorrectionRows(
+    entityType: CorrectionEntityType,
+    supervisorId: number,
+    day: Date,
+    take = 15,
+) {
+    const from = startOfDay(day);
+    const to = endOfDay(day);
+
+    switch (entityType) {
+        case 'manual_intake':
+            return prisma.recycleManualIntake.findMany({
+                where: { supervisorId, date: { gte: from, lt: to } },
+                orderBy: { id: 'desc' },
+                take,
+            });
+        case 'press_log':
+            return prisma.recyclePressLog.findMany({
+                where: { supervisorId, date: { gte: from, lt: to } },
+                orderBy: { id: 'desc' },
+                take,
+            });
+        case 'expense_log':
+            return prisma.recycleExpenseLog.findMany({
+                where: { supervisorId, date: { gte: from, lt: to } },
+                orderBy: { id: 'desc' },
+                take,
+            });
+        case 'daily_cash':
+            return prisma.recycleDailyCash.findMany({
+                where: { supervisorId, date: { gte: from, lt: to } },
+                orderBy: { id: 'desc' },
+                take,
+            });
+        case 'sales_log':
+            return prisma.recycleSalesLog.findMany({
+                where: { supervisorId, date: { gte: from, lt: to } },
+                orderBy: { id: 'desc' },
+                take,
+            });
+        default:
+            return [];
+    }
+}
+
+/**
+ * Serialize a journal row into a plain key-value object suitable for
+ * correction request payloads (previous / proposed).
+ *
+ * Returns null when the row is not found or doesn't belong to the supervisor.
+ */
+export async function serializeJournalRow(
+    entityType: CorrectionEntityType,
+    entityId: number,
+    supervisorId: number,
+): Promise<Record<string, unknown> | null> {
+    switch (entityType) {
+        case 'manual_intake': {
+            const r = await prisma.recycleManualIntake.findFirst({
+                where: { id: entityId, supervisorId },
+            });
+            if (!r) return null;
+            return {
+                date: r.date.toISOString(),
+                weightKg: r.weightKg,
+                pricePerKg: r.pricePerKg,
+                note: r.note,
+            };
+        }
+        case 'press_log': {
+            const r = await prisma.recyclePressLog.findFirst({
+                where: { id: entityId, supervisorId },
+            });
+            if (!r) return null;
+            return {
+                date: r.date.toISOString(),
+                pressedKg: r.pressedKg,
+                baleCount: r.baleCount,
+                operators: r.operators,
+                note: r.note,
+            };
+        }
+        case 'expense_log': {
+            const r = await prisma.recycleExpenseLog.findFirst({
+                where: { id: entityId, supervisorId },
+            });
+            if (!r) return null;
+            return {
+                date: r.date.toISOString(),
+                expenseAmount: r.expenseAmount,
+                advanceAmount: r.advanceAmount,
+                comment: r.comment,
+            };
+        }
+        case 'daily_cash': {
+            const r = await prisma.recycleDailyCash.findFirst({
+                where: { id: entityId, supervisorId },
+            });
+            if (!r) return null;
+            return {
+                date: r.date.toISOString(),
+                openingBalance: r.openingBalance,
+                note: r.note,
+            };
+        }
+        case 'sales_log': {
+            const r = await prisma.recycleSalesLog.findFirst({
+                where: { id: entityId, supervisorId },
+            });
+            if (!r) return null;
+            return {
+                date: r.date.toISOString(),
+                customerName: r.customerName,
+                weightKg: r.weightKg,
+                baleCount: r.baleCount,
+                pricePerKg: r.pricePerKg,
+                vehicleType: r.vehicleType,
+                plateNumber: r.plateNumber,
+                note: r.note,
+            };
+        }
+        default:
+            return null;
+    }
+}
+
+/**
+ * Sanitize a correction draft by stripping unknown keys and coercing
+ * values to their expected types for the given entity.
+ *
+ * Pure transformation — no side-effects.
+ */
+export function sanitizeCorrectionDraft(
+    entityType: CorrectionEntityType,
+    draft: Record<string, unknown>,
+): Record<string, unknown> {
+    switch (entityType) {
+        case 'manual_intake':
+            return {
+                date: draft.date,
+                weightKg: Number(draft.weightKg),
+                pricePerKg: Number(draft.pricePerKg),
+                note: draft.note ?? null,
+            };
+        case 'press_log':
+            return {
+                date: draft.date,
+                pressedKg: Number(draft.pressedKg),
+                baleCount: Math.round(Number(draft.baleCount)),
+                operators: draft.operators ?? null,
+                note: draft.note ?? null,
+            };
+        case 'expense_log':
+            return {
+                date: draft.date,
+                expenseAmount: Number(draft.expenseAmount) || 0,
+                advanceAmount: Number(draft.advanceAmount) || 0,
+                comment: draft.comment ?? null,
+            };
+        case 'daily_cash':
+            return {
+                date: draft.date,
+                openingBalance: Number(draft.openingBalance),
+                note: draft.note ?? null,
+            };
+        case 'sales_log':
+            return {
+                date: draft.date,
+                customerName: String(draft.customerName),
+                weightKg: Number(draft.weightKg),
+                baleCount: Math.round(Number(draft.baleCount)) || 0,
+                pricePerKg: Number(draft.pricePerKg),
+                vehicleType: draft.vehicleType ?? null,
+                plateNumber: draft.plateNumber ?? null,
+                note: draft.note ?? null,
+            };
+        default:
+            return draft;
+    }
+}

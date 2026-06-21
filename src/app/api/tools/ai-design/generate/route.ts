@@ -8,6 +8,7 @@
  * - Rate limiting (10 req/min)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
 
 const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt';
 
@@ -22,22 +23,8 @@ const STYLE_SUFFIXES: Record<string, string> = {
     modern:      'modern sleek packaging, geometric shapes, sans-serif, monochromatic palette',
 };
 
-// Rate limiting
-const designRateMap = new Map<string, { count: number; resetAt: number }>();
-const DESIGN_RATE_LIMIT = 10;
-const DESIGN_RATE_WINDOW = 60_000;
-
-function checkDesignRateLimit(ip: string): boolean {
-    const now = Date.now();
-    const entry = designRateMap.get(ip);
-    if (!entry || now > entry.resetAt) {
-        designRateMap.set(ip, { count: 1, resetAt: now + DESIGN_RATE_WINDOW });
-        return true;
-    }
-    if (entry.count >= DESIGN_RATE_LIMIT) return false;
-    entry.count++;
-    return true;
-}
+// Rate limiting (shared library)
+const designLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 
 function buildPrompt(userPrompt: string, styleId: string): string {
     const styleSuffix = STYLE_SUFFIXES[styleId] ?? STYLE_SUFFIXES.minimalist;
@@ -47,16 +34,9 @@ function buildPrompt(userPrompt: string, styleId: string): string {
 export async function POST(req: NextRequest) {
     try {
         // Rate limiting
-        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-            || req.headers.get('x-real-ip')
-            || 'unknown';
-
-        if (!checkDesignRateLimit(ip)) {
-            return NextResponse.json(
-                { error: "Juda ko'p so'rov. 1 daqiqa kuting." },
-                { status: 429 }
-            );
-        }
+        const ip = getClientIp(req);
+        const rl = designLimiter.check(`ai-design:${ip}`);
+        if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
 
         const { prompt, style, count = 4, width = 768, height = 768 } = await req.json();
 

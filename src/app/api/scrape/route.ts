@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { verifyAdminAuth } from '@/lib/adminAuth';
-import { roundUZS, toNumber } from '@/lib/money';
+import { aiLimiter, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
     const authError = await verifyAdminAuth(request);
     if (authError) return authError;
 
+    // Rate limiting: 10 so'rov/daqiqa
+    const ip = getClientIp(request);
+    const rl = aiLimiter.check(`scrape:${ip}`);
+    if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
     try {
         const { url } = await request.json();
 
@@ -21,7 +25,7 @@ export async function POST(request: NextRequest) {
         // Extract Data
         const name = $('h1').first().text().trim();
         const priceText = $('.price_value').first().text().replace(/\D/g, ''); // Extract numbers
-        const price = toNumber(roundUZS(priceText ? parseInt(priceText, 10) : 0));
+        const price = priceText ? parseInt(priceText) : 0;
 
         // Extract Breadcrumbs for Category Sync
         const breadcrumbs: string[] = [];
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        const mainImage = images[0] || '/images/no-image.svg';
+        const mainImage = images[0] || 'https://placehold.co/400x400?text=No+Image';
 
         // Deep Extract Specifications
         const specifications: Record<string, string> = {};
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
             name: 'Imported Product (Fallback)',
             price: 100,
             description: 'Could not scrape live site. Check console.',
-            image: '/images/no-image.svg',
+            image: 'https://placehold.co/400x400?text=Error',
             specifications: {}
         });
     }

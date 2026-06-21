@@ -4,8 +4,12 @@ import {
     buildMonthlyJournalView,
     monthRange,
 } from '@/lib/domain/recycling/journal';
+import { verifyAdminAuth } from '@/lib/adminAuth';
 
 export async function GET(req: NextRequest) {
+    const authError = await verifyAdminAuth(req);
+    if (authError) return authError;
+
     try {
         const { searchParams } = new URL(req.url);
         const month = searchParams.get('month');

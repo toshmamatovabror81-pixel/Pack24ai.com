@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { DriverStatus } from '@prisma/client';
+import { readOptionalEnum, RequestValidationError } from '@/lib/requestValidation';
 
 // PUT /api/admin/recycling/drivers/[id]
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(body.supervisorId !== undefined && { supervisorId: body.supervisorId ? Number(body.supervisorId) : null }),
                 ...(body.pointId !== undefined && { pointId: body.pointId ? Number(body.pointId) : null }),
                 ...(body.vehicleInfo !== undefined && { vehicleInfo: body.vehicleInfo || null }),
-                ...(body.status && { status: body.status }),
+                ...(body.status && { status: readOptionalEnum(body.status, 'status', Object.values(DriverStatus)) }),
                 ...(body.isOnline !== undefined && { isOnline: body.isOnline }),
             },
             include: { supervisor: true, point: true },
@@ -25,6 +27,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         return NextResponse.json(driver);
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error('[Driver PUT]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

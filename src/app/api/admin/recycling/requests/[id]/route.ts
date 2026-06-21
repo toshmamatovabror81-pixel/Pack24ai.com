@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { RequestValidationError, isPlainObject } from '@/lib/requestValidation';
+import { RequestValidationError, isPlainObject, readOptionalEnum } from '@/lib/requestValidation';
 import { updateRecycleRequest, deleteRecycleRequest } from '@/lib/domain/recycling/requestService';
+import { RECYCLE_REQUEST_STATUSES } from '@/lib/domain/recycleRequestTypes';
 
 function readNullableInteger(value: unknown, fieldName: string): number | null | undefined {
     if (value === undefined) return undefined;
@@ -34,7 +35,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
 
         const data = {
-            status: readNullableString(body.status, 'status'),
+            status: readOptionalEnum(body.status, 'status', RECYCLE_REQUEST_STATUSES) ?? (body.status === null ? null : undefined),
             supervisorId: readNullableInteger(body.supervisorId, 'supervisorId'),
             assignedDriverId: readNullableInteger(body.assignedDriverId, 'assignedDriverId'),
             address: readNullableString(body.address, 'address'),

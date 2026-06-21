@@ -6,6 +6,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createBotEvent } from '@/lib/telegram/botEvents';
 import { verifyMobileToken } from '@/lib/auth/verifyMobileToken';
+import { PICKUP_TYPES, PICKUP_LOCATION_MODES } from '@/lib/domain/recycleRequestTypes';
+import { readOptionalEnum, RequestValidationError } from '@/lib/requestValidation';
 
 // Telegraf inline keyboard tipi
 type IKBtn = { text: string; callback_data: string };
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
         }
 
         // ─── Kuryer uchun manzil majburiy ────────────────────────────────
-        const pickupType = body.pickupType || 'base';
+        const pickupType = readOptionalEnum(body.pickupType, 'pickupType', PICKUP_TYPES) || 'base';
         if (pickupType === 'pickup' && !body.address?.trim()) {
             return NextResponse.json({ error: 'Kuryer uchun manzilni kiriting' }, { status: 400 });
         }
@@ -128,7 +130,7 @@ export async function POST(request: Request) {
                 material:          body.material || null,
                 volume:            body.volume ? Number(body.volume) : null,
                 pickupType,
-                pickupLocationMode: body.pickupLocationMode || null,
+                pickupLocationMode: readOptionalEnum(body.pickupLocationMode, 'pickupLocationMode', PICKUP_LOCATION_MODES) || null,
                 address:           body.address?.trim() || null,
                 pickupLat:         body.pickupLat ? Number(body.pickupLat) : null,
                 pickupLng:         body.pickupLng ? Number(body.pickupLng) : null,
@@ -233,6 +235,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, req, autoDispatched: !!supervisor }, { status: 201 });
     } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error('[Recycling POST]', error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }

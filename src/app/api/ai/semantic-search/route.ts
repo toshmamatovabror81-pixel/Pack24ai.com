@@ -9,6 +9,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { KNOWLEDGE_BASE } from '@/lib/ai-knowledge';
+import { rateLimit, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
+
+// ─── Rate Limiter ────────────────────────────────────────────
+const semanticSearchLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 
 // ─── Types ────────────────────────────────────────────────────
 interface SearchResult {
@@ -83,11 +87,23 @@ function buildDocuments(language: string): Array<{ id: string; title: string; co
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting
+        const ip = getClientIp(req);
+        const rl = semanticSearchLimiter.check(`ai-semantic-search:${ip}`);
+        if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
+
         const { query, language = 'uz', topK = 5 } = await req.json();
 
         if (!query || typeof query !== 'string' || query.trim().length < 2) {
             return NextResponse.json({ error: 'Query kerak (min 2 belgi)' }, { status: 400 });
         }
+
+        if (query.trim().length > 500) {
+            return NextResponse.json({ error: 'Query juda uzun (max 500 belgi)' }, { status: 400 });
+        }
+
+        // Validate topK: must be between 1 and 10
+        const validTopK = Math.max(1, Math.min(10, Number(topK) || 5));
 
         const sanitizedQuery = query.trim().slice(0, 200);
 
@@ -118,7 +134,7 @@ export async function POST(req: NextRequest) {
 
         // Sort by similarity score, return top K
         scoredResults.sort((a, b) => b.score - a.score);
-        const topResults = scoredResults.slice(0, Math.min(topK, 10));
+        const topResults = scoredResults.slice(0, validTopK);
 
         return NextResponse.json({
             query: sanitizedQuery,

@@ -17,7 +17,16 @@ jest.mock('@/lib/prisma', () => ({
     },
 }));
 
+jest.mock('@/lib/rateLimit', () => ({
+    rateLimit: () => ({ check: () => ({ allowed: true }) }),
+    getClientIp: () => '127.0.0.1',
+    getRateLimitResponse: () => new Response('Too Many Requests', { status: 429 }),
+}));
+
 import { GET } from '@/app/api/eco/stats/route';
+import { NextRequest } from 'next/server';
+
+const mockReq = new NextRequest('http://localhost/api/eco/stats');
 
 describe('GET /api/eco/stats', () => {
     beforeEach(() => {
@@ -27,7 +36,7 @@ describe('GET /api/eco/stats', () => {
     it('sessiya bo\'lmasa 401 qaytaradi', async () => {
         getServerSessionMock.mockResolvedValue(null);
 
-        const response = await GET();
+        const response = await GET(mockReq);
 
         expect(response.status).toBe(401);
         await expect(response.json()).resolves.toMatchObject({ error: 'Tizimga kirishingiz kerak', code: 'AUTH_REQUIRED' });
@@ -43,7 +52,7 @@ describe('GET /api/eco/stats', () => {
             recycleRequests: [],
         });
 
-        const response = await GET();
+        const response = await GET(mockReq);
         const payload = await response.json();
 
         expect(findUniqueMock).toHaveBeenCalledWith({
