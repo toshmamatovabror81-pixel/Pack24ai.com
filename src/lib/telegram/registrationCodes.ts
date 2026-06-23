@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 
 export async function generateUniqueTelegramRegistrationCode(): Promise<string> {

@@ -5,7 +5,7 @@
  * `Driver.passwordHash` va `Driver.registrationCode` ga saqlaydi.
  * Audit: kim taqdim etgani, qaysi punkt orqali olingani — `invitedBy*` maydonlari.
  */
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
