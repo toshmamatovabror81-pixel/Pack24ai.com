@@ -5,6 +5,7 @@
  * `Driver.passwordHash` va `Driver.registrationCode` ga saqlaydi.
  * Audit: kim taqdim etgani, qaysi punkt orqali olingani — `invitedBy*` maydonlari.
  */
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { generateUniqueTelegramRegistrationCode } from './registrationCodes';
@@ -16,11 +17,8 @@ const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz234567
  * Inson-o'qiy parol (8 belgi, 0/O/1/l/I qabul qilinmaydi).
  */
 export function generateReadablePassword(length = PASSWORD_LENGTH): string {
-    let out = '';
-    for (let i = 0; i < length; i += 1) {
-        out += PASSWORD_ALPHABET[Math.floor(Math.random() * PASSWORD_ALPHABET.length)];
-    }
-    return out;
+    const bytes = crypto.randomBytes(length);
+    return Array.from(bytes, (b) => PASSWORD_ALPHABET[b % PASSWORD_ALPHABET.length]).join('');
 }
 
 export async function hashPassword(plain: string): Promise<string> {

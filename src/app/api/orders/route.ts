@@ -323,7 +323,26 @@ export async function GET(request: Request) {
         const paramSkip      = parseInt(searchParams.get('skip') ?? '0');
 
         const where: Record<string, unknown> = {};
-        if (telegramUserId) where.telegramUserId = telegramUserId;
+
+        // telegramUserId — faqat admin yoki autentifikatsiya qilingan foydalanuvchi
+        if (telegramUserId) {
+            if (!isAdmin) {
+                // Admin bo'lmasa, faqat o'zining telegramUserId'sini ko'rishi mumkin
+                if (!Number.isFinite(sessionUserId)) {
+                    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+                }
+                // Session user'ning telegramUserId'sini DB'dan tekshirish
+                const sessionUser = await prisma.user.findUnique({
+                    where: { id: sessionUserId },
+                    select: { telegramId: true },
+                });
+                if (!sessionUser?.telegramId || sessionUser.telegramId !== telegramUserId) {
+                    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+                }
+            }
+            where.telegramUserId = telegramUserId;
+        }
+
         if (contactPhone) {
             if (!isAdmin && session?.user?.phone !== contactPhone) {
                 return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

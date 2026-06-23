@@ -86,6 +86,12 @@ export async function verifyMobileToken(authHeader: string | null): Promise<Veri
         return { ok: false, error: 'Token ichida userId yo\'q' };
     }
 
+    // Token muddati tekshiruvi (30 kun)
+    const TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+    if (!payload.ts || !Number.isFinite(payload.ts) || Date.now() - payload.ts > TOKEN_MAX_AGE_MS) {
+        return { ok: false, error: 'Token muddati tugagan' };
+    }
+
     // DB'dan user olish
     const user = await prisma.user.findUnique({
         where: { id: payload.userId },

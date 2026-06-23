@@ -151,9 +151,17 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
 
             if (data.startsWith('assign_driver_')) {
                 const reqId = parseInt(data.replace('assign_driver_', ''), 10);
+                if (Number.isNaN(reqId)) { await ctx.answerCbQuery('❌'); return; }
+
                 const request = await prisma.recycleRequest.findUnique({ where: { id: reqId } });
                 if (!request) {
                     await ctx.answerCbQuery('❌ Ariza topilmadi');
+                    return;
+                }
+
+                // Egalik tekshiruvi: faqat o'z bazasidagi arizaga driver tayinlash
+                if (sup.pointId && request.pointId && request.pointId !== sup.pointId) {
+                    await ctx.answerCbQuery('❌ Bu ariza sizning bazangizga tegishli emas');
                     return;
                 }
 
@@ -246,6 +254,17 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
 
             if (data.startsWith('approve_payment_')) {
                 const collId = parseInt(data.replace('approve_payment_', ''), 10);
+                if (Number.isNaN(collId)) { await ctx.answerCbQuery('❌'); return; }
+
+                // Egalik tekshiruvi: faqat o'z bazasidagi to'lovni tasdiqlash
+                const coll = await prisma.recycleCollection.findUnique({
+                    where: { id: collId },
+                    select: { request: { select: { pointId: true } } },
+                });
+                if (sup.pointId && coll?.request?.pointId && coll.request.pointId !== sup.pointId) {
+                    await ctx.answerCbQuery('❌ Bu to\'lov sizning bazangizga tegishli emas');
+                    return;
+                }
 
                 const result = await approveCollectionPayment(collId, sup.name, sup.id);
                 if (!result) {
@@ -277,6 +296,14 @@ export function registerAdminCallbackHandler(bot: Telegraf) {
 
             if (data.startsWith('toggle_point_')) {
                 const pointId = parseInt(data.replace('toggle_point_', ''), 10);
+                if (Number.isNaN(pointId)) { await ctx.answerCbQuery('❌'); return; }
+
+                // Egalik tekshiruvi: faqat o'z bazasini boshqarish
+                if (sup.pointId && sup.pointId !== pointId) {
+                    await ctx.answerCbQuery('❌ Bu punkt sizga tegishli emas');
+                    return;
+                }
+
                 const point = await prisma.recyclePoint.findUnique({ where: { id: pointId } });
                 if (!point) {
                     await ctx.answerCbQuery('❌');

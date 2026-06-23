@@ -14,11 +14,27 @@ export async function POST(request: NextRequest) {
     try {
         const { url } = await request.json();
 
-        if (!url || !url.includes('pack24.ru')) {
-            return NextResponse.json({ error: 'Invalid URL. Only pack24.ru is supported.' }, { status: 400 });
+        if (!url || typeof url !== 'string') {
+            return NextResponse.json({ error: 'URL kiritilmagan' }, { status: 400 });
         }
 
-        const response = await fetch(url);
+        // SSRF himoyasi: faqat https://pack24.ru ruxsat etilgan
+        let parsed: URL;
+        try {
+            parsed = new URL(url);
+        } catch {
+            return NextResponse.json({ error: 'URL formati noto\'g\'ri' }, { status: 400 });
+        }
+
+        if (parsed.protocol !== 'https:' ||
+            !(parsed.hostname === 'pack24.ru' || parsed.hostname.endsWith('.pack24.ru'))) {
+            return NextResponse.json(
+                { error: 'Faqat https://pack24.ru domeni ruxsat etilgan' },
+                { status: 400 },
+            );
+        }
+
+        const response = await fetch(parsed.href);
         const html = await response.text();
         const $ = cheerio.load(html);
 
@@ -76,14 +92,10 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Scraping error:', error);
-        // Fallback for development/demo if blocking occurs
-        return NextResponse.json({
-            name: 'Imported Product (Fallback)',
-            price: 100,
-            description: 'Could not scrape live site. Check console.',
-            image: 'https://placehold.co/400x400?text=Error',
-            specifications: {}
-        });
+        console.error('Scraping error:', error instanceof Error ? error.message : 'Unknown');
+        return NextResponse.json(
+            { error: 'Saytdan ma\'lumot olishda xatolik yuz berdi' },
+            { status: 502 },
+        );
     }
 }

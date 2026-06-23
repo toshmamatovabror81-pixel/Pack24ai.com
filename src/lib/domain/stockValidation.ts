@@ -126,13 +126,17 @@ async function reserveFromMultipleWarehouses(
 
             if (existing && existing.quantity > 0) {
                 const take = Math.min(existing.quantity, remainingToDeduct);
-                const newQuantity = existing.quantity - take;
 
-                // Ombor qoldig'ini yangilash
-                await tx.inventory.update({
+                // Atomic decrement — concurrent tranzaksiyalarda xavfsiz
+                const updated = await tx.inventory.update({
                     where: { id: existing.id },
-                    data: { quantity: newQuantity },
+                    data: { quantity: { decrement: take } },
                 });
+
+                // Manfiy qoldiq — race condition yuz berdi, tranzaksiya bekor qilinadi
+                if (updated.quantity < 0) {
+                    throw new Error(`STOCK_RACE: productId=${item.productId}, warehouseId=${warehouse.id}`);
+                }
 
                 // StockMovement (OUT) yozuvi
                 await tx.stockMovement.create({
