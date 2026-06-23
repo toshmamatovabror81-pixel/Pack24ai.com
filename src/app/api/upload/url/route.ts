@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadBufferToSupabase } from '@/lib/supabase-storage';
-import { requireAdminOrUser } from '@/lib/auth/guards';
+import { requireUserOrAdmin } from '@/lib/auth/guards';
 
 const MIME_TO_EXT: Record<string, string> = {
     'image/jpeg': '.jpg',
@@ -21,7 +21,7 @@ const MIME_TO_EXT: Record<string, string> = {
  * Qaytaradi: { success: true, url: "https://supabase.../..." }
  */
 export async function POST(req: NextRequest) {
-    const auth = await requireAdminOrUser(req);
+    const auth = await requireUserOrAdmin(req);
     if (!auth.ok) return auth.response;
 
     let url = '';

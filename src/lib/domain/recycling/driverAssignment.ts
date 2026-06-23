@@ -74,7 +74,7 @@ export async function assignDriverToRequest(
         requestId,
         driverId,
         supervisorId,
-        pointId: request.point?.id ?? request.regionId,
+        pointId: request.point?.id ?? request.pointId,
     });
 
     return {

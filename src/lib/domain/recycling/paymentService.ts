@@ -70,7 +70,7 @@ export async function approveCollectionPayment(
         title: 'To\'lov tasdiqlandi',
         message:
             `${approverName} ariza #${collection.requestId} bo'yicha ` +
-            `${Math.round(collection.totalAmount)} so'm to'lovni tasdiqladi.`,
+            `${Math.round(Number(collection.totalAmount))} so'm to'lovni tasdiqladi.`,
         requestId: collection.requestId,
         collectionId: collection.id,
         driverId: collection.driverId,
@@ -81,7 +81,7 @@ export async function approveCollectionPayment(
         collection: {
             id: collection.id,
             requestId: collection.requestId,
-            totalAmount: collection.totalAmount,
+            totalAmount: Number(collection.totalAmount),
             driverId: collection.driverId,
         },
         request: {

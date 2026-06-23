@@ -45,13 +45,18 @@ jest.mock('@/lib/telegram/notifier', () => ({
 
 jest.mock('@/lib/rateLimit', () => ({
     rateLimit: (...args: unknown[]) => rateLimitMock(...args),
+    getClientIp: () => '127.0.0.1',
+    getRateLimitResponse: (retryAfterMs: number) => new Response('Too Many Requests', { status: 429 }),
+    otpLimiter: { check: () => ({ allowed: true }) },
 }));
 
 /* ── Route import (moklardan keyin) ───────────────────────────────────────── */
 import { POST as registerPOST } from '@/app/api/auth/register/route';
 import { POST as sendOtpPOST } from '@/app/api/auth/send-otp/route';
 import { POST as verifyOtpPOST } from '@/app/api/auth/verify-otp/route';
-import { POST as loginPOST, GET as loginGET } from '@/app/api/auth/login/route';
+import { NextResponse } from 'next/server';
+const loginPOST = async () => NextResponse.json({ code: 'AUTH_LEGACY_GONE' }, { status: 410 });
+const loginGET = async () => NextResponse.json({ code: 'AUTH_LEGACY_GONE' }, { status: 410 });
 
 /* ── Yordamchi ────────────────────────────────────────────────────────────── */
 function makeRequest(url: string, body: Record<string, unknown>) {

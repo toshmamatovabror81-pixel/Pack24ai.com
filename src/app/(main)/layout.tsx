@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Analytics from "@/components/Analytics";
 import LazyGlobalAI from "@/components/LazyGlobalAI";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
@@ -12,7 +13,9 @@ import FloatingTelegram from '@/components/FloatingTelegram';
 export default function MainLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <>
-            <Analytics />
+            <Suspense fallback={null}>
+                <Analytics />
+            </Suspense>
             <AuthSessionProvider>
                 <LanguageProvider>
                     <CurrencyProvider>

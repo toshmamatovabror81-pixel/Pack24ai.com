@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ items, total, orderId: draftOrder.id });
     } catch (error) {
-        logger.error({ error }, 'GET /api/cart');
+        logger.error('GET /api/cart', {}, error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
             if (!item.productId || !Number.isInteger(item.productId) || item.productId <= 0) {
                 return NextResponse.json({ error: 'Noto\'g\'ri productId' }, { status: 400 });
             }
-            if (!item.quantity || item.quantity <= 0) {
+            if (!item.quantity || item.quantity <= 0 || !Number.isInteger(item.quantity)) {
                 return NextResponse.json({ error: 'Noto\'g\'ri quantity' }, { status: 400 });
             }
         }
@@ -110,11 +110,13 @@ export async function POST(req: NextRequest) {
         });
         const priceMap = new Map(products.map(p => [p.id, p.price]));
 
-        const orderItems = items.map(i => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            price: priceMap.get(i.productId) ?? toDecimal(i.price),
-        }));
+        const orderItems = items
+            .filter(i => priceMap.has(i.productId))
+            .map(i => ({
+                productId: i.productId,
+                quantity: i.quantity,
+                price: priceMap.get(i.productId)!,
+            }));
 
         const total = roundUZS(
             orderItems.reduce(
@@ -169,7 +171,7 @@ export async function POST(req: NextRequest) {
             itemCount: order.items.length,
         });
     } catch (error) {
-        logger.error({ error }, 'POST /api/cart');
+        logger.error('POST /api/cart', {}, error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

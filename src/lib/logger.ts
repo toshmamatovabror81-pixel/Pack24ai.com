@@ -124,3 +124,5 @@ export const logger = {
         return new ChildLogger(baseContext);
     },
 };
+
+export const childLogger = (baseContext: Record<string, unknown>) => logger.child(baseContext);

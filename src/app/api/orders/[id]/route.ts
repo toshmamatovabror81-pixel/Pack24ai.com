@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@prisma/client';
 import { notifyCustomer, notifySalesChats } from '@/lib/telegram/notifier';
@@ -29,8 +29,12 @@ async function canAccessOrder(order: {
     }
 
     // 2. Check admin token (cookie or header) via guard
-    const admin = await requireAdmin(request);
-    if (admin.ok) return true;
+    try {
+        await requireAdmin(request as NextRequest);
+        return true;
+    } catch {
+        // Not admin
+    }
 
     return false;
 }

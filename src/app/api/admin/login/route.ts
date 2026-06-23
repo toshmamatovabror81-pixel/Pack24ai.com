@@ -4,7 +4,7 @@ import {
     ADMIN_AUTH_COOKIE,
     ADMIN_TOKEN_MAX_AGE_MS,
 } from '@/lib/adminAuthShared';
-import { authLimiter, getClientIp, getRateLimitResponse } from '@/lib/rateLimit';
+import { rateLimit } from '@/lib/rateLimit';
 
 /**
  * HMAC-SHA256 imzoli token yaratish
@@ -22,11 +22,12 @@ function createAdminToken(secret: string): string {
 export async function POST(req: NextRequest) {
     try {
         // Rate limiting: 5 urinish/daqiqa
-        const ip = getClientIp(req);
-        const rl = authLimiter.check(`admin-login:${ip}`);
-        if (!rl.allowed) return getRateLimitResponse(rl.retryAfterMs);
-        const body = await req.json();
-        const { username, password } = body as { username?: string; password?: string };
+        const rl = await rateLimit(req, {
+            bucket: 'admin-login',
+            limit: 5,
+            windowMs: 60_000,
+        });
+        if (!rl.ok) return rl.response;
 
         const adminUsername = process.env.ADMIN_USERNAME;
         const adminPassword = process.env.ADMIN_PASSWORD;
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
                 { status: 500 }
             );
         }
+
+        const body = await req.json();
+        const { username, password } = body as { username?: string; password?: string };
 
         // Timing-safe taqqoslash, uzunlik teng bo'lmasa xato tashlamasligi uchun tekshiramiz
         const usernameMatch = username && username.length === adminUsername.length

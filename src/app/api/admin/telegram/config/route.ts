@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
                     webhookInfo = await bot.telegram.getWebhookInfo();
                 }
             } catch (e) {
-                logger.error({ error: e }, 'Webhook info error');
+                logger.error('Webhook info error', {}, e);
             }
         }
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        logger.error({ error }, 'Config fetch error');
+        logger.error('Config fetch error', {}, error);
         return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 });
     }
 }
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
             } catch (err) {
-                logger.error({ error: err }, 'Failed to verify bot token');
+                logger.error('Failed to verify bot token', {}, err);
             }
         }
 
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
 
-        logger.error({ error }, 'Error saving config');
+        logger.error('Error saving config', {}, error);
         return NextResponse.json({ error: 'Failed to save config' }, { status: 500 });
     }
 }

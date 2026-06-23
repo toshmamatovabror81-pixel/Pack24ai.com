@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
             amountInTiyin,
         });
     } catch (error) {
-        logger.error({ error }, '[API/payment/payme]');
+        logger.error('[API/payment/payme]', {}, error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

@@ -165,11 +165,13 @@ export function formatDailyJournalMessage(
 }
 
 export function monthRange(monthParam?: string | null, now = new Date()) {
+    // O'zbekiston vaqt mintaqasi (UTC+5) bo'yicha joriy oyni aniqlash
+    const uzNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
     const rawMonth = monthParam && /^\d{4}-\d{2}$/.test(monthParam)
         ? monthParam
-        : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        : `${uzNow.getFullYear()}-${String(uzNow.getMonth() + 1).padStart(2, '0')}`;
 
-    const from = new Date(`${rawMonth}-01T00:00:00`);
+    const from = new Date(`${rawMonth}-01T00:00:00+05:00`);
     if (Number.isNaN(from.getTime())) {
         throw new Error('INVALID_MONTH');
     }

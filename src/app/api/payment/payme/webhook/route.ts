@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
                     }),
                 ]);
 
-                logger.info({ method: 'PerformTransaction', transId: paymeTransId, orderId: tx.orderId }, 'Payme paid');
+                logger.info('Payme paid', { method: 'PerformTransaction', transId: paymeTransId, orderId: tx.orderId });
                 return rpcResult(id, {
                     transaction: paymeTransId,
                     perform_time: Number(performTime),
@@ -148,7 +148,30 @@ export async function POST(req: NextRequest) {
                 if (!tx) return rpcError(id, -31003, 'Transaction topilmadi');
 
                 if (tx.state === 2) {
-                    return rpcError(id, -31007, 'Transaction allaqachon bajarilgan');
+                    // Yetkazilgan buyurtmani bekor qilish mumkin emas yoki order topilmasa
+                    const order = await prisma.order.findUnique({ where: { id: tx.orderId } });
+                    if (!order || order.status === 'delivered') {
+                        return rpcError(id, -31007, 'Yetkazilgan buyurtma bekor qilinmaydi');
+                    }
+
+                    const cancelTime = BigInt(Date.now());
+                    await prisma.$transaction([
+                        prisma.paymeTransaction.update({
+                            where: { id: paymeTransId },
+                            data: { state: -2, cancelTime, reason },
+                        }),
+                        prisma.order.update({
+                            where: { id: tx.orderId },
+                            data: { paymentStatus: 'refunded' },
+                        }),
+                    ]);
+
+                    logger.info('Payme refund after perform', { method: 'CancelTransaction', transId: paymeTransId, reason });
+                    return rpcResult(id, {
+                        transaction: paymeTransId,
+                        cancel_time: Number(cancelTime),
+                        state: -2,
+                    });
                 }
                 if (tx.state < 0) {
                     return rpcResult(id, {
@@ -170,7 +193,7 @@ export async function POST(req: NextRequest) {
                     }),
                 ]);
 
-                logger.info({ method: 'CancelTransaction', transId: paymeTransId, reason }, 'Payme cancel');
+                logger.info('Payme cancel', { method: 'CancelTransaction', transId: paymeTransId, reason });
                 return rpcResult(id, {
                     transaction: paymeTransId,
                     cancel_time: Number(cancelTime),
@@ -195,7 +218,7 @@ export async function POST(req: NextRequest) {
                 return rpcError(id, -32601, 'Method not found');
         }
     } catch (error) {
-        logger.error({ error, method }, 'Payme webhook error');
+        logger.error('Payme webhook error', { method }, error);
         return rpcError(id, -32400, 'Internal error');
     }
 }

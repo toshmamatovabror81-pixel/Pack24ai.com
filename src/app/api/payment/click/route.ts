@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ payUrl: clickPayUrl, orderId, amount });
     } catch (error) {
-        logger.error({ error }, '[API/payment/click POST]');
+        logger.error('[API/payment/click POST]', {}, error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }
@@ -69,7 +69,8 @@ export async function GET(req: NextRequest) {
     const serviceId       = searchParams.get('service_id') ?? '';
     const _clickPaydocId   = searchParams.get('click_paydoc_id') ?? '';
     const merchantTransId = searchParams.get('merchant_trans_id') ?? ''; // orderId
-    const amount          = parseFloat(searchParams.get('amount') ?? '0');
+    const rawAmount        = searchParams.get('amount') ?? '0';
+    const amount          = parseFloat(rawAmount);
     const action          = searchParams.get('action') ?? '0'; // '0' = PREPARE, '1' = COMPLETE
     const error           = searchParams.get('error') ?? '0';
     const _errorNote       = searchParams.get('error_note') ?? '';
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
     // ── Imzoni tekshirish ────────────────────────────────────────────────────
     const expectedSign = clickSign([
         clickTransId, serviceId, CLICK_SECRET_KEY, merchantTransId,
-        amount.toString(), action, signTime,
+        rawAmount, action, signTime,
     ]);
     if (expectedSign !== signString) {
         return NextResponse.json({

@@ -408,6 +408,10 @@ describe('POST /api/payment/payme/webhook', () => {
     });
 
     it('CancelTransaction allaqachon bajarilgan tranzaksiya uchun error qaytaradi', async () => {
+        orderFindUniqueMock.mockResolvedValue({
+            id: 10,
+            status: 'delivered',
+        });
         paymeTransactionFindUniqueMock.mockResolvedValue({
             id: 'payme-tx-1',
             orderId: 10,

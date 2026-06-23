@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         ]);
         for (const result of sideEffects) {
             if (result.status === 'rejected') {
-                logger.error({ error: result.reason }, 'POST /api/orders side effect failed');
+                logger.error('POST /api/orders side effect failed', {}, result.reason);
             }
         }
         // ── Korporativ buyurtma → avtomatik faktura ────────────────────
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
                     logger.info(`Auto-invoice ${invoiceNo} yaratildi → buyurtma #${order.id}`);
                 }
             } catch (invoiceErr) {
-                logger.error({ error: invoiceErr }, 'Auto-invoice xatosi');
+                logger.error('Auto-invoice xatosi', {}, invoiceErr);
             }
         }
 
@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        logger.error({ error }, 'POST /api/orders');
+        logger.error('POST /api/orders', {}, error);
         return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
     }
 }

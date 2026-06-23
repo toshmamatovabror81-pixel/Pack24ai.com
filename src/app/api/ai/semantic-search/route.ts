@@ -114,23 +114,23 @@ export async function POST(req: NextRequest) {
         const queryEmbedding = await getEmbedding(sanitizedQuery);
 
         // Get embeddings for all documents and calculate similarity
-        const scoredResults: SearchResult[] = [];
-
-        for (const doc of documents) {
-            try {
+        const embeddingResults = await Promise.allSettled(
+            documents.map(async (doc) => {
                 const docEmbedding = await getEmbedding(doc.content.slice(0, 500));
                 const score = cosineSimilarity(queryEmbedding, docEmbedding);
-                scoredResults.push({
+                return {
                     id: doc.id,
                     title: doc.title,
                     content: doc.content.slice(0, 300),
                     score: Math.round(score * 1000) / 1000,
                     type: doc.type,
-                });
-            } catch {
-                // Skip docs that fail to embed
-            }
-        }
+                } as SearchResult;
+            })
+        );
+
+        const scoredResults: SearchResult[] = embeddingResults
+            .filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === 'fulfilled')
+            .map(r => r.value);
 
         // Sort by similarity score, return top K
         scoredResults.sort((a, b) => b.score - a.score);

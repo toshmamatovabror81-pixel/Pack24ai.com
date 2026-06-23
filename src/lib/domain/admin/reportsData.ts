@@ -278,12 +278,12 @@ export async function fetchAdminReportData(params: AdminReportParams): Promise<A
     });
 
     const topProductsWithDetails = topProducts.map(tp => {
-        const prod = products.find((p: { id: number; name: string; price: number; image: string | null }) => p.id === tp.productId);
+        const prod = products.find(p => p.id === tp.productId);
         return {
             productId:  tp.productId,
             name:       prod?.name ?? 'Mahsulot',
             image:      prod?.image ?? null,
-            price:      prod?.price ?? 0,
+            price:      Number(prod?.price ?? 0),
             totalSold:  tp._sum.quantity ?? 0,
             orderCount: tp._count.productId,
         };
@@ -479,7 +479,7 @@ export async function fetchAdminReportData(params: AdminReportParams): Promise<A
         summary: {
             totalOrders,
             newOrders,
-            totalRevenue:    totalRevenue._sum.totalAmount ?? 0,
+            totalRevenue:    Number(totalRevenue._sum.totalAmount ?? 0),
             periodOrders:    curCount,
             periodRevenue:   curRevenue,
             completedOrders: curCompleted,
