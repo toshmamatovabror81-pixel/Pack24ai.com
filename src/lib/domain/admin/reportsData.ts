@@ -142,7 +142,7 @@ export async function fetchAdminReportData(params: AdminReportParams): Promise<A
         // 3. Barcha vaqt daromad
         prisma.order.aggregate({
             _sum: { totalAmount: true },
-            where: { status: { notIn: ['cancelled', 'draft'] } },
+            where: { status: { notIn: [OrderStatus.cancelled, OrderStatus.draft] } },
         }),
 
         // 4. Joriy davr buyurtmalari

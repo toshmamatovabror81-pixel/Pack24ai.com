@@ -40,26 +40,28 @@ export async function approveCollectionPayment(
         return null;
     }
 
-    await prisma.recycleCollection.update({
-        where: { id: collectionId },
-        data: {
-            paymentStatus: 'completed',
-            paidAt: new Date(),
-            paidBy: approverName,
-        },
-    });
-
-    await prisma.recycleRequest.update({
-        where: { id: collection.requestId },
-        data: { status: 'completed', completedAt: new Date() },
-    });
-
-    if (collection.driverId) {
-        await prisma.driver.update({
-            where: { id: collection.driverId },
-            data: { status: 'active' },
+    await prisma.$transaction(async (tx) => {
+        await tx.recycleCollection.update({
+            where: { id: collectionId },
+            data: {
+                paymentStatus: 'completed',
+                paidAt: new Date(),
+                paidBy: approverName,
+            },
         });
-    }
+
+        await tx.recycleRequest.update({
+            where: { id: collection.requestId },
+            data: { status: 'completed', completedAt: new Date() },
+        });
+
+        if (collection.driverId) {
+            await tx.driver.update({
+                where: { id: collection.driverId },
+                data: { status: 'active' },
+            });
+        }
+    });
 
     await createBotEvent({
         sourceBot: 'supervisor',

@@ -16,9 +16,18 @@ const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz234567
  * Inson-o'qiy parol (8 belgi, 0/O/1/l/I qabul qilinmaydi).
  */
 export function generateReadablePassword(length = PASSWORD_LENGTH): string {
-    const bytes = new Uint8Array(length);
-    globalThis.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (b) => PASSWORD_ALPHABET[b % PASSWORD_ALPHABET.length]).join('');
+    const chars: string[] = [];
+    const alphabetLength = PASSWORD_ALPHABET.length;
+    const maxValidByte = 255 - (256 % alphabetLength);
+    const temp = new Uint8Array(1);
+    while (chars.length < length) {
+        globalThis.crypto.getRandomValues(temp);
+        const b = temp[0];
+        if (b <= maxValidByte) {
+            chars.push(PASSWORD_ALPHABET[b % alphabetLength]);
+        }
+    }
+    return chars.join('');
 }
 
 export async function hashPassword(plain: string): Promise<string> {

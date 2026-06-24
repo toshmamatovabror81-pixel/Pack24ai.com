@@ -230,7 +230,7 @@ async function restoreToWarehouse(
         if (existing) {
             await tx.inventory.update({
                 where: { id: existing.id },
-                data: { quantity: existing.quantity + item.quantity },
+                data: { quantity: { increment: item.quantity } },
             });
         } else {
             await tx.inventory.create({

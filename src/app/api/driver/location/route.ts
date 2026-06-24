@@ -62,12 +62,18 @@ export async function GET(req: NextRequest) {
     try {
         await requireAdmin(req);
 
-        const supervisorId = req.nextUrl.searchParams.get('supervisorId');
-        const pointId = req.nextUrl.searchParams.get('pointId');
+        const supervisorIdStr = req.nextUrl.searchParams.get('supervisorId');
+        const pointIdStr = req.nextUrl.searchParams.get('pointId');
 
         const where: Prisma.DriverWhereInput = { isOnline: true };
-        if (supervisorId) where.supervisorId = Number(supervisorId);
-        if (pointId) where.pointId = Number(pointId);
+        if (supervisorIdStr) {
+            const parsed = parseInt(supervisorIdStr, 10);
+            if (!isNaN(parsed)) where.supervisorId = parsed;
+        }
+        if (pointIdStr) {
+            const parsed = parseInt(pointIdStr, 10);
+            if (!isNaN(parsed)) where.pointId = parsed;
+        }
 
         const drivers = await prisma.driver.findMany({
             where,

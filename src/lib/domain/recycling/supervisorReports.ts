@@ -52,7 +52,7 @@ export async function generateSupervisorReport(
 ): Promise<SupervisorReportData> {
     const from = computeReportFromDate(period, now);
 
-    const pointFilter = pointId ? { regionId: pointId } : {};
+    const pointFilter = pointId ? { pointId } : {};
 
     const [
         totalRequests,
@@ -71,7 +71,13 @@ export async function generateSupervisorReport(
             where: { ...pointFilter, status: 'completed', completedAt: { gte: from } },
         }),
         prisma.recycleCollection.findMany({
-            where: { createdAt: { gte: from } },
+            where: {
+                createdAt: { gte: from },
+                request: {
+                    ...(pointId ? { pointId } : {}),
+                    supervisorId,
+                },
+            },
         }),
         prisma.recycleManualIntake.findMany({
             where: { supervisorId, date: { gte: from } },

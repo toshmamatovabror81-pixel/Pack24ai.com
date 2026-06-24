@@ -53,7 +53,7 @@ async function getEmbedding(text: string): Promise<number[]> {
     const ai = new GoogleGenAI({ apiKey });
 
     const result = await ai.models.embedContent({
-        model: 'gemini-embedding-001',
+        model: 'text-embedding-004',
         contents: text,
     });
 

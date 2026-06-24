@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Toaster, toast } from 'sonner';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { useHasMounted } from '@/lib/hooks/useHasMounted';
@@ -13,6 +13,42 @@ import AdminCallPopup from '@/components/admin/AdminCallPopup';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const hasMounted = useHasMounted();
     const router = useRouter();
+    const pathname = usePathname();
+    const isLoginPage = pathname === '/admin/login';
+
+    // ── Auth Guard: admin token tekshiruvi ────────────────────────────
+    const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        // Login sahifasida tekshirish shart emas
+        if (isLoginPage) {
+            setIsAuthed(true);
+            return;
+        }
+
+        // Cookie mavjudligini tezkor tekshirish
+        const hasToken = document.cookie
+            .split(';')
+            .some(c => c.trim().startsWith('admin_auth='));
+
+        if (!hasToken) {
+            router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+            return;
+        }
+
+        // Token HMAC validatsiyasi — server-side tekshiruv
+        fetch('/api/admin/me', { credentials: 'include' })
+            .then(res => {
+                if (res.ok) {
+                    setIsAuthed(true);
+                } else {
+                    router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+                }
+            })
+            .catch(() => {
+                router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+            });
+    }, [pathname, router, isLoginPage]);
 
     // Rehydrate stores if needed (for skipHydration: true)
     useEffect(() => {
@@ -80,7 +116,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    if (!hasMounted) {
+    // Login sahifasida sidebar va header ko'rsatmaslik
+    if (isLoginPage) {
+        return <>{children}</>;
+    }
+
+    if (!hasMounted || isAuthed === null) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
