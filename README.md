@@ -20,6 +20,7 @@ Texnologiyalar: `Next.js 15`, `React 19`, `Prisma`, `PostgreSQL`, `NextAuth`,
 - `src/app` — App Router sahifalari va API route'lar
 - `src/app/(main)` — public sayt va admin sahifalar
 - `src/app/(mobile)` — Telegram Web App sathi
+- `src/app/(driver)` — driver login, dashboard, tasks sahifalar
 - `src/app/api` — auth, admin, recycling, telegram, payment va boshqa backend route'lar
 - `src/lib` — auth, Prisma, store, Telegram va umumiy helperlar
 - `src/lib/telegram` — customer, driver va admin botlar
