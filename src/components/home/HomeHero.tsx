@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ArrowRight, ShoppingCart, Package } from 'lucide-react';
+import { ChevronRight, ArrowRight, ShoppingCart, Package, Minus, Plus } from 'lucide-react';
 import CatalogSidebar from '@/components/CatalogSidebar';
 import HeroBannerSlider from '@/components/HeroBannerSlider';
 import { useProductStore } from '@/lib/store/useProductStore';
@@ -22,7 +22,7 @@ export default function HomeHero({ initialProducts }: Props) {
     const { language } = useLanguage();
     const products = useProductStore((state) => state.products);
     const loading = useProductStore((state) => state.loading);
-    const { addToCart } = useCartStore();
+    const { addToCart, items, updateQuantity, removeFromCart } = useCartStore();
     const { user } = useAuthStore();
     const isAdmin = (user as { role?: string } | null)?.role === 'ADMIN';
 
@@ -111,6 +111,7 @@ export default function HomeHero({ initialProducts }: Props) {
                             <>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                                     {popularProducts.map((product) => {
+                                        const cartItem = items.find((item) => item.productId === Number(product.id));
                                         const isHit =
                                             (product.rating ?? 0) >= 4.5 ||
                                             (product.originalPrice != null && product.originalPrice > product.price);
@@ -188,13 +189,41 @@ export default function HomeHero({ initialProducts }: Props) {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleAdd(product)}
-                                                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-xl transition-colors active:scale-95"
-                                                        >
-                                                            <ShoppingCart size={11} />
-                                                            <span>{getProductUI('addToCart', language)}</span>
-                                                        </button>
+                                                        {cartItem ? (
+                                                            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-xl px-1.5 py-1">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (cartItem.quantity > 1) {
+                                                                            updateQuantity(cartItem.productId, cartItem.quantity - 1);
+                                                                        } else {
+                                                                            removeFromCart(cartItem.productId);
+                                                                        }
+                                                                    }}
+                                                                    className="w-6 h-6 flex items-center justify-center rounded-md bg-white text-blue-600 hover:bg-blue-100 shadow-sm transition-colors"
+                                                                    aria-label="Kamaytirish"
+                                                                >
+                                                                    <Minus size={12} strokeWidth={2.5} />
+                                                                </button>
+                                                                <span className="text-xs font-bold w-4 text-center text-blue-800">
+                                                                    {cartItem.quantity}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => updateQuantity(cartItem.productId, cartItem.quantity + 1)}
+                                                                    className="w-6 h-6 flex items-center justify-center rounded-md bg-white text-blue-600 hover:bg-blue-100 shadow-sm transition-colors"
+                                                                    aria-label="Ko'paytirish"
+                                                                >
+                                                                    <Plus size={12} strokeWidth={2.5} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleAdd(product)}
+                                                                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-xl transition-colors active:scale-95"
+                                                            >
+                                                                <ShoppingCart size={11} />
+                                                                <span>{getProductUI('addToCart', language)}</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     <p className={`text-[9px] mt-1.5 font-medium ${product.inStock ? 'text-emerald-600' : 'text-red-500'}`}>
                                                         {product.inStock
