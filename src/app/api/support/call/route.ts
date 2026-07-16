@@ -13,11 +13,14 @@ export async function POST(req: Request) {
         
         const callerName = user?.name || body.name || 'Noma\'lum mijoz';
         const callerPhone = user?.phone || body.phone || 'Noma\'lum telefon';
+        const callerMessage = body.message || '';
 
         eventBus.publish({
             type: 'support.call',
             title: 'Yordam xizmati',
-            message: `${callerName} operator yordamiga muhtoj.`,
+            message: callerMessage
+                ? `${callerName} (${callerPhone}): ${callerMessage}`
+                : `${callerName} operator yordamiga muhtoj.`,
             severity: 'warning',
             timestamp: new Date().toISOString(),
             source: 'customer_app',

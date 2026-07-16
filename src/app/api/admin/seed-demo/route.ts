@@ -170,9 +170,14 @@ const DEMO_PRODUCTS = [
     sku: string; category: string; image: string; isFeatured?: boolean;
 }>;
 
-export async function GET() {
-    if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json({ error: 'Not allowed in production' }, { status: 403 });
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url);
+    const secret = searchParams.get('secret');
+    const SEED_SECRET = process.env.SEED_SECRET;
+
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd && (!SEED_SECRET || secret !== SEED_SECRET)) {
+        return NextResponse.json({ error: 'Forbidden: provide ?secret=... query param' }, { status: 403 });
     }
 
     try {
