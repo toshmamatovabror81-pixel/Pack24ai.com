@@ -20,7 +20,7 @@ export default function FloatingTelegram() {
     if (!isVisible) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end sm:bottom-8 sm:right-8">
+        <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end">
             {/* Tooltip Message */}
             <div 
                 className={`mb-3 bg-white text-gray-800 px-4 py-2 rounded-2xl shadow-lg border border-gray-100 text-sm font-medium transition-all duration-300 transform origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}

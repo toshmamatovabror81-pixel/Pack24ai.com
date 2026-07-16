@@ -389,7 +389,7 @@ export default function VoiceOrderButton() {
             <button
                 onClick={isSupported ? handleMicClick : () => { setShowPanel(true); setState('idle'); }}
                 className={`
-                    fixed bottom-24 right-5 z-50 flex items-center justify-center
+                    fixed bottom-[10.5rem] right-6 z-50 flex items-center justify-center
                     w-14 h-14 rounded-full shadow-lg transition-all duration-300
                     focus:outline-none focus:ring-2 focus:ring-offset-2
                     ${state === 'listening'
@@ -415,7 +415,7 @@ export default function VoiceOrderButton() {
 
             {/* Sound wave indicator when listening */}
             {state === 'listening' && (
-                <div className="fixed bottom-[6.5rem] right-5 z-50 flex items-end gap-[3px] h-5 pointer-events-none">
+                <div className="fixed bottom-[14.5rem] right-6 z-50 flex items-end gap-[3px] h-5 pointer-events-none">
                     {[1, 2, 3, 4, 5].map((i) => (
                         <span
                             key={i}
