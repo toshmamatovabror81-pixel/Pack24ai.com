@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'pack24.uz' },
       { protocol: 'https', hostname: 'pack24.ru' },
       { protocol: 'https', hostname: '**.pack24.ru' },
+      // Pacdora AI CDN (PackagingShowcase rasmlar)
+      { protocol: 'https', hostname: 'cdn.pacdora.com' },
+      { protocol: 'https', hostname: 'www.pacdora.com' },
+      { protocol: 'https', hostname: 'pacdora.com' },
       { protocol: 'https', hostname: 'storage.googleapis.com' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
       // Supabase Storage
@@ -57,7 +61,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https: http://localhost:*",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://api.telegram.org https://*.supabase.co https://*.supabase.in https://www.google-analytics.com https://generativelanguage.googleapis.com https://image.pollinations.ai wss:",
-              "media-src 'self' https://*.supabase.co https://*.supabase.in",
+              "media-src 'self' https://*.supabase.co https://*.supabase.in https://cdn.pacdora.com",
               "frame-src 'self' https://www.google.com",
               "object-src 'none'",
               "base-uri 'self'",
