@@ -1,17 +1,38 @@
+# Telegram webhook'larni o'rnatish.
+# XAVFSIZLIK: tokenlar env o'zgaruvchilardan o'qiladi — bu faylga HECH QACHON token yozmang!
+#
+# Ishlatish (PowerShell):
+#   $env:CUSTOMER_BOT_TOKEN    = '...'
+#   $env:DRIVER_BOT_TOKEN      = '...'
+#   $env:ADMIN_BOT_TOKEN       = '...'
+#   $env:PACK24ADMIN_BOT_TOKEN = '...'
+#   $env:TELEGRAM_WEBHOOK_SECRET = '...'
+#   .\scripts\set-webhooks.ps1
+
 $bots = @(
-    @{ name='Customer bot'; token='8767673956:AAF8Szu3wBHULqd5diIkJavKVhlH2ya5YVo'; path='customer' },
-    @{ name='Driver bot';   token='8369124151:AAF95S1I45m91jhI-Jbg78-9QTWjozS5voY'; path='driver' },
-    @{ name='Admin bot';    token='8506404614:AAFbpBJ-maEFrWeBjGMsqmSioZA11dYb1aw'; path='admin' },
-    @{ name='Pack24Admin';  token='8649747946:AAEhnc7yjNEBaC_i-OTtRRZe89qkZq_5O5U'; path='pack24admin' }
+    @{ name='Customer bot'; token=$env:CUSTOMER_BOT_TOKEN;    path='customer' },
+    @{ name='Driver bot';   token=$env:DRIVER_BOT_TOKEN;      path='driver' },
+    @{ name='Admin bot';    token=$env:ADMIN_BOT_TOKEN;       path='admin' },
+    @{ name='Pack24Admin';  token=$env:PACK24ADMIN_BOT_TOKEN; path='pack24admin' }
 )
 
-$secret  = 'pack24-telegram-webhook-2026-secret'
-$baseUrl = 'https://pack24.uz'
+$secret  = $env:TELEGRAM_WEBHOOK_SECRET
+$baseUrl = if ($env:WEBHOOK_BASE_URL) { $env:WEBHOOK_BASE_URL } else { 'https://pack24.uz' }
+
+if (-not $secret) {
+    Write-Host "[XATO] TELEGRAM_WEBHOOK_SECRET env o'zgaruvchisi o'rnatilmagan." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host ">> Telegram webhook'larni o'rnatish..." -ForegroundColor Cyan
 Write-Host ""
 
 foreach ($bot in $bots) {
+    if (-not $bot.token) {
+        Write-Host "  [SKIP] $($bot.name): token env o'zgaruvchisi yo'q" -ForegroundColor Yellow
+        continue
+    }
+
     $webhookUrl = "$baseUrl/api/telegram/webhook/$($bot.path)"
     $apiUrl     = "https://api.telegram.org/bot$($bot.token)/setWebhook"
 
@@ -37,10 +58,11 @@ foreach ($bot in $bots) {
 
 Write-Host ">> Webhook tekshirish (getWebhookInfo)..." -ForegroundColor Cyan
 foreach ($bot in $bots) {
+    if (-not $bot.token) { continue }
     $infoUrl = "https://api.telegram.org/bot$($bot.token)/getWebhookInfo"
     $info    = Invoke-RestMethod -Uri $infoUrl
     Write-Host "  $($bot.name): $($info.result.url) | pending: $($info.result.pending_update_count)" -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host ">> TAYYOR! Barcha bot webhook'lari pack24.uz ga ulandi." -ForegroundColor Green
+Write-Host ">> TAYYOR!" -ForegroundColor Green
