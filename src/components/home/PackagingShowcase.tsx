@@ -40,6 +40,8 @@ const T: Record<string, Record<string, string>> = {
     card3Title:    { uz: 'Dieline\nTemplate Maker', ru: 'Создатель\nРазвёрток', en: 'Dieline\nTemplate Maker' },
     card3Desc:     { uz: 'Ishlab chiqarish uchun tayyor dieline chizmalar', ru: 'Готовые развёртки для производства', en: 'Production-ready dieline templates' },
     toolHint:      { uz: 'Ijodiy sayohatingizni mukammal mockup tanlashdan boshlang.', ru: 'Начните ваше творческое путешествие с выбора идеального мокапа.', en: 'Start your creative journey by picking a perfect mockup.' },
+    orderMockup:   { uz: '📦 Bepul maket buyurtma qilish', ru: '📦 Заказать бесплатный макет', en: '📦 Order a free mockup' },
+    orderMockupSub: { uz: 'Mutaxassislarimiz siz uchun professional 3D maket tayyorlab beradi — mutlaqo bepul', ru: 'Наши специалисты подготовят для вас профессиональный 3D-макет — совершенно бесплатно', en: 'Our specialists will prepare a professional 3D mockup for you — completely free' },
 };
 const t = (key: string, lang: string) => T[key]?.[lang] || T[key]?.uz || '';
 
@@ -118,6 +120,15 @@ export default function PackagingShowcase() {
                     </h2>
                     <p className="mt-4 text-base sm:text-lg text-gray-500 font-medium">{t('subtitle', language)}</p>
                     <p className="mt-2 text-sm text-emerald-600 font-semibold">{t('freeForUsers', language)}</p>
+                    <div className="mt-6 flex flex-col items-center gap-2">
+                        <Link
+                            href="/mockup-request"
+                            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-xl text-sm sm:text-base transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                        >
+                            {t('orderMockup', language)} <ArrowRight size={16} />
+                        </Link>
+                        <p className="text-xs text-gray-400">{t('orderMockupSub', language)}</p>
+                    </div>
                 </div>
 
                 {/* 3 Feature cards — Pacdora real images */}
