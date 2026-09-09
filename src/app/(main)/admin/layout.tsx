@@ -36,15 +36,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             return;
         }
 
-        // Token HMAC validatsiyasi — server-side tekshiruv
-        fetch('/api/admin/me', { credentials: 'include' })
-            .then(res => {
-                if (res.ok) {
-                    setIsAuthed(true);
-                } else {
-                    router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
-                }
-            })
+               // Token HMAC validatsiyasi — server-side tekshiruv
+        // Cookie httpOnly bo'lgani uchun document.cookie orqali o'qib bo'lmaydi,
+        // shuning uchun faqat server-side /api/admin/me orqali tekshiramiz
             .catch(() => {
                 router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
             });
