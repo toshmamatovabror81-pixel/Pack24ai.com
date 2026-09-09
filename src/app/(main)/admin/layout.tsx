@@ -26,19 +26,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             return;
         }
 
-        // Cookie mavjudligini tezkor tekshirish
-        const hasToken = document.cookie
-            .split(';')
-            .some(c => c.trim().startsWith('admin_auth='));
-
-        if (!hasToken) {
-            router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
-            return;
-        }
-
-               // Token HMAC validatsiyasi — server-side tekshiruv
+        // Token HMAC validatsiyasi — server-side tekshiruv
         // Cookie httpOnly bo'lgani uchun document.cookie orqali o'qib bo'lmaydi,
         // shuning uchun faqat server-side /api/admin/me orqali tekshiramiz
+        fetch('/api/admin/me', { credentials: 'include' })
+            .then(res => {
+                if (res.ok) {
+                    setIsAuthed(true);
+                } else {
+                    router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+                }
+            })
             .catch(() => {
                 router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
             });
@@ -67,14 +65,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
         if (event.type === 'support.call') {
-            // Support.call eventini ushlab popupga chiqarish
             setIncomingCall({
                 name: event.callerName || 'Mijoz',
                 phone: event.callerPhone || '+998 ** *** ** **',
                 avatar: (event.callerName || 'M')[0].toUpperCase(),
                 lastOrder: 'Hozirgi chaqiruv',
             });
-            // Ovozli bildirishnoma ham chalish mumkin
         } else {
             const icon = SEVERITY_ICONS[event.severity] || 'ℹ️';
             toast(`${icon} ${event.title}`, {
@@ -103,7 +99,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             } catch { /* silent fail */ }
         };
         poll();
-        // Dev: Neon DB kechikishi — polling kamroq (60s). Prod: 30s.
         const pollMs = process.env.NODE_ENV === 'development' ? 60_000 : 30_000;
         const interval = setInterval(poll, pollMs);
         return () => { active = false; clearInterval(interval); };
