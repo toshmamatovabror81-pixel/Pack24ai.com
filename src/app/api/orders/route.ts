@@ -20,6 +20,8 @@ import { add, mul, roundUZS, serializeMoney, toDecimal, toNumber } from '@/lib/m
 const ORDER_STATUSES = ['draft', 'new', 'processing', 'shipping', 'delivered', 'cancelled'] as const;
 const ORDER_DELIVERY_METHODS = ['courier', 'pickup'] as const;
 const ORDER_PAYMENT_METHODS = ['cash', 'click', 'payme', 'bank_transfer'] as const;
+// Checkout sahifasidagi kuryer narxi bilan bir xil bo'lishi kerak (src/app/(main)/checkout/page.tsx)
+const COURIER_DELIVERY_FEE = 20000;
 
 // ─── POST /api/orders — Buyurtma yaratish ────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -56,7 +58,8 @@ export async function POST(req: NextRequest) {
             'paymentMethod',
             ORDER_PAYMENT_METHODS,
         );
-        const status = readOptionalEnum(body.status, 'status', ORDER_STATUSES) || 'new';
+        // status faqat validatsiya uchun o'qiladi — yangi buyurtma har doim 'new' bo'lib yaratiladi
+        readOptionalEnum(body.status, 'status', ORDER_STATUSES);
         const totalAmount = readOptionalNumber(body.totalAmount, 'totalAmount');
         const items = readArray(body.items, 'items').map((item, index) => {
             if (typeof item !== 'object' || item === null || Array.isArray(item)) {
@@ -120,19 +123,37 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(serializeMoney(order));
         }
 
-        // Full checkout order
-        let computedTotal = totalAmount ?? 0;
+        // Full checkout order — narxlar va jami summa faqat bazadan hisoblanadi,
+        // mijoz yuborgan price/totalAmount ishlatilmaydi (aks holda 1 so'mga buyurtma mumkin)
+        const productIds = [...new Set(items.map(i => i.productId))];
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, price: true },
+        });
+        const priceMap = new Map(products.map(p => [p.id, p.price]));
+        const missing = productIds.filter(id => !priceMap.has(id));
+        if (missing.length) {
+            return NextResponse.json(
+                { error: `Mahsulot topilmadi: ${missing.join(', ')}` },
+                { status: 400 },
+            );
+        }
+
         const orderItems = items.map(i => ({
             productId: i.productId,
             quantity: i.quantity,
-            price: toDecimal(i.price),
+            price: toDecimal(priceMap.get(i.productId)!),
         }));
 
-        if (!computedTotal) {
-            computedTotal = orderItems.reduce(
-                (sum, i) => toNumber(add(sum, mul(i.price, i.quantity))),
-                0,
-            );
+        const subtotal = orderItems.reduce(
+            (sum, i) => toNumber(add(sum, mul(i.price, i.quantity))),
+            0,
+        );
+        const deliveryFee = (deliveryMethod ?? 'courier') === 'courier' ? COURIER_DELIVERY_FEE : 0;
+        const computedTotal = subtotal + deliveryFee;
+
+        if (totalAmount !== undefined && !roundUZS(totalAmount).equals(roundUZS(computedTotal))) {
+            logger.warn('POST /api/orders client total mismatch', { clientTotal: totalAmount, serverTotal: computedTotal });
         }
 
         // ─── Ombor tekshiruv + buyurtma yaratish (tranzaksiya) ───────────
@@ -160,7 +181,7 @@ export async function POST(req: NextRequest) {
                     deliveryMethod:  deliveryMethod ?? 'courier',
                     paymentMethod:   paymentMethod ?? 'cash',
                     paymentStatus:   (paymentMethod === 'cash' || !paymentMethod) ? PaymentStatus.pending : PaymentStatus.pending,
-                    status:          status === 'new' ? OrderStatus.new_ : (status as OrderStatus),
+                    status:          OrderStatus.new_,
                     totalAmount: roundUZS(computedTotal),
                     items: { create: orderItems },
                 },

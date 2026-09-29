@@ -2,6 +2,7 @@
 
 const getServerSessionMock = jest.fn();
 const productFindUniqueMock = jest.fn();
+const productFindManyMock = jest.fn();
 const orderFindFirstMock = jest.fn();
 const orderCreateMock = jest.fn();
 const orderUpdateMock = jest.fn();
@@ -30,6 +31,7 @@ jest.mock('@/lib/prisma', () => ({
     prisma: {
         product: {
             findUnique: (...args: unknown[]) => productFindUniqueMock(...args),
+            findMany: (...args: unknown[]) => productFindManyMock(...args),
         },
         order: {
             findFirst: (...args: unknown[]) => orderFindFirstMock(...args),
@@ -69,6 +71,7 @@ describe('POST /api/orders route', () => {
         publishPlatformEventMock.mockResolvedValue({ id: 99 });
         orderFindFirstMock.mockResolvedValue(null);
         productFindUniqueMock.mockResolvedValue({ id: 1, price: new Prisma.Decimal(5000) });
+        productFindManyMock.mockResolvedValue([{ id: 1, price: new Prisma.Decimal(5000) }]);
         orderCreateMock.mockResolvedValue({
             id: 12,
             customerName: 'Ali <Test>',
@@ -147,7 +150,8 @@ describe('POST /api/orders route', () => {
             }),
         }));
         const createData = orderCreateMock.mock.calls[0][0].data;
-        expect(toNumber(createData.totalAmount)).toBe(10000);
+        // 2 x 5000 + 20000 kuryer
+        expect(toNumber(createData.totalAmount)).toBe(30000);
         expect(toNumber(createData.items.create[0].price)).toBe(5000);
         expect(publishPlatformEventMock).toHaveBeenCalledWith(expect.objectContaining({
             type: 'order.created',
@@ -163,5 +167,42 @@ describe('POST /api/orders route', () => {
         const body = await response.json();
         expect(body).toMatchObject({ id: 12 });
         expect(toNumber(body.totalAmount)).toBe(10000);
+    });
+
+    it('mijoz yuborgan narx, jami summa va statusni e\'tiborsiz qoldiradi', async () => {
+        const response = await POST(new Request('http://localhost/api/orders', {
+            method: 'POST',
+            body: JSON.stringify({
+                customerName: 'Ali',
+                contactPhone: '+998901234567',
+                deliveryMethod: 'pickup',
+                status: 'delivered',
+                totalAmount: 1,
+                items: [{ productId: 1, quantity: 3, price: 1 }],
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        }) as never);
+
+        expect(response.status).toBe(200);
+        const createData = orderCreateMock.mock.calls[0][0].data;
+        expect(toNumber(createData.items.create[0].price)).toBe(5000);
+        expect(toNumber(createData.totalAmount)).toBe(15000);
+        expect(createData.status).toBe('new_');
+    });
+
+    it('bazada yo\'q mahsulot uchun 400 qaytaradi', async () => {
+        productFindManyMock.mockResolvedValue([]);
+        const response = await POST(new Request('http://localhost/api/orders', {
+            method: 'POST',
+            body: JSON.stringify({
+                customerName: 'Ali',
+                contactPhone: '+998901234567',
+                items: [{ productId: 999, quantity: 1, price: 5000 }],
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        }) as never);
+
+        expect(response.status).toBe(400);
+        expect(orderCreateMock).not.toHaveBeenCalled();
     });
 });

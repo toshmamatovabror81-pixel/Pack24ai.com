@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
 /** GET /api/driver/location?supervisorId=X — admin-only, barcha haydovchilar joylashuvi */
 export async function GET(req: NextRequest) {
     try {
-        await requireAdmin(req);
+        const admin = await requireAdmin(req);
+        if (!admin.ok) return admin.response;
 
         const supervisorIdStr = req.nextUrl.searchParams.get('supervisorId');
         const pointIdStr = req.nextUrl.searchParams.get('pointId');
