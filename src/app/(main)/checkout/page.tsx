@@ -55,6 +55,7 @@ const TX: Record<string, Partial<Record<Language, string>>> = {
     errorOccurred:  { uz: 'Xatolik yuz berdi', ru: 'Произошла ошибка', en: 'An error occurred', qr: 'Qátelik júz berdi', zh: '发生错误', tr: 'Bir hata oluştu', tg: 'Хато рӯй дод', kk: 'Қате орын алды', tk: 'Ýalňyşlyk ýüze çykdy', fa: 'خطایی رخ داد' },
     payClickDesc:   { uz: "Click ilovasi yoki bank kartasi orqali", ru: 'Через приложение Click или банковскую карту', en: 'Via Click app or bank card', qr: 'Click', zh: 'Click应用', tr: 'Click', tg: 'Тавассути Click', kk: 'Click арқылы', tk: 'Click arkaly', fa: 'از طریق Click' },
     payPaymeDesc:   { uz: "Payme ilovasi yoki bank kartasi orqali", ru: 'Через приложение Payme или банковскую карту', en: 'Via Payme app or bank card', qr: 'Payme', zh: 'Payme应用', tr: 'Payme', tg: 'Тавассути Payme', kk: 'Payme арқылы', tk: 'Payme arkaly', fa: 'از طریق Payme' },
+    payLinkFailed:  { uz: "Buyurtma qabul qilindi, lekin to'lov havolasi ochilmadi. Operator siz bilan bog'lanadi", ru: 'Заказ принят, но ссылка на оплату не открылась. Оператор свяжется с вами', en: 'Order placed, but the payment link failed. Our operator will contact you' },
     payCashDesc:    { uz: "Yetkazib berishda to'lash", ru: 'Оплата при доставке', en: 'Pay on delivery', qr: 'Jetkizgende tólew', zh: '货到付款', tr: 'Teslimatta ödeme', tg: "Ҳангоми тавзеъ пардохт", kk: 'Жеткізу кезінде төлеу', tk: 'Eltip berende tölemek', fa: 'پرداخت هنگام تحویل' },
 };
 
@@ -95,11 +96,24 @@ export default function CheckoutPage() {
     const isPhoneValid = phone.trim() === '' || phoneRegexRT.test(phone.replace(/\s/g, ''));
     const isPhoneFull  = phoneRegexRT.test(phone.replace(/\s/g, ''));
 
+    // Savat localStorage'dan tiklanmaguncha kutamiz, aks holda sahifa yangilanganda
+    // to'la savat bilan ham /catalog ga otib yuboradi.
+    // (Serverda persist API mavjud emas, shuning uchun optional chaining.)
+    const [cartHydrated, setCartHydrated] = useState(() => useCartStore.persist?.hasHydrated?.() ?? false);
     useEffect(() => {
-        if (items.length === 0 && step === 'form') {
+        const persistApi = useCartStore.persist;
+        if (!persistApi || persistApi.hasHydrated()) {
+            setCartHydrated(true);
+            return;
+        }
+        return persistApi.onFinishHydration(() => setCartHydrated(true));
+    }, []);
+
+    useEffect(() => {
+        if (cartHydrated && items.length === 0 && step === 'form') {
             router.push('/catalog');
         }
-    }, [items, step, router]);
+    }, [cartHydrated, items, step, router]);
 
     const handleOrder = async () => {
         if (!name.trim())  { toast.error(t('enterName', language)); return; }
@@ -134,19 +148,30 @@ export default function CheckoutPage() {
             const order = await orderRes.json();
             setOrderId(order.id);
 
+            // Buyurtma yaratildi: bundan keyin xato bo'lsa ham savatni tozalaymiz,
+            // aks holda mijoz qayta bosib dublikat buyurtma yaratadi.
             if (payMethod === 'click' || payMethod === 'payme') {
-                const payRes = await fetch(`/api/payment/${payMethod}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId: order.id, amount: total }),
-                });
-                const payData = await payRes.json();
-                if (payData.payUrl) {
-                    setPayUrl(payData.payUrl);
+                let payUrlFromApi = '';
+                try {
+                    const payRes = await fetch(`/api/payment/${payMethod}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId: order.id }),
+                    });
+                    const payData = await payRes.json().catch(() => ({}));
+                    payUrlFromApi = typeof payData.payUrl === 'string' ? payData.payUrl : '';
+                } catch (payErr) {
+                    console.error(payErr);
+                }
+                clearCart();
+                if (payUrlFromApi) {
+                    setPayUrl(payUrlFromApi);
                     setStep('payment');
-                    clearCart();
                     return;
                 }
+                toast.warning(t('payLinkFailed', language));
+                setStep('success');
+                return;
             }
 
             clearCart();

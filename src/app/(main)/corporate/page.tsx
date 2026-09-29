@@ -701,7 +701,7 @@ export default function CorporateDashboardPage() {
                         </button>
 
                         <Link
-                            href="/contact"
+                            href="/contacts"
                             className="flex items-center gap-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/10 rounded-xl p-4 transition-all hover:-translate-y-0.5 group"
                         >
                             <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">

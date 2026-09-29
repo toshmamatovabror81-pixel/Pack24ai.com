@@ -13,6 +13,8 @@ export default async function sitemap() {
         { url: `${BASE_URL}/reviews`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.6 },
         { url: `${BASE_URL}/discounts`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.7 },
         { url: `${BASE_URL}/special-offers`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.7 },
+        { url: `${BASE_URL}/offer`, lastModified: new Date(), changeFrequency: 'yearly' as const, priority: 0.3 },
+        { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: 'yearly' as const, priority: 0.3 },
         { url: `${BASE_URL}/faq`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.5 },
         { url: `${BASE_URL}/recycling`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.5 },
         { url: `${BASE_URL}/configurator`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.6 },

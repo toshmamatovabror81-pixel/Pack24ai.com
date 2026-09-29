@@ -171,7 +171,7 @@ export default function EcoWidgetPage() {
           <Shield size={48} className="text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">{t('loginRequired')}</h2>
           <Link
-            href="/auth/login"
+            href="/login"
             className="inline-flex items-center gap-2 mt-4 bg-brand-green text-white px-6 py-2.5 rounded-[10px] font-semibold hover:bg-[#053d2e] transition-colors"
           >
             Login
@@ -190,7 +190,7 @@ export default function EcoWidgetPage() {
           <h2 className="text-xl font-bold text-gray-900 mb-2">{t('corporateOnly')}</h2>
           <p className="text-sm text-gray-500 mb-4">{t('contactUs')}</p>
           <Link
-            href="/support"
+            href="/contacts"
             className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm font-medium"
           >
             <ExternalLink size={14} />

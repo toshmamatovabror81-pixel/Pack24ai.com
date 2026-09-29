@@ -512,7 +512,7 @@ export default function AIDesignerPage() {
                                     {/* Order Button */}
                                     <div className="mt-auto">
                                         <Link
-                                            href="/contact"
+                                            href="/contacts"
                                             className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-all hover:-translate-y-0.5 shadow-md shadow-violet-500/20"
                                         >
                                             <ShoppingCart size={16} />
