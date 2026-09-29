@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/auth/guards';
 
 // ─── GET /api/news — yangiliklar ro'yxati ─────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/news — yangilik qo'shish (admin) ───────────────────────────────
 export async function POST(req: NextRequest) {
+    const admin = await requireAdmin(req);
+    if (!admin.ok) return admin.response;
+
     try {
         const body = await req.json();
         const { titleUz, titleRu, descUz, descRu, emoji, badge, publishedAt } = body;

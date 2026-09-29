@@ -9,7 +9,6 @@
     "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-all-platforms.ps1",
     "start:all:no-mobile": "powershell -ExecutionPolicy Bypass -File scripts/start-all-platforms.ps1 -NoMobile",
     "build": "next build",
-    "postbuild": "next-sitemap",
     "vercel-build": "npx prisma generate && npx prisma migrate deploy && npm run build",
     "start": "next start",
     "lint": "next lint",

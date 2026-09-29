@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLanguage } from '@/lib/contexts/LanguageContext';import { Box, Cpu, Scissors, Sparkles, Image, ArrowRight, Star, Zap, Globe, Package, RotateCcw } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/LanguageContext';import { Box, Scissors, Sparkles, ArrowRight, Star, Zap, Globe, Package, RotateCcw } from 'lucide-react';
 
 // ─── Tool Card ───────────────────────────────────────────────────
 const TOOLS = [
@@ -30,18 +30,6 @@ const TOOLS = [
         categories: ['Folding Box', 'Tuck End', 'Paper Bag', 'Envelope', 'Tray'],
     },
     {
-        id: '3d-modeling',
-        icon: Cpu,
-        color: 'from-purple-500 to-violet-600',
-        badge: 'NEW',
-        count: '',
-        uz: { title: '3D Modeling Studio', sub: 'Professional 3D loyihalash', desc: 'Tajriba talab qilmaydi. Sahnalar, shablonlar va elementlardan tanlang.' },
-        ru: { title: 'Студия 3D моделей', sub: 'Профессиональное 3D проектирование', desc: 'Опыт не нужен. Выбирайте из сцен, шаблонов и элементов.' },
-        en: { title: '3D Modeling Studio', sub: 'Professional 3D design', desc: 'No experience needed. Choose from scenes, templates, and elements.' },
-        href: '/tools/3d-modeling',
-        categories: ['Studio', 'Scene', 'Lighting', 'Angle', 'Material'],
-    },
-    {
         id: 'ai-design',
         icon: Sparkles,
         color: 'from-orange-500 to-rose-500',
@@ -52,18 +40,6 @@ const TOOLS = [
         en: { title: 'AI Packaging Design', sub: 'Describe your dream packaging', desc: 'Enter brand name and style — AI creates packaging design in seconds.' },
         href: '/tools/ai-design',
         categories: ['Minimal', 'Luxury', 'Eco', 'Bold', 'Vintage'],
-    },
-    {
-        id: 'ai-background',
-        icon: Image,
-        color: 'from-cyan-500 to-blue-500',
-        badge: 'AI',
-        count: '',
-        uz: { title: 'AI Fon Generator', sub: 'Professional mahsulot surati', desc: 'Mahsulot rasmini yuklang — AI professional studiya fonini qo\'shadi.' },
-        ru: { title: 'AI Генератор фона', sub: 'Профессиональные фото продуктов', desc: 'Загрузите фото продукта — AI добавит профессиональный студийный фон.' },
-        en: { title: 'AI Background', sub: 'Professional product photos', desc: 'Upload product image — AI adds professional studio backgrounds instantly.' },
-        href: '/tools/ai-background',
-        categories: ['Studio', 'Nature', 'Abstract', 'Minimal', 'Gradient'],
     },
     {
         id: 'ai-designer',

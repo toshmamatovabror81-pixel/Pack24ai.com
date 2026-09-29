@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: '404 — Sahifa topilmadi | Pack24',
+    title: '404 — Sahifa topilmadi',
     description: "Siz izlagan sahifa mavjud emas yoki ko'chirilgan.",
     robots: { index: false, follow: false },
 };

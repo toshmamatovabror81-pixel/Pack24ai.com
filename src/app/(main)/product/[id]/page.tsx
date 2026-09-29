@@ -384,12 +384,34 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
     const products = useProductStore(s => s.products);
     const fetchProducts = useProductStore(s => s.fetchProducts);
-    const product = products.find(p => p.id.toString() === id);
+    const storeProduct = products.find(p => p.id.toString() === id);
+
+    // To'g'ridan-to'g'ri havola (Google, ulashilgan link) bilan kirilganda mahsulot
+    // store'da bo'lmasligi mumkin: uni alohida yuklaymiz, 404 ni faqat API aytganda ko'rsatamiz.
+    const [fetchedProduct, setFetchedProduct] = useState<typeof storeProduct>(undefined);
+    const [lookup, setLookup] = useState<'idle' | 'loading' | 'done' | 'missing'>('idle');
+    const product = storeProduct ?? fetchedProduct;
 
     useEffect(() => {
         if (products.length === 0) fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!id || storeProduct || lookup !== 'idle') return;
+        setLookup('loading');
+        fetch(`/api/products/${encodeURIComponent(id)}`)
+            .then(async res => {
+                if (res.status === 404) {
+                    setLookup('missing');
+                    return;
+                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                setFetchedProduct(await res.json());
+                setLookup('done');
+            })
+            .catch(() => setLookup('done'));
+    }, [id, storeProduct, lookup]);
 
     useEffect(() => {
         if (product) {
@@ -404,7 +426,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     const translatedSpecs = translateSpecifications(product?.specifications, language);
 
     if (!mounted || !id) return <ProductSkeleton />;
-    if (!product && id && mounted) return notFound();
+    if (!product && lookup === 'missing') return notFound();
     if (!product) return <ProductSkeleton />;
 
     const handleAddToCart = () => {

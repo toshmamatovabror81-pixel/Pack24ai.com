@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/auth/guards';
 
 // ─── GET /api/news/[id] ───────────────────────────────────────────────────────
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +16,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 // ─── PUT /api/news/[id] — yangilash ──────────────────────────────────────────
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const admin = await requireAdmin(req);
+    if (!admin.ok) return admin.response;
     const { id } = await params;
     try {
         const body = await req.json();
@@ -39,7 +42,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // ─── DELETE /api/news/[id] — o'chirish ────────────────────────────────────────
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const admin = await requireAdmin(req);
+    if (!admin.ok) return admin.response;
     const { id } = await params;
     try {
         await prisma.news.delete({ where: { id: Number(id) } });

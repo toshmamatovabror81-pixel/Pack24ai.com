@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { toNumber } from '@/lib/money';
 
 // ─── Payme (PayCom) to'lov integratsiyasi ───────────────────────────────────
 // Hujjatlar: https://developer.paycom.uz/
@@ -25,10 +26,10 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { orderId, amount } = body;
+        const { orderId } = body;
 
-        if (!orderId || !amount) {
-            return NextResponse.json({ error: 'orderId va amount majburiy' }, { status: 400 });
+        if (!orderId) {
+            return NextResponse.json({ error: 'orderId majburiy' }, { status: 400 });
         }
 
         // Buyurtma egasini tekshirish
@@ -36,25 +37,24 @@ export async function POST(req: NextRequest) {
         if (!order || order.userId !== parseInt(session.user.id)) {
             return NextResponse.json({ error: 'Buyurtma topilmadi yoki ruxsat yo\'q' }, { status: 403 });
         }
+        if (order.paymentStatus === 'paid') {
+            return NextResponse.json({ error: 'Buyurtma allaqachon to\'langan' }, { status: 409 });
+        }
 
-        // Payme amount tiyin (100x so'm)
+        // Summa faqat bazadan olinadi. Payme summani tiyinda kutadi (100x so'm)
+        const amount = toNumber(order.totalAmount);
         const amountInTiyin = Math.round(amount * 100);
 
-        // Base64 encode: merchant_id + params
-        const params = btoa(JSON.stringify({
-            m:  PAYME_MERCHANT_ID,
-            ac: { order_id: orderId.toString() },
-            a:  amountInTiyin,
-            l:  'uz',          // til: uz | ru | en
-            ct: 7200,          // seconds to pay (2 hours)
-            cr: 'UZS',
-        }));
+        // Payme GET checkout formati: base64("m=...;ac.order_id=...;a=...;l=uz")
+        const params = Buffer.from(
+            `m=${PAYME_MERCHANT_ID};ac.order_id=${order.id};a=${amountInTiyin};l=uz`
+        ).toString('base64');
 
         const payUrl = `${PAYME_URL}/${params}`;
 
         return NextResponse.json({
             payUrl,
-            orderId,
+            orderId: order.id,
             amount,
             amountInTiyin,
         });

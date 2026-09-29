@@ -175,7 +175,7 @@ export default function VirtualForestPage() {
           <TreePine size={48} className="text-emerald-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">{t('loginRequired')}</h2>
           <Link
-            href="/auth/login"
+            href="/login"
             className="inline-flex items-center gap-2 mt-4 bg-emerald-600 text-white px-6 py-2.5 rounded-[10px] font-semibold hover:bg-emerald-700 transition-colors"
           >
             {t('login')}

@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { mul, toNumber } from '@/lib/money';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/guards';
+
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Hisob-fakturani faqat admin yoki buyurtma egasi ko'ra oladi
+async function canViewInvoice(req: NextRequest, order: { userId: number | null }): Promise<boolean> {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+        if (session.user.role === 'admin') return true;
+        const sessionUserId = Number(session.user.id);
+        if (Number.isFinite(sessionUserId) && order.userId === sessionUserId) return true;
+    }
+    const adminCheck = await requireAdmin(req);
+    return adminCheck.ok;
+}
 
 // ─── GET /api/orders/[id]/invoice — PDF hisob-faktura HTML yaratish ──────────
 // Browser printWindow yoki Puppeteer uchun HTML qaytariladim
@@ -28,6 +52,10 @@ export async function GET(
             return NextResponse.json({ error: 'Buyurtma topilmadi' }, { status: 404 });
         }
 
+        if (!(await canViewInvoice(req, order))) {
+            return NextResponse.json({ error: 'Ruxsat yo\'q' }, { status: 403 });
+        }
+
         const issueDate = new Date(order.createdAt).toLocaleDateString('ru-RU');
         const totalFormatted = toNumber(order.totalAmount).toLocaleString('ru-RU');
 
@@ -37,7 +65,7 @@ export async function GET(
             return `
             <tr>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">${i + 1}</td>
-                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">${item.product?.name ?? 'Mahsulot'}</td>
+                <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;">${escapeHtml(item.product?.name ?? 'Mahsulot')}</td>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:center;">${item.quantity}</td>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${unitPrice.toLocaleString('ru-RU')} so'm</td>
                 <td style="padding:10px 8px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;">${lineTotal.toLocaleString('ru-RU')} so'm</td>
@@ -92,7 +120,7 @@ export async function GET(
                 <h1>HISOB-FAKTURA</h1>
                 <p style="font-size:18px;font-weight:700;color:#374151;margin-bottom:4px;">#${order.id}</p>
                 <p>Sana: ${issueDate}</p>
-                <p style="margin-top:6px;"><span class="badge">${order.status === 'delivered' ? 'To\'landi' : "To'lanmagan"}</span></p>
+                <p style="margin-top:6px;"><span class="badge">${order.paymentStatus === 'paid' ? 'To\'landi' : "To'lanmagan"}</span></p>
             </div>
         </div>
 
@@ -106,9 +134,9 @@ export async function GET(
             </div>
             <div class="party-card">
                 <h3>Xaridor</h3>
-                <strong>${order.customerName ?? 'Mijoz'}</strong>
-                <p>${order.contactPhone ?? '-'}</p>
-                ${order.shippingAddress ? `<p>${order.shippingAddress}</p>` : ''}
+                <strong>${escapeHtml(order.customerName ?? 'Mijoz')}</strong>
+                <p>${escapeHtml(order.contactPhone ?? '-')}</p>
+                ${order.shippingAddress ? `<p>${escapeHtml(order.shippingAddress)}</p>` : ''}
             </div>
         </div>
 
