@@ -954,6 +954,10 @@ model Driver {
   invitedByPoint        RecyclePoint? @relation("DriverInvitedByPoint", fields: [invitedByPointId], references: [id])
   invitedAt             DateTime? // Taklif qilingan vaqt
   passwordSetByBotAt    DateTime? // Bot tomonidan random parol o'rnatilgan vaqt
+  // Parolni tiklash uchun Telegram orqali yuborilgan bir martalik kod
+  resetOtpCode          String?
+  resetOtpExpiry        DateTime?
+  resetOtpAttempts      Int       @default(0)
 
   collections           RecycleCollection[]
   assignedRequests      RecycleRequest[]

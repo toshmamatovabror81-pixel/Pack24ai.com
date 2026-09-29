@@ -176,10 +176,13 @@ export function monthRange(monthParam?: string | null, now = new Date()) {
         throw new Error('INVALID_MONTH');
     }
 
-    const to = new Date(from);
-    to.setMonth(to.getMonth() + 1);
+    // Server vaqt mintaqasiga bog'liq bo'lmasligi uchun oy/yilni rawMonth'dan olamiz
+    // (UTC serverda `from` oldingi oyning 31-kuni 19:00 bo'lib chiqadi)
+    const [year, month] = rawMonth.split('-').map(Number);
+    const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
+    const to = new Date(`${nextMonth}-01T00:00:00+05:00`);
 
-    const daysInMonth = new Date(from.getFullYear(), from.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     return { rawMonth, from, to, daysInMonth };
 }
 

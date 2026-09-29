@@ -306,6 +306,9 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
     const [identifier, setIdentifier] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [otp, setOtp] = useState('');
+    const [codeSent, setCodeSent] = useState(false);
+    const [info, setInfo] = useState<string | null>(null);
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -319,20 +322,30 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
             setError(resetMethod === 'phone' ? 'Telefon raqamini kiriting' : 'Email manzilini kiriting');
             return;
         }
-        if (!newPassword.trim() || newPassword.length < 6) {
-            setError('Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            setError('Parollar mos kelmadi');
-            return;
+        if (codeSent) {
+            if (!/^\d{6}$/.test(otp.trim())) {
+                setError('Telegram orqali kelgan 6 xonali kodni kiriting');
+                return;
+            }
+            if (!newPassword.trim() || newPassword.length < 6) {
+                setError('Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                setError('Parollar mos kelmadi');
+                return;
+            }
         }
 
         setLoading(true);
         try {
-            const body: Record<string, string> = { newPassword };
+            const body: Record<string, string> = {};
             if (resetMethod === 'phone') body.phone = identifier.trim();
             if (resetMethod === 'email') body.email = identifier.trim();
+            if (codeSent) {
+                body.otp = otp.trim();
+                body.newPassword = newPassword;
+            }
 
             const res = await fetch('/api/auth/driver/reset-password', {
                 method: 'POST',
@@ -346,6 +359,12 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
             const data = await res.json();
             if (!res.ok) {
                 setError(data.error ?? 'Xatolik yuz berdi');
+                return;
+            }
+
+            if (!codeSent) {
+                setCodeSent(true);
+                setInfo(data.message ?? 'Tasdiqlash kodi Telegram orqali yuborildi.');
                 return;
             }
 
@@ -376,7 +395,7 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
                     {step === 'identify' ? (
                         <>
                             <p className="text-slate-400 text-sm mb-5 leading-relaxed">
-                                Ro&apos;yxatdan o&apos;tgan <span className="text-white font-semibold">telefon</span> yoki <span className="text-white font-semibold">email</span> orqali yangi parol o&apos;rnating.
+                                Ro&apos;yxatdan o&apos;tgan <span className="text-white font-semibold">telefon</span> yoki <span className="text-white font-semibold">email</span>ni kiriting. Tasdiqlash kodi Telegram bot orqali yuboriladi.
                             </p>
 
                             {/* Method switch */}
@@ -386,7 +405,7 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
                                         key={m}
                                         id={`reset-tab-${m}`}
                                         type="button"
-                                        onClick={() => { setResetMethod(m); setIdentifier(''); setError(null); }}
+                                        onClick={() => { setResetMethod(m); setIdentifier(''); setError(null); setCodeSent(false); setOtp(''); setInfo(null); }}
                                         className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${resetMethod === m ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/30' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         {m === 'phone' ? '📞 Telefon' : '✉️ Email'}
@@ -410,9 +429,33 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
                                             placeholder={resetMethod === 'phone' ? '+998 90 000 00 00' : 'misol@mail.com'}
                                             value={identifier}
                                             onChange={(e) => setIdentifier(e.target.value)}
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                                            disabled={codeSent}
+                                            className="w-full disabled:opacity-60 bg-slate-800 border border-slate-700 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
                                         />
                                     </div>
+                                </div>
+
+                                {codeSent && (
+                                <>
+                                {info && (
+                                    <p id="reset-info" className="text-emerald-400 text-sm leading-snug">{info}</p>
+                                )}
+
+                                {/* OTP code */}
+                                <div>
+                                    <label htmlFor="reset-otp" className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">
+                                        Tasdiqlash kodi
+                                    </label>
+                                    <input
+                                        id="reset-otp"
+                                        inputMode="numeric"
+                                        autoComplete="one-time-code"
+                                        maxLength={6}
+                                        placeholder="000000"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 text-sm tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                                    />
                                 </div>
 
                                 {/* New password */}
@@ -472,6 +515,9 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
                                     )}
                                 </div>
 
+                                </>
+                                )}
+
                                 {/* Error */}
                                 {error && (
                                     <div id="reset-error" role="alert" className="flex items-start gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -489,9 +535,9 @@ function ResetPasswordView({ onBack }: { onBack: () => void }) {
                                     {loading ? (
                                         <span className="flex items-center justify-center gap-2">
                                             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Saqlanmoqda...
+                                            {codeSent ? 'Saqlanmoqda...' : 'Yuborilmoqda...'}
                                         </span>
-                                    ) : 'Parolni yangilash'}
+                                    ) : codeSent ? 'Parolni yangilash' : 'Kod olish'}
                                 </button>
                             </form>
                         </>
