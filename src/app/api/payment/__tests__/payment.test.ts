@@ -48,8 +48,10 @@ import { POST as paymeWebhookPOST } from '@/app/api/payment/payme/webhook/route'
 /* ── Yordamchi funksiyalar ────────────────────────────────────────────────── */
 import { createHash } from 'crypto';
 
-const CLICK_SECRET_KEY = process.env.CLICK_SECRET_KEY ?? '';
-const CLICK_SERVICE_ID = process.env.CLICK_SERVICE_ID ?? '';
+const CLICK_SECRET_KEY = 'test-click-secret';
+const CLICK_SERVICE_ID = '12345';
+process.env.CLICK_SECRET_KEY = CLICK_SECRET_KEY;
+process.env.CLICK_SERVICE_ID = CLICK_SERVICE_ID;
 
 function clickSign(parts: string[]): string {
     return createHash('md5').update(parts.join('')).digest('hex');
@@ -92,12 +94,14 @@ describe('GET /api/payment/click (webhook)', () => {
     const merchantTransId = '42';
     const amount = 500;
 
-    function buildValidClickParams(action: string, error = '0') {
+    function buildValidClickParams(action: string, error = '0', secret = CLICK_SECRET_KEY) {
+        const prepareId = action === '1' ? [merchantTransId] : [];
         const sign = clickSign([
-            clickTransId, CLICK_SERVICE_ID, CLICK_SECRET_KEY,
-            merchantTransId, amount.toString(), action, signTime,
+            clickTransId, CLICK_SERVICE_ID, secret,
+            merchantTransId, ...prepareId, amount.toString(), action, signTime,
         ]);
         return {
+            ...(action === '1' ? { merchant_prepare_id: merchantTransId } : {}),
             click_trans_id: clickTransId,
             service_id: CLICK_SERVICE_ID,
             click_paydoc_id: 'doc-1',
@@ -224,6 +228,43 @@ describe('GET /api/payment/click (webhook)', () => {
                 data: { paymentStatus: 'failed' },
             }),
         );
+    });
+
+    it('CLICK_SECRET_KEY o\'rnatilmagan bo\'lsa bo\'sh kalit bilan imzo qabul qilinmaydi', async () => {
+        const saved = process.env.CLICK_SECRET_KEY;
+        process.env.CLICK_SECRET_KEY = '';
+        try {
+            const res = await clickGET(
+                new Request(makeClickUrl(buildValidClickParams('1', '0', ''))) as never,
+            );
+            const body = await res.json();
+            expect(body.error).toBe(-1);
+            expect(orderUpdateMock).not.toHaveBeenCalled();
+        } finally {
+            process.env.CLICK_SECRET_KEY = saved;
+        }
+    });
+
+    it('boshqa service_id bilan kelgan so\'rov rad etiladi', async () => {
+        const params = { ...buildValidClickParams('0'), service_id: '999' };
+        const res = await clickGET(new Request(makeClickUrl(params)) as never);
+        const body = await res.json();
+        expect(body.error).toBe(-1);
+    });
+
+    it('takroriy COMPLETE to\'langan buyurtmani qayta o\'zgartirmaydi', async () => {
+        orderFindUniqueMock.mockResolvedValue({
+            id: 42,
+            paymentStatus: 'paid',
+            totalAmount: 500,
+        });
+
+        const res = await clickGET(
+            new Request(makeClickUrl(buildValidClickParams('1', '-1'))) as never,
+        );
+        const body = await res.json();
+        expect(body.error).toBe(-4);
+        expect(orderUpdateMock).not.toHaveBeenCalled();
     });
 
     it('noma\'lum action uchun error -3 qaytaradi', async () => {

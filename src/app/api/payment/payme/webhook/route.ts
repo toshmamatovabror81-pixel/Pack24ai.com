@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { toNumber } from '@/lib/money';
 import { logger } from '@/lib/logger';
+import { timingSafeEqual } from 'crypto';
 
 function getPaymeKey(): string {
     const isTest = process.env.NODE_ENV !== 'production';
@@ -13,9 +14,16 @@ function getPaymeKey(): string {
 function verifyAuth(req: NextRequest): boolean {
     const authHeader = req.headers.get('authorization') ?? '';
     if (!authHeader.startsWith('Basic ')) return false;
+    const expectedKey = getPaymeKey();
+    // Kalit o'rnatilmagan bo'lsa hech qanday so'rovni qabul qilmaymiz
+    if (!expectedKey) return false;
     const decoded = Buffer.from(authHeader.slice(6), 'base64').toString();
-    const [, key] = decoded.split(':');
-    return key === getPaymeKey();
+    const [login, ...rest] = decoded.split(':');
+    const key = rest.join(':');
+    if (login !== 'Paycom') return false;
+    const a = Buffer.from(key);
+    const b = Buffer.from(expectedKey);
+    return a.length === b.length && timingSafeEqual(a, b);
 }
 
 interface PaymeRpcRequest {

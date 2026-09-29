@@ -7,29 +7,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { RecycleRequestStatus } from '@prisma/client';
-import crypto from 'crypto';
+import { verifyDriverToken as verifySharedDriverToken } from '@/lib/auth/verifyDriverToken';
 
-const TOKEN_SECRET = process.env.ADMIN_SECRET || 'pack24-driver-secret';
-
-function verifyDriverToken(authHeader: string | null): { driverId: number } | null {
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const token = authHeader.slice(7);
-    const [payloadB64, hmac] = token.split('.');
-    if (!payloadB64 || !hmac) return null;
-
+// Haydovchi tokeni umumiy verifyDriverToken orqali tekshiriladi (DRIVER_TOKEN_SECRET).
+// Kalit o'rnatilmagan bo'lsa so'rov rad etiladi.
+async function verifyDriverToken(authHeader: string | null): Promise<{ driverId: number } | null> {
     try {
-        const payload = Buffer.from(payloadB64, 'base64').toString();
-        const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
-        if (hmac !== expected) return null;
-        const data = JSON.parse(payload);
-        return { driverId: data.driverId };
+        const result = await verifySharedDriverToken(authHeader);
+        return result.ok ? { driverId: result.driverId } : null;
     } catch {
         return null;
     }
 }
 
 export async function GET(req: NextRequest) {
-    const auth = verifyDriverToken(req.headers.get('authorization'));
+    const auth = await verifyDriverToken(req.headers.get('authorization'));
     if (!auth) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

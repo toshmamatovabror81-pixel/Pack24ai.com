@@ -45,12 +45,8 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // URL params dan userId olish (fallback)
-        const { searchParams } = new URL(req.url);
-        const paramUserId = searchParams.get('userId');
-        if (!userId && paramUserId) {
-            userId = Number(paramUserId);
-        }
+        // ?userId=N fallback olib tashlandi: login'siz boshqa foydalanuvchi
+        // arizalarini (ism, telefon, manzil) ko'rib bo'lmasin.
 
         if (!userId || !Number.isFinite(userId)) {
             return NextResponse.json([]);
