@@ -1,4 +1,4 @@
-import type { Config } from 'jest';
+// .mjs: Node 20 da jest.config.ts ts-node talab qiladi (CI shu sababli yiqilardi)
 import nextJest from 'next/jest.js';
 
 const createJestConfig = nextJest({
@@ -6,7 +6,8 @@ const createJestConfig = nextJest({
     dir: './',
 });
 
-const config: Config = {
+/** @type {import('jest').Config} */
+const config = {
     coverageProvider: 'v8',
     testEnvironment: 'jsdom',
 
