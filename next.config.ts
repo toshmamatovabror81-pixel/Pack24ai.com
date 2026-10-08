@@ -23,8 +23,7 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       { protocol: 'https', hostname: 'pack24.uz' },
-      // Hozirgi katalog rasmlari shu yerdan (admin orqali o'z rasmlaringiz bilan almashtiriladi)
-      { protocol: 'https', hostname: 'pack24.ru' },
+      { protocol: 'https', hostname: 'www.pack24.uz' },
     ],
   },
   async headers() {

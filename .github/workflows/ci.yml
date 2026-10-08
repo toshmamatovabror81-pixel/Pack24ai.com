@@ -27,7 +27,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:ci@localhost:5432/pack24
       DIRECT_URL: postgresql://postgres:ci@localhost:5432/pack24
       AUTH_SECRET: ci-only-secret-ci-only-secret-0123456789
-      NEXT_PUBLIC_APP_URL: https://pack24.uz
+      APP_URL: https://pack24.uz
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

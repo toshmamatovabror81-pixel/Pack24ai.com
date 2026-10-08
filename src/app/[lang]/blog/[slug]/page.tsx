@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { pickText } from '@/lib/i18n/config';

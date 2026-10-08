@@ -16,7 +16,9 @@ export function pageMetadata(opts: {
   const languages: Record<string, string> = {};
   for (const l of locales) languages[localeTags[l]] = `${siteUrl()}/${l}${path}`;
   languages['x-default'] = `${siteUrl()}/uz${path}`;
-  const image = opts.image && opts.image.startsWith('http') ? opts.image : `${siteUrl()}/og`;
+  // Admin yuklagan rasm (/uploads/...) to'liq manzilga aylantiriladi; rasm bo'lmasa brend banneri /og
+  const img = opts.image ?? '';
+  const image = /^https?:\/\//.test(img) ? img : img.startsWith('/uploads/') ? `${siteUrl()}${img}` : `${siteUrl()}/og`;
   return {
     title: opts.title,
     description: opts.description,

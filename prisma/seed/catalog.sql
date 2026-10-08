@@ -1,16 +1,16 @@
 BEGIN;
-INSERT INTO "Warehouse"(id,name,location,"isMain","updatedAt") VALUES (1,'Asosiy ombor','Toshkent',true,now());
+INSERT INTO "Warehouse"(id,name,location,"isMain","updatedAt") VALUES (1,'Asosiy ombor','Toshkent',true,now()) ON CONFLICT (id) DO NOTHING;
 WITH img(k,url) AS (VALUES
-(1,'https://pack24.ru/upload/iblock/5a9/jk0pmv7jwkrqmm0gojuwbx5ubs0aoi4e.jpg'),
-(2,'https://pack24.ru/upload/iblock/f1e/7e3h6j1i9xcn5f4q0y2w8r3t.jpg'),
-(3,'https://pack24.ru/upload/iblock/ae2/stretch.jpg'),
-(4,'https://pack24.ru/upload/iblock/cc4/scotch.jpg'),
-(5,'https://pack24.ru/upload/iblock/b2d/kraft_bag.jpg'),
-(6,'https://pack24.ru/upload/iblock/7f3/bubblewrap.jpg'),
-(7,'https://pack24.ru/upload/iblock/9c1/crepe.jpg'),
-(8,'https://pack24.ru/upload/iblock/f0c/tape.jpg'),
-(9,'https://pack24.ru/upload/iblock/e4b/corner.jpg'),
-(10,'https://pack24.ru/upload/iblock/aa5/foam.jpg')
+(1,'/images/no-image.svg'),
+(2,'/images/no-image.svg'),
+(3,'/images/no-image.svg'),
+(4,'/images/no-image.svg'),
+(5,'/images/no-image.svg'),
+(6,'/images/no-image.svg'),
+(7,'/images/no-image.svg'),
+(8,'/images/no-image.svg'),
+(9,'/images/no-image.svg'),
+(10,'/images/no-image.svg')
 ), p(id,name,price,sku,category,k,f) AS (VALUES
 (1,'Karton quti 300×200×150 mm',4500.00,'P24-001','karton-qutilar',1,true),
 (2,'To''rt qanotli gofroqorti',8630.00,'P24-002','karton-qutilar',1,false),
@@ -133,8 +133,8 @@ WITH img(k,url) AS (VALUES
 (119,'Muzlatish uchun paketlar',3070.00,'P24-119','oziq-ovqat-konteynerlari',7,false),
 (120,'Pallet / Poddon',109000.00,'P24-120','palletlar',1,true)
 )
-INSERT INTO "Product"(id,name,description,price,sku,category,image,"isFeatured","updatedAt") SELECT p.id,p.name,'',p.price,p.sku,p.category,img.url,p.f,now() FROM p JOIN img USING (k);
-INSERT INTO "Inventory"("productId","warehouseId",quantity,"updatedAt") SELECT id,1,100,now() FROM "Product" ORDER BY id;
+INSERT INTO "Product"(id,name,description,price,sku,category,image,"isFeatured","updatedAt") SELECT p.id,p.name,'',p.price,p.sku,p.category,img.url,p.f,now() FROM p JOIN img USING (k) ON CONFLICT (id) DO NOTHING;
+INSERT INTO "Inventory"("productId","warehouseId",quantity,"updatedAt") SELECT p.id,1,100,now() FROM "Product" p WHERE NOT EXISTS (SELECT 1 FROM "Inventory" i WHERE i."productId"=p.id AND i."warehouseId"=1) ORDER BY p.id;
 SELECT setval(pg_get_serial_sequence('"Product"','id'),(SELECT max(id) FROM "Product"));
 SELECT setval(pg_get_serial_sequence('"Warehouse"','id'),1);
 

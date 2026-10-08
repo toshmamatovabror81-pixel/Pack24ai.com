@@ -7,11 +7,8 @@ www.{$DOMAIN} {
 
 {$DOMAIN} {
 	encode zstd gzip
+	# Kesh sarlavhalarini Next'ning o'zi beradi (/_next/static va /uploads immutable)
 	reverse_proxy web:3000
-
-	# Statik fayllar uzoq keshlanadi
-	@static path /_next/static/* /images/* /uploads/*
-	header @static Cache-Control "public, max-age=31536000, immutable"
 
 	log {
 		output file /data/access.log {

@@ -29,19 +29,21 @@ DNS tarqalgach (odatda 5-30 daqiqa) Caddy sertifikatni o'zi oladi.
 
 ## 3. O'rnatish (bir marta)
 
-Serverga SSH orqali kirib, bitta buyruq:
+Serverga SSH orqali kirib (`ssh root@<server IP>`), bitta buyruq. `<branch>` o'rniga joylanadigan branch nomi
+(PR #3 qo'shilguncha `claude/site-rewrite-um3xxf`, keyin `main`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/toshmamatovabror81-pixel/pack24ai.com/main/deploy/server-setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/toshmamatovabror81-pixel/Pack24ai.com/<branch>/deploy/server-setup.sh | sudo BRANCH=<branch> bash
 ```
 
 Skript nima qiladi:
 
-1. Docker o'rnatadi, firewall'da faqat 22/80/443 ni ochadi.
+1. git, Docker o'rnatadi, firewall'da faqat 22/80/443 ni ochadi.
 2. Kodni `/opt/pack24` ga klon qiladi.
-3. `.env` yaratadi: baza paroli, `AUTH_SECRET` va birinchi admin parolini o'zi generatsiya qiladi (admin parolini terminalga bir marta chiqaradi).
-4. `docker compose up -d --build` — birinchi build 3-5 daqiqa.
-5. Birinchi ishga tushishda migratsiyalar va 120 mahsulotli katalog avtomatik yuklanadi.
+3. `.env` yaratadi: baza paroli, `AUTH_SECRET` va birinchi admin parolini o'zi generatsiya qiladi.
+4. Cron: har 5 daqiqada GitHub'dan yangilanish (`deploy/auto-update.sh`), har kuni 03:00 da zaxira (`deploy/backup.sh`).
+5. `docker compose up -d --build` (birinchi build 3-5 daqiqa), migratsiyalar va 120 mahsulotli katalog avtomatik yuklanadi.
+6. Sayt javob berganda `TAYYOR` va admin parolini ekranga chiqaradi (parol `/opt/pack24/.env` da ham bor).
 
 Tekshirish: `curl -s https://pack24.uz/api/health` → `{"ok":true,"db":"up"}`.
 
@@ -49,7 +51,8 @@ Admin panel: `https://pack24.uz/admin` (login `admin`, skript bergan parol). Kir
 
 ## 4. To'lov va Telegram kalitlari
 
-`/opt/pack24/.env` faylini oching (`nano /opt/pack24/.env`), quyidagilarni to'ldiring va `docker compose up -d` qiling:
+`/opt/pack24/.env` faylini oching (`nano /opt/pack24/.env`), quyidagilarni to'ldiring va
+`cd /opt/pack24 && docker compose up -d` qiling:
 
 - `PAYME_MERCHANT_ID`, `PAYME_SECRET_KEY` (Payme Business kabineti; webhook: `https://pack24.uz/api/payment/payme/webhook`)
 - `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` (webhook: `https://pack24.uz/api/payment/click`)
@@ -59,22 +62,18 @@ Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
 ## 5. Yangilash
 
-Qo'lda:
+Avtomatik: server har 5 daqiqada GitHub'dagi o'z branch'ini tekshiradi; yangi commit bo'lsa `deploy/deploy.sh` ni
+ishga tushiradi (log: `/var/log/pack24-update.log`). Branch GitHub'da o'chirilsa (PR `main` ga qo'shilgach) server
+o'zi `main` ga o'tadi. Hech qanday kalit kerak emas.
 
-```bash
-/opt/pack24/deploy/deploy.sh
-```
+Qo'lda: `/opt/pack24/deploy/deploy.sh`
 
-Avtomatik: GitHub repo > Settings > Secrets and variables > Actions ga `DEPLOY_HOST` (server IP), `DEPLOY_USER` (`root`), `DEPLOY_SSH_KEY` (serverga kiradigan private key) qo'shilsa, `main` ga har bir push serverga o'zi tushadi (`.github/workflows/deploy.yml`).
+Ixtiyoriy (SSH orqali push'dan keyin darhol): GitHub repo > Settings > Secrets and variables > Actions ga
+`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` qo'shilsa, `.github/workflows/deploy.yml` ham ishlaydi.
 
 ## 6. Zaxira nusxa
 
-Har kuni 03:00 da baza va rasmlar `/var/backups/pack24` ga saqlanadi (14 kun):
-
-```bash
-(crontab -l 2>/dev/null; echo "0 3 * * * /opt/pack24/deploy/backup.sh >> /var/log/pack24-backup.log 2>&1") | crontab -
-```
-
+Har kuni 03:00 da baza va rasmlar `/var/backups/pack24` ga saqlanadi (14 kun), cron'ni o'rnatish skripti qo'shadi.
 Tiklash buyruqlari `deploy/backup.sh` oxirida.
 
 ## 7. Foydali buyruqlar
@@ -86,8 +85,10 @@ docker compose logs -f web         # sayt loglari
 docker compose logs -f caddy       # HTTPS / so'rovlar
 docker compose exec db psql -U pack24 pack24   # bazaga kirish
 docker compose restart web         # qayta ishga tushirish
+tail -f /var/log/pack24-update.log # avtomatik yangilanish logi
 ```
 
 ## Supabase'dagi ma'lumotlarni ko'chirish (ixtiyoriy)
 
-Yangi serverga katalog o'zi yuklanadi. Agar Supabase'da keyin qo'shilgan buyurtma yoki mijozlar bo'lsa, u yerdan `pg_dump --data-only` olib, serverda `docker compose exec -T db psql -U pack24 pack24 < dump.sql` bilan yuklash mumkin.
+Yangi serverga katalog o'zi yuklanadi. Agar Supabase'da keyin qo'shilgan buyurtma yoki mijozlar bo'lsa, u yerdan
+`pg_dump --data-only` olib, serverda `docker compose exec -T db psql -U pack24 pack24 < dump.sql` bilan yuklash mumkin.

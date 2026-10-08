@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { CheckCircle2, Clock } from 'lucide-react';

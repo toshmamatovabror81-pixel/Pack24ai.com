@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import type { ProductCard as Card } from '@/lib/catalog';
 import { formatPrice } from '@/lib/format';
 import { AddToCartButton } from '../cart/AddToCartButton';

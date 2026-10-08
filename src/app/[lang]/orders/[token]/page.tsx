@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import { notFound } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { prisma } from '@/lib/db';

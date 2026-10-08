@@ -32,4 +32,4 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           command_timeout: 20m
-          script: /opt/pack24/deploy/deploy.sh
+          script: BRANCH=${{ github.ref_name }} /opt/pack24/deploy/deploy.sh

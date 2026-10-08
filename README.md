@@ -29,7 +29,7 @@ Tekshiruvlar: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
 ## Serverga joylash
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/toshmamatovabror81-pixel/pack24ai.com/main/deploy/server-setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/toshmamatovabror81-pixel/Pack24ai.com/main/deploy/server-setup.sh | sudo BRANCH=main bash
 ```
 
 Batafsil: [docs/DEPLOY-UZCLOUD.md](docs/DEPLOY-UZCLOUD.md).

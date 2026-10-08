@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import Link from 'next/link';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import type { Locale } from '@/lib/i18n/config';

@@ -11,7 +11,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U pack24 -d pack24']
+      # -h: birinchi ishga tushishdagi vaqtinchalik (faqat socket) server "tayyor" deb hisoblanmasin
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U pack24 -d pack24']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -25,6 +26,7 @@ services:
     environment:
       DATABASE_URL: postgresql://pack24:${POSTGRES_PASSWORD}@db:5432/pack24?connection_limit=10
       DIRECT_URL: postgresql://pack24:${POSTGRES_PASSWORD}@db:5432/pack24
+      APP_URL: https://${DOMAIN:-pack24.uz}
       UPLOAD_DIR: /data/uploads
     volumes:
       - uploads:/data/uploads

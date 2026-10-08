@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { SiteImage as Image } from '@/components/site/SiteImage';
 import { BadgePercent, Printer, Truck, Wallet } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { featuredProducts, listCategories } from '@/lib/catalog';
