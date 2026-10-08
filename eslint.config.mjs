@@ -8,6 +8,8 @@ const eslintConfig = [
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
+      // O'zbekcha matnda apostrof ko'p; React uni o'zi xavfsiz chiqaradi
+      'react/no-unescaped-entities': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },

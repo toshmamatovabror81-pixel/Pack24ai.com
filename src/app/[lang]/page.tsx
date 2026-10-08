@@ -71,9 +71,12 @@ export default async function HomePage({ params }: LangParams) {
       </section>
 
       <section className="container-site py-12">
-        <h2 className="mb-6 text-2xl font-bold">{t.home.categories}</h2>
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="text-2xl font-bold">{t.home.categories}</h2>
+          <Link href={p('/catalog')} className="text-sm font-semibold text-brand-500 hover:underline">{t.catalog.all} →</Link>
+        </div>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {categories.map((c) => (
+          {[...categories].sort((a, b) => b.productCount - a.productCount).slice(0, 12).map((c) => (
             <li key={c.id}>
               <Link href={p(`/catalog/${c.slug}`)} className="card flex h-full items-center justify-between gap-2 px-4 py-3 hover:border-brand-500 hover:shadow">
                 <span className="font-medium">{c.name}</span>

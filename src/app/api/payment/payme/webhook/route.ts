@@ -32,13 +32,13 @@ async function checkOrder(params: Record<string, unknown>): Promise<{ error: Che
 }
 
 export async function POST(req: NextRequest) {
-  if (!paymeAuthorized(req.headers.get('authorization'))) return err(undefined, PaymeError.auth, 'Ruxsat yo\'q');
   let body: Rpc;
   try {
     body = (await req.json()) as Rpc;
   } catch {
     return err(undefined, PaymeError.parse, 'Parse error');
   }
+  if (!paymeAuthorized(req.headers.get('authorization'))) return err(body.id, PaymeError.auth, 'Ruxsat yo\'q');
   const { id, method } = body;
   const params = body.params ?? {};
 

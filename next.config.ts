@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://mc.yandex.ru https://mc.yandex.com https://yastatic.net https://www.googletagmanager.com https://www.google-analytics.com https://telegram.org",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://mc.yandex.ru https://mc.yandex.com https://yastatic.net https://www.googletagmanager.com https://www.google-analytics.com https://telegram.org`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
