@@ -6,16 +6,23 @@ import { requireStaff } from '@/lib/auth';
 import { saveSettings, type SiteSettings } from '@/lib/settings';
 import { i18nFrom, num, text } from '@/lib/formData';
 import { normalizePhone } from '@/lib/format';
+import { DEFAULT_CONTRACT_TEXT } from '@/lib/documents';
 
 export async function updateSettings(fd: FormData) {
   await requireStaff('settings');
   const phone = normalizePhone(text(fd, 'phone', 30));
   const phone2 = normalizePhone(text(fd, 'phone2', 30));
+  // Standart matn o'zgartirilmagan bo'lsa bo'sh saqlaymiz: keyinchalik standart yangilansa, shartnoma ham yangilanadi
+  const contractText = text(fd, 'contractText', 30000).replace(/\r\n/g, '\n');
   const patch: Partial<SiteSettings> = {
     companyName: text(fd, 'companyName', 100) || 'Pack24',
     legalName: text(fd, 'legalName', 200),
     inn: text(fd, 'inn', 20).replace(/\D/g, ''),
     bankDetails: text(fd, 'bankDetails', 1000),
+    directorName: text(fd, 'directorName', 120),
+    vatPercent: Math.min(30, Math.max(0, num(fd, 'vatPercent') ?? 12)),
+    lowStockThreshold: Math.max(0, Math.floor(num(fd, 'lowStockThreshold') ?? 10)),
+    contractText: contractText === DEFAULT_CONTRACT_TEXT.trim() ? '' : contractText,
     ...(phone ? { phone } : {}),
     phone2: phone2 ?? '',
     email: text(fd, 'email', 120),

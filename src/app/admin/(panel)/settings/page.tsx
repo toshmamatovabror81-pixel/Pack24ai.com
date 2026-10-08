@@ -1,5 +1,6 @@
 import { requireStaff } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
+import { DEFAULT_CONTRACT_TEXT } from '@/lib/documents';
 import { displayPhone } from '@/lib/format';
 import { paymeConfigured } from '@/lib/payments/payme';
 import { clickConfigured } from '@/lib/payments/click';
@@ -38,6 +39,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="Brend nomi"><input name="companyName" defaultValue={s.companyName} className="input" /></Field>
           <Field label="Yuridik nomi" hint="Footer, oferta va fakturada"><input name="legalName" defaultValue={s.legalName} placeholder='"PACK24" MChJ' className="input" /></Field>
           <Field label="INN (STIR)"><input name="inn" defaultValue={s.inn} className="input" /></Field>
+          <Field label="Direktor" hint="Shartnoma va hisob-fakturada imzo"><input name="directorName" defaultValue={s.directorName} className="input" /></Field>
           <Field label="Bank rekvizitlari"><textarea name="bankDetails" defaultValue={s.bankDetails} rows={3} className="input" /></Field>
         </section>
         <section className="card grid gap-4 p-5 sm:grid-cols-2">
@@ -58,6 +60,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="Shu summadan yuqori bepul, so'm" hint="0: har doim pullik"><input name="freeDeliveryFrom" inputMode="numeric" defaultValue={s.freeDeliveryFrom} className="input" /></Field>
           <Field label="Yandex Metrika ID" hint="Faqat raqamlar"><input name="yandexMetrikaId" defaultValue={s.yandexMetrikaId} className="input" /></Field>
           <Field label="Google Analytics 4 ID" hint="G-XXXXXXX"><input name="ga4Id" defaultValue={s.ga4Id} className="input" /></Field>
+        </section>
+        <section className="card grid gap-4 p-5 sm:grid-cols-2">
+          <h2 className="font-semibold sm:col-span-2">B2B hujjatlar va ombor</h2>
+          <Field label="QQS foizi, %" hint="Narxlar QQS bilan; hisob-fakturada QQS summadan ajratib ko'rsatiladi"><input name="vatPercent" type="number" min={0} max={30} step="0.1" defaultValue={s.vatPercent} className="input" /></Field>
+          <Field label="Kam qoldiq chegarasi, dona" hint="Omborda shundan kam qolsa ogohlantirish"><input name="lowStockThreshold" type="number" min={0} defaultValue={s.lowStockThreshold} className="input" /></Field>
+          <Field label="Shartnoma matni (Markdown)" wide hint="O'rinbosarlar: {{contractNo}}, {{date}}, {{sellerName}}, {{sellerInn}}, {{sellerDirector}}, {{sellerAddress}}, {{sellerBank}}, {{company}}, {{inn}}, {{director}}, {{address}}, {{phone}}, {{bankName}}, {{mfo}}, {{bankAccount}}, {{creditLimit}}, {{paymentTermDays}}, {{vatPercent}}, {{endDate}}. Bo'sh qoldirilsa standart matn ishlatiladi.">
+            <textarea name="contractText" rows={12} defaultValue={s.contractText || DEFAULT_CONTRACT_TEXT} className="input font-mono text-xs" />
+          </Field>
         </section>
         <section className="card grid gap-4 p-5 sm:grid-cols-2">
           <h2 className="font-semibold sm:col-span-2">Sahifa matnlari (Markdown)</h2>

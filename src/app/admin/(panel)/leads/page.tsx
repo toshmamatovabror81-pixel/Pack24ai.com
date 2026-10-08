@@ -60,7 +60,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   {l.message && <p className="whitespace-pre-line rounded bg-slate-50 p-3">{l.message}</p>}
                   {l.productId && <p><Link href={`/admin/products/${l.productId}`} className="text-brand-500">Mahsulot #{l.productId}</Link></p>}
                   {l.utmSource && <p className="text-xs text-slate-500">Manba: {[l.utmSource, l.utmMedium, l.utmCampaign].filter(Boolean).join(' / ')}</p>}
-                  <p><Link href={`/admin/customers/${l.phone}`} className="text-xs text-brand-500">Mijoz kartasi →</Link></p>
+                  <p className="flex flex-wrap gap-3">
+                    <Link href={`/admin/customers/${l.phone}`} className="text-xs text-brand-500">Mijoz kartasi →</Link>
+                    {(l.type === 'custom_box' || l.type === 'wholesale') && <Link href={`/admin/production/new?lead=${l.id}`} className="text-xs text-brand-500">Ishlab chiqarishga →</Link>}
+                  </p>
                 </div>
                 <form action={updateLead} className="space-y-2">
                   <input type="hidden" name="id" value={l.id} />

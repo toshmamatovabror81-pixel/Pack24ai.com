@@ -13,6 +13,9 @@ const schema = z.object({
   name: z.string().trim().min(2).max(100),
   phone: z.string().trim().max(30),
   company: z.string().trim().max(150).optional().default(''),
+  // Bank o'tkazmasi (yuridik shaxs): kompaniya nomi majburiy, STIR 9-14 raqam
+  companyName: z.string().trim().max(150).optional().default(''),
+  companyInn: z.string().trim().max(14).optional().default(''),
   deliveryMethod: z.enum(['courier', 'pickup']),
   address: z.string().trim().max(500).optional().default(''),
   comment: z.string().trim().max(1000).optional().default(''),
@@ -23,7 +26,7 @@ const schema = z.object({
 
 export type CheckoutResult =
   | { ok: true; redirect: string; orderId: number; total: number }
-  | { ok: false; error: 'validation' | 'phone' | 'address' | 'empty' | 'promo' | 'payment' | 'rate' | 'server' };
+  | { ok: false; error: 'validation' | 'phone' | 'address' | 'company' | 'inn' | 'empty' | 'promo' | 'payment' | 'rate' | 'server' };
 
 export async function placeOrder(raw: unknown): Promise<CheckoutResult> {
   if (!(await rateLimit('checkout', 10, 10 * 60_000))) return { ok: false, error: 'rate' };
@@ -33,6 +36,10 @@ export async function placeOrder(raw: unknown): Promise<CheckoutResult> {
   const phone = normalizePhone(d.phone);
   if (!phone) return { ok: false, error: 'phone' };
   if (d.deliveryMethod === 'courier' && d.address.length < 5) return { ok: false, error: 'address' };
+  if (d.paymentMethod === 'bank_transfer') {
+    if (!d.companyName) return { ok: false, error: 'company' };
+    if (d.companyInn && !/^\d{9,14}$/.test(d.companyInn)) return { ok: false, error: 'inn' };
+  }
   const user = await currentUser().catch(() => null);
   try {
     const { order, payUrl, viewUrl } = await createOrder({
@@ -41,6 +48,8 @@ export async function placeOrder(raw: unknown): Promise<CheckoutResult> {
       name: d.name,
       phone,
       company: d.company || undefined,
+      companyName: d.paymentMethod === 'bank_transfer' ? d.companyName : undefined,
+      companyInn: d.paymentMethod === 'bank_transfer' ? d.companyInn || undefined : undefined,
       deliveryMethod: d.deliveryMethod,
       address: d.address,
       comment: d.comment,

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { can } from '@/lib/auth/permissions';
 import { formatDate, formatPrice, toNumber, displayPhone } from '@/lib/format';
+import { getSettings } from '@/lib/settings';
+import { lowStockProducts } from '@/lib/inventory';
 import { Badge, Notice, PageHeader, Table } from '@/components/admin/ui';
 import { orderStatusBadge, paymentBadge } from '@/components/admin/status';
 
@@ -20,14 +22,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const today = startOfTashkentDay();
   const month = startOfTashkentDay(29);
   const live = { deletedAt: null, status: { not: 'cancelled' as const } };
-  const [todayOrders, todayRevenue, monthRevenue, monthOrders, newLeads, recent, lowStock] = await Promise.all([
+  const now = new Date();
+  const seeInventory = can(user.role, 'inventory');
+  const seeProduction = can(user.role, 'production');
+  const seeFinance = can(user.role, 'finance');
+  const settings = await getSettings();
+  const [todayOrders, todayRevenue, monthRevenue, monthOrders, newLeads, recent, lowStock, inProduction, overdueInvoices] = await Promise.all([
     prisma.order.count({ where: { ...live, createdAt: { gte: today } } }),
     prisma.order.aggregate({ where: { ...live, createdAt: { gte: today }, paymentStatus: 'paid' }, _sum: { totalAmount: true } }),
     prisma.order.aggregate({ where: { ...live, createdAt: { gte: month }, paymentStatus: 'paid' }, _sum: { totalAmount: true } }),
     prisma.order.count({ where: { ...live, createdAt: { gte: month } } }),
     prisma.lead.count({ where: { status: 'new_' } }),
     prisma.order.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 10 }),
-    can(user.role, 'products') ? prisma.inventory.findMany({ where: { quantity: { lt: 10 } }, include: { product: { select: { id: true, name: true } } }, take: 8 }) : [],
+    seeInventory ? lowStockProducts(settings.lowStockThreshold) : [],
+    seeProduction ? prisma.workOrder.count({ where: { status: { in: ['planned', 'in_progress'] } } }) : 0,
+    seeFinance ? prisma.corporateInvoice.count({ where: { status: { in: ['issued', 'partial'] }, dueDate: { lt: now } } }) : 0,
   ]);
   const cards = [
     { label: 'Bugungi buyurtmalar', value: String(todayOrders) },
@@ -36,6 +45,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     { label: '30 kunda buyurtmalar', value: String(monthOrders) },
     { label: 'Yangi arizalar', value: String(newLeads), href: '/admin/leads' },
   ];
+  // Ombor / ishlab chiqarish / moliya: faqat ruxsati bor xodimlarga
+  const opsCards = [
+    seeInventory ? { label: 'Kam qolgan tovarlar', value: lowStock.length, hint: `${settings.lowStockThreshold} dona va undan kam`, href: '/admin/inventory?low=1', warn: true } : null,
+    seeProduction ? { label: 'Ishlab chiqarishda', value: inProduction, hint: 'rejada va jarayonda', href: '/admin/production', warn: false } : null,
+    seeFinance ? { label: "Muddati o'tgan hisob-fakturalar", value: overdueInvoices, hint: "to'lanmagan", href: '/admin/invoices?status=overdue', warn: true } : null,
+  ].filter((c) => c != null);
   return (
     <>
       <PageHeader title="Boshqaruv paneli" />
@@ -51,6 +66,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           return c.href ? <Link key={c.label} href={c.href}>{inner}</Link> : <div key={c.label}>{inner}</div>;
         })}
       </div>
+      {opsCards.length > 0 && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {opsCards.map((c) => (
+            <Link key={c.label} href={c.href} className="card p-4 hover:bg-slate-50">
+              <p className="text-sm text-slate-500">{c.label}</p>
+              <p className={`mt-1 text-xl font-bold ${c.warn && c.value > 0 ? 'text-red-600' : ''}`}>{c.value}</p>
+              <p className="text-xs text-slate-400">{c.hint}</p>
+            </Link>
+          ))}
+        </div>
+      )}
       <h2 className="mb-3 mt-8 text-lg font-semibold">Oxirgi buyurtmalar</h2>
       <Table head={['#', 'Sana', 'Mijoz', 'Summa', 'Holat', "To'lov"]} empty={!recent.length}>
         {recent.map((o) => (
@@ -68,9 +94,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <>
           <h2 className="mb-3 mt-8 text-lg font-semibold">Omborda kam qolgan</h2>
           <div className="flex flex-wrap gap-2">
-            {lowStock.map((i) => (
-              <Link key={i.id} href={`/admin/products/${i.product.id}`}><Badge tone="amber">{i.product.name}: {i.quantity}</Badge></Link>
+            {lowStock.slice(0, 12).map((p) => (
+              <Link key={p.id} href={`/admin/products/${p.id}`}><Badge tone="amber">{p.name}: {p.quantity}</Badge></Link>
             ))}
+            {lowStock.length > 12 && <Link href="/admin/inventory?low=1" className="text-sm text-brand-500 hover:underline">yana {lowStock.length - 12} ta →</Link>}
           </div>
         </>
       )}

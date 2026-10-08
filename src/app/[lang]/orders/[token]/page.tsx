@@ -1,6 +1,7 @@
 import { SiteImage as Image } from '@/components/site/SiteImage';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FileText } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { resolveLocale } from '@/lib/locale';
 import { formatDate, formatPrice, toNumber } from '@/lib/format';
@@ -22,6 +23,11 @@ export default async function OrderPage({ params }: Props) {
     include: { items: { include: { product: { select: { name: true, nameI18n: true, image: true } } } } },
   });
   if (!order || order.deletedAt) notFound();
+  // B2B: hisob-faktura havolasi va ishlab chiqarish holati (bo'lsa)
+  const [invoice, workOrders] = await Promise.all([
+    prisma.corporateInvoice.findFirst({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'desc' }, select: { invoiceNo: true } }),
+    prisma.workOrder.findMany({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'asc' } }),
+  ]);
   const pay = order.paymentStatus !== 'paid' && order.status !== 'cancelled' ? paymentUrl(order, locale) : null;
   const sum = (v: Parameters<typeof formatPrice>[0]) => formatPrice(v, t.common.sum);
   return (
@@ -45,8 +51,41 @@ export default async function OrderPage({ params }: Props) {
             <dd className="font-semibold">{t.order.paymentStatuses[order.paymentStatus]}</dd>
           </div>
         </dl>
-        {pay && (
-          <a href={pay} className="btn-accent mt-6 w-full sm:w-auto">{t.order.pay}: {sum(order.totalAmount)}</a>
+        {(pay || invoice) && (
+          <div className="mt-6 flex flex-wrap gap-3">
+            {pay && <a href={pay} className="btn-accent w-full sm:w-auto">{t.order.pay}: {sum(order.totalAmount)}</a>}
+            {invoice && (
+              <Link href={`/${locale}/orders/${token}/invoice`} className="btn-ghost w-full sm:w-auto">
+                <FileText className="h-4 w-4" />
+                {t.order.invoice} {invoice.invoiceNo}
+              </Link>
+            )}
+          </div>
+        )}
+        {workOrders.length > 0 && (
+          <>
+            <h2 className="mt-8 font-semibold">{t.order.production}</h2>
+            <ul className="mt-3 space-y-3">
+              {workOrders.map((wo) => {
+                const pct = wo.status === 'completed' ? 100 : Math.min(100, Math.max(0, wo.progress));
+                return (
+                  <li key={wo.id} className="rounded-lg bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{wo.productName} × {wo.quantity}</span>
+                      <span className="text-slate-500">{t.order.deadline}: {formatDate(wo.deadline, locale)}</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-slate-500">
+                      <span>{t.order.stages[wo.currentStage]}</span>
+                      <span>{pct}%</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
         <h2 className="mt-8 font-semibold">{t.order.items}</h2>
         <ul className="mt-3 divide-y divide-slate-200">

@@ -5,12 +5,13 @@ import { redirect } from 'next/navigation';
 import type { OrderStatus, PaymentStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
+import { deductForOrder } from '@/lib/inventory';
 
 const STATUSES: OrderStatus[] = ['new_', 'processing', 'shipping', 'delivered', 'cancelled'];
 const PAYMENTS: PaymentStatus[] = ['pending', 'paid', 'refunded'];
 
 export async function updateOrder(fd: FormData) {
-  await requireStaff('orders');
+  const user = await requireStaff('orders');
   const id = Number(fd.get('id'));
   const status = String(fd.get('status')) as OrderStatus;
   const paymentStatus = String(fd.get('paymentStatus')) as PaymentStatus;
@@ -29,6 +30,15 @@ export async function updateOrder(fd: FormData) {
   const manualPayment = order.paymentMethod === 'cash' || order.paymentMethod === 'bank_transfer' || !order.paymentMethod;
   if (manualPayment && PAYMENTS.includes(paymentStatus) && paymentStatus !== order.paymentStatus) data.paymentStatus = paymentStatus;
   if (Object.keys(data).length) await prisma.order.update({ where: { id }, data });
+  // Birinchi yetkazishda ombordan chiqim (deliveredAt — takrorlanmaslik belgisi); ombor muammosi buyurtma holatini to'xtatmasin
+  if (data.status === 'delivered' && !order.deliveredAt) {
+    try {
+      await deductForOrder(id, user.name);
+      revalidatePath('/admin/inventory');
+    } catch (e) {
+      console.error('deductForOrder', id, e);
+    }
+  }
   revalidatePath(`/admin/orders/${id}`);
   redirect(`/admin/orders/${id}?saved=1`);
 }

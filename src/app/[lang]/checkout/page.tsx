@@ -28,6 +28,7 @@ export default async function CheckoutPage({ params }: LangParams) {
         placing: t.checkout.placing, subtotal: t.cart.subtotal, discount: t.cart.discount, delivery: t.cart.delivery, total: t.cart.total,
         promo: t.cart.promo, apply: t.cart.apply, promoInvalid: t.cart.promoInvalid, empty: t.cart.empty, toCatalog: t.home.heroCta,
         currency: t.common.sum, error: t.common.error, required: t.common.required,
+        companyName: t.checkout.companyName, inn: t.checkout.inn, innHint: t.checkout.innHint,
       }}
     />
   );

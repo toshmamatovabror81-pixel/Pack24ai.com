@@ -13,17 +13,25 @@ type Method = 'cash' | 'payme' | 'click' | 'bank_transfer';
 export type CheckoutLabels = Record<
   | 'title' | 'contact' | 'name' | 'phone' | 'company' | 'deliveryMethod' | 'courier' | 'pickup' | 'address' | 'comment'
   | 'paymentMethod' | 'cash' | 'payme' | 'click' | 'bank' | 'agree' | 'offer' | 'place' | 'placing' | 'subtotal' | 'discount'
-  | 'delivery' | 'total' | 'promo' | 'apply' | 'promoInvalid' | 'empty' | 'toCatalog' | 'currency' | 'error' | 'required',
+  | 'delivery' | 'total' | 'promo' | 'apply' | 'promoInvalid' | 'empty' | 'toCatalog' | 'currency' | 'error' | 'required'
+  | 'companyName' | 'inn' | 'innHint',
   string
 >;
 
 const errorText = (e: Exclude<CheckoutResult, { ok: true }>['error'], l: CheckoutLabels) =>
-  e === 'promo' ? l.promoInvalid : e === 'phone' ? `${l.phone}: ${l.required}` : e === 'address' ? `${l.address}: ${l.required}` : l.error;
+  e === 'promo' ? l.promoInvalid
+    : e === 'phone' ? `${l.phone}: ${l.required}`
+    : e === 'address' ? `${l.address}: ${l.required}`
+    : e === 'company' ? `${l.companyName}: ${l.required}`
+    : e === 'inn' ? l.innHint
+    : l.error;
 
 export function CheckoutForm({ locale, methods, l, defaults }: { locale: Locale; methods: Method[]; l: CheckoutLabels; defaults: { name: string; phone: string; address: string } }) {
   const { items, ready, clear } = useCart();
   const [delivery, setDelivery] = useState<'courier' | 'pickup'>('courier');
   const [payment, setPayment] = useState<Method>(methods[0]);
+  const [company, setCompany] = useState('');
+  const [inn, setInn] = useState('');
   const [promoInput, setPromoInput] = useState('');
   const [promo, setPromo] = useState('');
   const [error, setError] = useState('');
@@ -40,6 +48,7 @@ export function CheckoutForm({ locale, methods, l, defaults }: { locale: Locale;
     );
 
   const methodLabel: Record<Method, string> = { cash: l.cash, payme: l.payme, click: l.click, bank_transfer: l.bank };
+  const isBank = payment === 'bank_transfer';
 
   function submit(form: HTMLFormElement) {
     const fd = new FormData(form);
@@ -49,7 +58,9 @@ export function CheckoutForm({ locale, methods, l, defaults }: { locale: Locale;
         locale,
         name: String(fd.get('name') ?? ''),
         phone: String(fd.get('phone') ?? ''),
-        company: String(fd.get('company') ?? ''),
+        company: isBank ? '' : company,
+        companyName: isBank ? company : '',
+        companyInn: isBank ? inn : '',
         address: String(fd.get('address') ?? ''),
         comment: String(fd.get('comment') ?? ''),
         deliveryMethod: delivery,
@@ -85,7 +96,32 @@ export function CheckoutForm({ locale, methods, l, defaults }: { locale: Locale;
               <label><span className="label">{l.name} *</span><input name="name" required minLength={2} defaultValue={defaults.name} className="input" autoComplete="name" /></label>
               <label><span className="label">{l.phone} *</span><input name="phone" required type="tel" defaultValue={defaults.phone} placeholder="+998 90 123 45 67" className="input" autoComplete="tel" /></label>
             </div>
-            <label className="block"><span className="label">{l.company}</span><input name="company" className="input" autoComplete="organization" /></label>
+            {isBank ? (
+              // Yuridik shaxs: hisob-faktura uchun kompaniya nomi majburiy, STIR ixtiyoriy (9-14 raqam)
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label>
+                  <span className="label">{l.companyName} *</span>
+                  <input name="companyName" required maxLength={150} value={company} onChange={(e) => setCompany(e.target.value)} className="input" autoComplete="organization" />
+                </label>
+                <label>
+                  <span className="label">{l.inn}</span>
+                  <input
+                    name="companyInn"
+                    inputMode="numeric"
+                    pattern="[0-9]{9,14}"
+                    maxLength={14}
+                    title={l.innHint}
+                    placeholder="123456789"
+                    value={inn}
+                    onChange={(e) => setInn(e.target.value.replace(/\D/g, ''))}
+                    className="input"
+                  />
+                  <span className="mt-1 block text-xs text-slate-500">{l.innHint}</span>
+                </label>
+              </div>
+            ) : (
+              <label className="block"><span className="label">{l.company}</span><input name="company" value={company} onChange={(e) => setCompany(e.target.value)} className="input" autoComplete="organization" /></label>
+            )}
           </fieldset>
 
           <fieldset className="card space-y-3 p-5">

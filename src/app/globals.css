@@ -39,3 +39,16 @@ body {
     @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl;
   }
 }
+
+/* Chop etish (hisob-faktura va boshqa hujjatlar): sayt sarlavhasi, futer va suzuvchi tugmalar chiqmaydi */
+@media print {
+  body > header,
+  body > footer,
+  body > .fixed,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}

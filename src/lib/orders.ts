@@ -18,6 +18,8 @@ export type CheckoutInput = {
   name: string;
   phone: string; // normallashtirilgan, 998XXXXXXXXX
   company?: string;
+  companyName?: string; // yuridik shaxs (bank o'tkazmasi) — hisob-faktura uchun
+  companyInn?: string; // STIR, faqat raqamlar
   deliveryMethod: 'courier' | 'pickup';
   address?: string;
   comment?: string;
@@ -59,6 +61,8 @@ export async function createOrder(input: CheckoutInput) {
 
   const attribution = parseAttribution((await cookies()).get(UTM_COOKIE)?.value);
   const token = randomBytes(18).toString('base64url');
+  // Kompaniya qismi: yuridik shaxs nomi berilgan bo'lsa o'sha, aks holda oddiy "kompaniya" maydoni
+  const company = input.companyName || input.company || '';
 
   const order = await prisma.$transaction(async (tx) => {
     if (quote.promo) {
@@ -70,8 +74,10 @@ export async function createOrder(input: CheckoutInput) {
     return tx.order.create({
       data: {
         userId: input.userId ?? null,
-        customerName: input.company ? `${input.name} (${input.company})` : input.name,
+        customerName: company ? `${input.name} (${company})` : input.name,
         contactPhone: input.phone,
+        companyName: input.companyName || null,
+        companyInn: input.companyInn || null,
         status: 'new_',
         paymentStatus: 'pending',
         paymentMethod: input.paymentMethod,
@@ -93,7 +99,8 @@ export async function createOrder(input: CheckoutInput) {
 
   await notifyAdmins([
     `🛒 Yangi buyurtma #${order.id}`,
-    `${input.name}${input.company ? `, ${input.company}` : ''}`,
+    `${input.name}${company ? `, ${company}` : ''}`,
+    input.companyInn ? `STIR: ${input.companyInn}` : null,
     displayPhone(input.phone),
     `Summa: ${formatPrice(quote.total, "so'm")} (${input.paymentMethod})`,
     input.deliveryMethod === 'courier' ? `Manzil: ${input.address}` : 'Olib ketish',

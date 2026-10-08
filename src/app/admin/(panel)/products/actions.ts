@@ -6,6 +6,7 @@ import type { Prisma, ProductStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { bool, i18nFrom, num, optText, text } from '@/lib/formData';
+import { setStock } from '@/lib/inventory';
 
 /** "Kalit: qiymat" qatorlari -> JSON obyekt */
 function parseSpecs(raw: string) {
@@ -32,7 +33,7 @@ function parseTierLines(raw: string) {
 }
 
 export async function saveProduct(fd: FormData) {
-  await requireStaff('products');
+  const user = await requireStaff('products');
   const id = Number(fd.get('id')) || null;
   const nameI18n = i18nFrom(fd, 'name');
   const price = num(fd, 'price');
@@ -65,12 +66,9 @@ export async function saveProduct(fd: FormData) {
 
   const stock = num(fd, 'stock');
   if (stock != null) {
-    const warehouse = (await prisma.warehouse.findFirst({ where: { isMain: true } })) ?? (await prisma.warehouse.create({ data: { name: 'Asosiy ombor', isMain: true } }));
-    await prisma.inventory.upsert({
-      where: { productId_warehouseId: { productId: saved.id, warehouseId: warehouse.id } },
-      create: { productId: saved.id, warehouseId: warehouse.id, quantity: Math.floor(stock) },
-      update: { quantity: Math.floor(stock) },
-    });
+    // Qoldiq ombor jurnali orqali yoziladi, shunda /admin/inventory/movements da ko'rinadi
+    await setStock({ productId: saved.id, quantity: Math.max(0, Math.floor(stock)), reason: 'Mahsulot kartasi', createdBy: user.name });
+    revalidatePath('/admin/inventory');
   }
   revalidateTag('products');
   revalidatePath('/[lang]', 'layout');
