@@ -46,6 +46,8 @@ if [ ! -f .env ]; then
     -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=\"$(openssl rand -hex 24)\"|" \
     -e "s|^AUTH_SECRET=.*|AUTH_SECRET=\"$(openssl rand -hex 32)\"|" \
     -e "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=\"$ADMIN_PASS\"|" \
+    -e "s|^TELEGRAM_WEBHOOK_SECRET=.*|TELEGRAM_WEBHOOK_SECRET=\"$(openssl rand -hex 24)\"|" \
+    -e "s|^TELEGRAM_OPS_SECRET=.*|TELEGRAM_OPS_SECRET=\"$(openssl rand -hex 24)\"|" \
     .env.example > .env
   chmod 600 .env
 else

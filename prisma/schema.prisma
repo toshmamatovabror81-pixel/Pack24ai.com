@@ -1096,6 +1096,8 @@ model RecycleRequest {
   completedAt     DateTime? // To'liq yakunlandi
 
   completedNote String?
+  cancelledAt   DateTime?
+  accessToken   String?   @unique // Mehmon mijoz arizani kuzatadigan maxfiy havola (/recycling/[token])
 
   collections RecycleCollection[]
   complaints  RecycleComplaint[]
@@ -1108,6 +1110,18 @@ model RecycleRequest {
   @@index([assignedDriverId])
   @@index([status, createdAt])
   @@index([pointId, status])
+}
+
+// Telegram bot suhbat holati (webhook'lar orasida saqlanadi; server qayta ishga tushsa ham yo'qolmaydi)
+model BotSession {
+  id         Int      @id @default(autoincrement())
+  bot        String // customer | driver | supervisor | hq
+  telegramId String
+  data       Json
+  updatedAt  DateTime @updatedAt
+
+  @@unique([bot, telegramId])
+  @@index([updatedAt])
 }
 
 // Yig'ish hisob-kitobi

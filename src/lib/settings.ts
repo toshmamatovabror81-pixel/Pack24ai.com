@@ -31,6 +31,10 @@ export type SiteSettings = {
   privacyText: I18nText;
   offerText: I18nText;
   vacanciesText: I18nText;
+  // v4: makulatura
+  recyclingMinKg: number; // bazaga olib kelishda minimal (ma'lumot uchun)
+  recyclingPickupMinKg: number; // olib ketish uchun minimal kg
+  recyclingText: I18nText; // /recycling sahifasidagi tushuntirish (Markdown)
 };
 
 export const defaultSettings: SiteSettings = {
@@ -68,6 +72,9 @@ export const defaultSettings: SiteSettings = {
   privacyText: {},
   offerText: {},
   vacanciesText: {},
+  recyclingMinKg: 50,
+  recyclingPickupMinKg: 200,
+  recyclingText: {},
 };
 
 const SETTINGS_KEY = 'site';
