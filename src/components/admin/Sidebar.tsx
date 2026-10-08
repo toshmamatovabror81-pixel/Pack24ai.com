@@ -4,11 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
-  BadgePercent, BarChart3, FolderTree, HelpCircle, Image, Inbox, LayoutDashboard, Menu, Newspaper, Package, Settings,
-  ShoppingCart, Star, UserCog, Users, X, type LucideIcon,
+  BadgePercent, BarChart3, Factory, FileSignature, FolderTree, HelpCircle, Image, Inbox, LayoutDashboard, Menu, Newspaper, Package,
+  Receipt, Settings, ShoppingCart, Star, UserCog, Users, Warehouse, X, type LucideIcon,
 } from 'lucide-react';
 
-const ICONS: Record<string, LucideIcon> = { BadgePercent, BarChart3, FolderTree, HelpCircle, Image, Inbox, LayoutDashboard, Newspaper, Package, Settings, ShoppingCart, Star, UserCog, Users };
+const ICONS: Record<string, LucideIcon> = {
+  BadgePercent, BarChart3, Factory, FileSignature, FolderTree, HelpCircle, Image, Inbox, LayoutDashboard, Newspaper, Package, Receipt,
+  Settings, ShoppingCart, Star, UserCog, Users, Warehouse,
+};
 
 export function Sidebar({ items, badges }: { items: { href: string; label: string; icon: string }[]; badges: Record<string, number> }) {
   const pathname = usePathname();

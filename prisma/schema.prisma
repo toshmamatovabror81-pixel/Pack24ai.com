@@ -678,10 +678,14 @@ model Order {
   utmTerm        String?
   referrer       String?
   landingPage    String?
+  // v3 (B2B): yuridik shaxs rekvizitlari, hisob-faktura uchun
+  companyName    String?
+  companyInn     String?
 
   items             OrderItem[]
   corporateInvoices CorporateInvoice[]
   paymeTransactions PaymeTransaction[]
+  workOrders        WorkOrder[]
 
   staffTasks Task[]
 
@@ -807,10 +811,22 @@ model WorkOrder {
 
   printType String? // Pechat turi (п/б)
 
+  // v3 (B2B): qaysi buyurtma yoki ariza uchun
+  orderId       Int?
+  order         Order? @relation(fields: [orderId], references: [id])
+  leadId        Int?
+  lead          Lead?  @relation(fields: [leadId], references: [id])
+  customerPhone String?
+  notes         String?
+
   stages WorkOrderStage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([leadId])
+  @@index([status, deadline])
 }
 
 model WorkOrderStage {
@@ -1434,8 +1450,8 @@ model TaskNotification {
 model Contract {
   id         Int    @id @default(autoincrement())
   contractNo String @unique // SH-2026-001
-  userId     Int
-  user       User   @relation(fields: [userId], references: [id])
+  userId     Int?
+  user       User?  @relation(fields: [userId], references: [id])
 
   companyName  String // Kompaniya nomi
   inn          String? // INN (STIR raqami)
@@ -1444,6 +1460,8 @@ model Contract {
   bankName     String? // Bank nomi
   directorName String? // Direktor ismi
 
+  address         String? // Yuridik manzil
+  phone           String? // Aloqa telefoni
   creditLimit     Decimal @default(0) @db.Decimal(18, 2) // Nasiya limiti (so'm)
   paymentTermDays Int     @default(15) // To'lov muddati (kun)
 
@@ -1464,11 +1482,11 @@ model Contract {
 // ─── Korporativ hisob-faktura ────────────────────────────────────────────────
 model CorporateInvoice {
   id         Int      @id @default(autoincrement())
-  invoiceNo  String   @unique // INV-2026-0001
-  contractId Int
-  contract   Contract @relation(fields: [contractId], references: [id])
+  invoiceNo  String    @unique // INV-2026-0001
+  contractId Int?
+  contract   Contract? @relation(fields: [contractId], references: [id])
   orderId    Int
-  order      Order    @relation(fields: [orderId], references: [id])
+  order      Order     @relation(fields: [orderId], references: [id])
 
   subtotal    Decimal @db.Decimal(18, 2) // QQS siz summa
   vatPercent  Float   @default(12) // QQS foizi
@@ -1634,6 +1652,8 @@ model Lead {
   landingPage String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  workOrders  WorkOrder[]
 
   @@index([type, status, createdAt])
 }

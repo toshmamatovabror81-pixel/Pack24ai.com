@@ -9,13 +9,16 @@ export type Section =
   | 'marketing'
   | 'content'
   | 'reports'
+  | 'production' // ishlab chiqarish (WorkOrder)
+  | 'finance' // shartnoma, hisob-faktura
+  | 'inventory' // ombor qoldig'i
   | 'staff'
   | 'settings';
 
 const ACCESS: Record<Exclude<Role, 'user'>, Section[] | 'all'> = {
   admin: 'all',
-  manager: ['dashboard', 'orders', 'products', 'customers', 'leads', 'marketing', 'content', 'reports'],
-  staff: ['dashboard', 'orders', 'leads'],
+  manager: ['dashboard', 'orders', 'products', 'customers', 'leads', 'marketing', 'content', 'reports', 'production', 'finance', 'inventory'],
+  staff: ['dashboard', 'orders', 'leads', 'production'],
 };
 
 export function can(role: Role, section: Section): boolean {

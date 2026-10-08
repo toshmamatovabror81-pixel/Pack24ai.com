@@ -9,6 +9,10 @@ export type SiteSettings = {
   legalName: string;
   inn: string;
   bankDetails: string;
+  directorName: string; // shartnoma va hisob-fakturada imzo
+  vatPercent: number; // QQS foizi (narxlar QQS bilan)
+  lowStockThreshold: number; // shu miqdordan kam qolsa ogohlantirish
+  contractText: string; // Shartnoma matni (Markdown), {{company}} kabi o'rinbosarlar bilan
   phone: string; // faqat raqamlar: 998880557888
   phone2: string;
   email: string;
@@ -34,6 +38,10 @@ export const defaultSettings: SiteSettings = {
   legalName: '',
   inn: '',
   bankDetails: '',
+  directorName: '',
+  vatPercent: 12,
+  lowStockThreshold: 10,
+  contractText: '',
   phone: '998880557888',
   phone2: '',
   email: 'info@pack24.uz',
