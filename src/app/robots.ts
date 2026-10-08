@@ -1,29 +1,18 @@
-import { MetadataRoute } from 'next';
-
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pack24.uz';
+import type { MetadataRoute } from 'next';
+import { siteUrl } from '@/lib/site';
 
 export default function robots(): MetadataRoute.Robots {
-    return {
-        rules: [
-            {
-                userAgent: '*',
-                allow: '/',
-                disallow: [
-                    '/admin/',
-                    '/api/',
-                    '/profile/',
-                    '/cart/',
-                    '/checkout/',
-                    '/_next/',
-                ],
-            },
-            {
-                userAgent: 'Googlebot',
-                allow: '/',
-                disallow: ['/admin/', '/api/'],
-            },
-        ],
-        sitemap: `${BASE_URL}/sitemap.xml`,
-        host: BASE_URL,
-    };
+  const isProd = process.env.VERCEL_ENV ? process.env.VERCEL_ENV === 'production' : true;
+  if (!isProd) return { rules: [{ userAgent: '*', disallow: '/' }] };
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: ['/admin', '/api/', '/*/cart', '/*/checkout', '/*/profile', '/*/orders/', '/*/login', '/*/register', '/*?q=', '/*?sort='],
+      },
+    ],
+    sitemap: `${siteUrl()}/sitemap.xml`,
+    host: siteUrl(),
+  };
 }

@@ -1,115 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --brand-navy:   #0c2340;
-    --brand-dark:   #102a45;
-    --brand-deeper: #0c1a2e;
-    --brand-red:    #e33326;
-    --brand-accent: #1a4a7c;
-    --surface-page: #f5f6fa;
-    --surface-card: #ffffff;
-    --surface-hover:#fef7f6;
-    
-    --background: #f5f6fa;
-    --foreground: #0f172a;
-  }
-  
-  .dark {
-    --brand-navy:   #1e293b;
-    --brand-dark:   #0f172a;
-    --brand-deeper: #020617;
-    --surface-page: #0f172a;
-    --surface-card: #1e293b;
-    --surface-hover:#334155;
-    
-    --background: #0f172a;
-    --foreground: #f8fafc;
-  }
-  
-  html {
-    scroll-behavior: smooth;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+:root {
+  --font-sans: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
-/* Banner slider progress bar */
-@keyframes bannerProgress {
-  from { width: 0%; }
-  to   { width: 100%; }
-}
-.banner-progress {
-  animation: bannerProgress 3000ms linear forwards;
-}
-/* -- 3D Configurator Box -------------------- */
-.box-3d-wrapper {
-  perspective: 500px;
-  width: 120px;
-  height: 120px;
-}
-.box-3d {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  transform-style: preserve-3d;
-  animation: boxRotate 10s linear infinite;
-  transform: rotateX(-25deg) rotateY(35deg);
-}
-.box-face {
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  backface-visibility: visible;
-}
-/* Front */
-.box-front  {
-  background: linear-gradient(135deg, rgba(59,130,246,.45), rgba(99,102,241,.40));
-  transform: translateZ(60px);
-}
-/* Back */
-.box-back   {
-  background: linear-gradient(135deg, rgba(30,64,175,.40), rgba(67,56,202,.35));
-  transform: rotateY(180deg) translateZ(60px);
-}
-/* Left */
-.box-left   {
-  background: linear-gradient(135deg, rgba(37,99,235,.35), rgba(79,70,229,.30));
-  transform: rotateY(-90deg) translateZ(60px);
-}
-/* Right */
-.box-right  {
-  background: linear-gradient(135deg, rgba(37,99,235,.30), rgba(67,56,202,.30));
-  transform: rotateY(90deg) translateZ(60px);
-}
-/* Top */
-.box-top    {
-  background: linear-gradient(135deg, rgba(147,197,253,.50), rgba(96,165,250,.45));
-  transform: rotateX(90deg) translateZ(60px);
-}
-/* Bottom */
-.box-bottom {
-  background: linear-gradient(135deg, rgba(30,58,138,.35), rgba(49,46,129,.30));
-  transform: rotateX(-90deg) translateZ(60px);
-}
-@keyframes boxRotate {
-  from { transform: rotateX(-25deg) rotateY(0deg); }
-  to   { transform: rotateX(-25deg) rotateY(360deg); }
+@layer components {
+  .container-site {
+    @apply mx-auto max-w-site px-4;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  }
+  .btn-accent {
+    @apply btn bg-accent-500 text-white hover:bg-accent-600;
+  }
+  .btn-ghost {
+    @apply btn border border-slate-300 bg-white text-slate-800 hover:bg-slate-100;
+  }
+  .input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white;
+  }
+  .h1 {
+    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl;
+  }
 }
