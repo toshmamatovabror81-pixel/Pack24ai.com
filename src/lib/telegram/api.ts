@@ -43,8 +43,11 @@ export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
 }
 
+/** Test uchun almashtirish mumkin (TELEGRAM_API_BASE=http://localhost:8081 — soxta server) */
+export const apiBase = () => (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '');
+
 export async function call<T = unknown>(token: string, method: string, params: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  const res = await fetch(`${apiBase()}/bot${token}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -105,7 +108,7 @@ export async function downloadFile(token: string, fileId: string): Promise<{ buf
   const info = await call<{ file_path?: string; file_size?: number }>(token, 'getFile', { file_id: fileId });
   if (!info.file_path) return null;
   if ((info.file_size ?? 0) > 10 * 1024 * 1024) return null;
-  const res = await fetch(`https://api.telegram.org/file/bot${token}/${info.file_path}`, { signal: AbortSignal.timeout(20_000) });
+  const res = await fetch(`${apiBase()}/file/bot${token}/${info.file_path}`, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) return null;
   return { buffer: Buffer.from(await res.arrayBuffer()), path: info.file_path };
 }
