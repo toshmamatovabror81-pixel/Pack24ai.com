@@ -60,6 +60,23 @@ Admin panel: `https://pack24.uz/admin` (login `admin`, skript bergan parol). Kir
 
 Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
+### Makulatura botlari (4 ta)
+
+BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /opt/pack24/.env`):
+
+- `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot): ariza berish, holatni kuzatish, tortishni tasdiqlash
+- `DRIVER_BOT_TOKEN` — haydovchi boti (@pack24MX_bot): topshiriqlar, tortish, hamyon, kabinet paroli
+- `SUPERVISOR_BOT_TOKEN` — masul boti (@pack24AUP_bot): arizalar, haydovchi tayinlash, to'lovlar, jurnal
+- `HQ_BOT_TOKEN` — rahbariyat boti (@pack24admin_bot): masul/haydovchi qo'shish, tasdiqlashlar, hodisalar
+- `HQ_ALLOWED_TELEGRAM_IDS` — rahbariyat Telegram ID'lari (vergul bilan), ixtiyoriy
+- `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_OPS_SECRET` — o'rnatish skripti o'zi yaratgan, o'zgartirmang
+
+Keyin `cd /opt/pack24 && docker compose up -d` qiling va Admin > Sozlamalar > "Telegram botlar" bo'limida
+**"Webhook'larni o'rnatish"** tugmasini bosing (sayt HTTPS bilan ochilgan bo'lishi shart). Shu sahifada har bot
+holati (@username, webhook, xatolar) ko'rinadi.
+
+Eski botlarni o'chirib qo'ying (yoki tokenlarini BotFather'da yangilang) — bitta tokenga faqat bitta webhook bo'ladi.
+
 ## 5. Yangilash
 
 Avtomatik: server har 5 daqiqada GitHub'dagi o'z branch'ini tekshiradi; yangi commit bo'lsa `deploy/deploy.sh` ni
