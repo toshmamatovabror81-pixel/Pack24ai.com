@@ -1,16 +1,26 @@
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { productHref } from '@/lib/catalog';
 import { pickText } from '@/lib/i18n/config';
 import { toNumber } from '@/lib/format';
 import { siteUrl } from '@/lib/site';
 
-// Google Merchant Center va Yandex uchun mahsulot fidi (RSS 2.0 + g: nomlar fazosi)
-export const revalidate = 3600;
+// Google Merchant Center va Yandex uchun mahsulot fidi (RSS 2.0 + g: nomlar fazosi).
+// Build vaqtida bazaga ulanilmaydi (Docker image bazasiz quriladi): fid so'rov kelganda
+// yasaladi va 1 soat keshlanadi.
+export const dynamic = 'force-dynamic';
 
 const esc = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]!);
 const plain = (s: string) => s.replace(/[*#_[\]()`>]/g, '').replace(/\s+/g, ' ').trim();
 
+const buildFeed = unstable_cache(renderFeed, ['feed-xml'], { revalidate: 3600, tags: ['products'] });
+
 export async function GET() {
+  const xml = await buildFeed();
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+}
+
+async function renderFeed(): Promise<string> {
   const products = await prisma.product.findMany({ where: { status: 'active' }, include: { categoryRel: true }, orderBy: { id: 'asc' } });
   const base = siteUrl();
   const items = products
@@ -34,7 +44,7 @@ ${p.minQuantity > 1 ? `<g:min_handling_time>1</g:min_handling_time>` : ''}
 </item>`;
     })
     .join('\n');
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
 <channel>
 <title>Pack24</title>
@@ -43,5 +53,4 @@ ${p.minQuantity > 1 ? `<g:min_handling_time>1</g:min_handling_time>` : ''}
 ${items}
 </channel>
 </rss>`;
-  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
 }
