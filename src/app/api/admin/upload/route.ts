@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/auth/permissions';
-import { storageConfigured, uploadImage } from '@/lib/storage';
+import { uploadImage } from '@/lib/storage';
 
 const FOLDERS = ['products', 'categories', 'banners', 'blog'] as const;
 
@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
   if (!user || !(can(user.role, 'products') || can(user.role, 'marketing') || can(user.role, 'content'))) {
     return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 403 });
   }
-  if (!storageConfigured()) return NextResponse.json({ error: 'Supabase Storage sozlanmagan (Vercel env)' }, { status: 503 });
   const fd = await req.formData();
   const file = fd.get('file');
   const folder = FOLDERS.find((f) => f === fd.get('folder')) ?? 'products';

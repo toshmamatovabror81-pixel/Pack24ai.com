@@ -18,7 +18,7 @@ const same = (a: string, b: string) => {
 
 /**
  * Xodim kirishi: telefon yoki email + parol.
- * Bazada hali birorta admin bo'lmasa, Vercel'dagi ADMIN_USERNAME/ADMIN_PASSWORD bilan birinchi admin yaratiladi.
+ * Bazada hali birorta admin bo'lmasa, .env dagi ADMIN_USERNAME/ADMIN_PASSWORD bilan birinchi admin yaratiladi.
  */
 export async function staffLogin(_: StaffLoginState, fd: FormData): Promise<StaffLoginState> {
   if (!(await rateLimit('staff-login', 8, 15 * 60_000))) return { error: 'rate' };

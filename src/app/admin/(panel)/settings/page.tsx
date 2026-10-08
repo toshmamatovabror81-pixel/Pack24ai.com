@@ -3,7 +3,6 @@ import { getSettings } from '@/lib/settings';
 import { displayPhone } from '@/lib/format';
 import { paymeConfigured } from '@/lib/payments/payme';
 import { clickConfigured } from '@/lib/payments/click';
-import { storageConfigured } from '@/lib/storage';
 import { Badge, Field, I18nFields, Notice, PageHeader } from '@/components/admin/ui';
 import { updateSettings } from './actions';
 
@@ -15,7 +14,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const integrations = [
     { name: 'Payme', ok: paymeConfigured(), env: 'PAYME_MERCHANT_ID, PAYME_SECRET_KEY' },
     { name: 'Click', ok: clickConfigured(), env: 'CLICK_SERVICE_ID, CLICK_MERCHANT_ID, CLICK_SECRET_KEY' },
-    { name: 'Rasm yuklash (Supabase Storage)', ok: storageConfigured(), env: 'NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY' },
     { name: 'Telegram xabarlar', ok: !!process.env.TELEGRAM_BOT_TOKEN && !!process.env.TELEGRAM_ADMIN_CHAT_ID, env: 'TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID' },
   ];
   return (
@@ -29,7 +27,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <li key={i.name} className="flex flex-wrap items-center gap-3">
               {i.ok ? <Badge tone="green">Ulangan</Badge> : <Badge tone="amber">Sozlanmagan</Badge>}
               <span className="font-medium">{i.name}</span>
-              {!i.ok && <span className="text-xs text-slate-500">Vercel &gt; Settings &gt; Environment Variables: {i.env}</span>}
+              {!i.ok && <span className="text-xs text-slate-500">serverdagi .env faylida: {i.env}</span>}
             </li>
           ))}
         </ul>

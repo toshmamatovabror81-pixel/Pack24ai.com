@@ -6,7 +6,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://mc.yandex.ru https://mc.yandex.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.supabase.co",
+  "connect-src 'self' https://mc.yandex.ru https://mc.yandex.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
   "frame-src 'self' https://yandex.uz https://yandex.ru https://www.google.com https://mc.yandex.ru https://mc.yandex.com",
   "object-src 'none'",
   "base-uri 'self'",
@@ -16,11 +16,12 @@ const csp = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  // Docker uchun: .next/standalone ichida mustaqil server
+  output: 'standalone',
   poweredByHeader: false,
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
-      { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: 'pack24.uz' },
       // Hozirgi katalog rasmlari shu yerdan (admin orqali o'z rasmlaringiz bilan almashtiriladi)
       { protocol: 'https', hostname: 'pack24.ru' },

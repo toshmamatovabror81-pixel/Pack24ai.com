@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export function GET() {
   return new ImageResponse(
@@ -9,7 +9,7 @@ export function GET() {
         <div style={{ fontSize: 120, fontWeight: 900, display: 'flex' }}>
           PACK<span style={{ color: '#e33326' }}>24</span>
         </div>
-        <div style={{ fontSize: 44, marginTop: 24, opacity: 0.9 }}>Qadoqlash mahsulotlari · Упаковка · Packaging</div>
+        <div style={{ fontSize: 44, marginTop: 24, opacity: 0.9 }}>Qadoqlash mahsulotlari · Packaging supplies</div>
         <div style={{ fontSize: 34, marginTop: 16, opacity: 0.7 }}>pack24.uz</div>
       </div>
     ),

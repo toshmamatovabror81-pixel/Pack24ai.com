@@ -5,12 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node deploy/seed-if-empty.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -35,7 +35,6 @@
     "eslint": "^9.39.0",
     "eslint-config-next": "^15.5.4",
     "postcss": "^8.5.6",
-    "prisma": "^6.19.2",
     "tailwindcss": "^3.4.19",
     "tsx": "^4.21.0",
     "typescript": "^5.9.0",

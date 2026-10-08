@@ -58,8 +58,9 @@ prisma/*.db-journal
 test-*.js
 test-*.ts
 
-# vercel
-.vercel
+# Serverda yuklangan rasmlar va Docker ma'lumotlari
+/uploads
+/data
 
 # typescript
 *.tsbuildinfo

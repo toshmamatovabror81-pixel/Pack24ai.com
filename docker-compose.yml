@@ -1,0 +1,57 @@
+# Pack24: sayt + Postgres + Caddy (avtomatik HTTPS)
+# Serverda: cp .env.example .env  ->  .env ni to'ldiring  ->  docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pack24
+      POSTGRES_USER: pack24
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env faylida POSTGRES_PASSWORD kerak}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pack24 -d pack24']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Tashqaridan baza portiga kirish yo'q; faqat konteynerlar ichida
+
+  web:
+    build: .
+    image: pack24/web:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://pack24:${POSTGRES_PASSWORD}@db:5432/pack24?connection_limit=10
+      DIRECT_URL: postgresql://pack24:${POSTGRES_PASSWORD}@db:5432/pack24
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-pack24.uz}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
