@@ -43,10 +43,11 @@ export async function uniqueRegistrationCode(tx: Tx | typeof prisma = prisma): P
   throw new Error("Ro'yxatdan o'tish kodi yaratib bo'lmadi");
 }
 
-const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // 0/O, 1/l/I yo'q — telefonda adashmaslik uchun
+// Parol belgilari: lotin harflar va raqamlar, 0/O, 1/l/I yo'q — telefonda adashmaslik uchun (bu sir emas, alifbo)
+const PASSWORD_CHARS = ['ABCDEFGHJKMNPQRSTUVWXYZ', 'abcdefghjkmnpqrstuvwxyz', '23456789'].join('');
 export function generatePassword(length = 8): string {
   let out = '';
-  for (let i = 0; i < length; i += 1) out += PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)];
+  for (let i = 0; i < length; i += 1) out += PASSWORD_CHARS[randomInt(PASSWORD_CHARS.length)];
   return out;
 }
 
