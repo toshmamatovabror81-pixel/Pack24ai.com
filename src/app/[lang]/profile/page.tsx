@@ -5,6 +5,7 @@ import { currentUser } from '@/lib/auth';
 import { resolveLocale, type LangParams } from '@/lib/locale';
 import { displayPhone, formatDate, formatPrice } from '@/lib/format';
 import { statusKey } from '@/lib/orderStatus';
+import { StatusBadge } from '@/components/recycling/StatusBadge';
 import { logoutAction } from '../login/actions';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,8 @@ export default async function ProfilePage({ params }: LangParams) {
     : [];
   const invoiceByOrder = new Map<number, string>();
   for (const i of invoices) if (!invoiceByOrder.has(i.orderId)) invoiceByOrder.set(i.orderId, i.invoiceNo);
+  // Makulatura arizalari (kuzatuv havolasi token orqali)
+  const recycling = await prisma.recycleRequest.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 20, include: { point: { select: { cityUz: true, cityRu: true } } } });
   return (
     <div className="container-site max-w-4xl py-10">
       <div className="card flex flex-wrap items-center justify-between gap-4 p-6">
@@ -57,6 +60,25 @@ export default async function ProfilePage({ params }: LangParams) {
                   {t.order.invoice} {invoiceByOrder.get(o.id)}
                 </Link>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <h2 className="mb-3 mt-8 text-xl font-bold">{t.recycling.myRequests}</h2>
+      {recycling.length === 0 ? (
+        <p className="text-slate-500">
+          {t.recycling.noRequests} · <Link href={`/${locale}/recycling`} className="text-brand-500 hover:underline">{t.recycling.formTitle}</Link>
+        </p>
+      ) : (
+        <ul className="card divide-y divide-slate-200">
+          {recycling.map((r) => (
+            <li key={r.id} className="hover:bg-slate-50">
+              <Link href={r.accessToken ? `/${locale}/recycling/${r.accessToken}` : `/${locale}/recycling`} className="flex flex-wrap items-center justify-between gap-2 p-4">
+                <span className="font-semibold">#{r.id}</span>
+                <span className="text-sm text-slate-500">{formatDate(r.createdAt, locale)}</span>
+                <span className="text-sm">{locale === 'ru' ? r.point.cityRu : r.point.cityUz}{r.volume ? ` · ~${r.volume} kg` : ''}</span>
+                <StatusBadge status={r.status} locale={locale} size="sm" />
+              </Link>
             </li>
           ))}
         </ul>
