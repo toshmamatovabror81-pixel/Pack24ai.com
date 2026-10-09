@@ -78,7 +78,14 @@ Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
 ### Makulatura botlari (4 ta)
 
-BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /opt/pack24/.env`):
+Eng oson yo'li — savol-javob skripti (tokenlarni so'raydi, `.env` ga yozadi, saytni qayta ishga tushiradi va
+webhook'larni o'rnatadi):
+
+```bash
+ssh -t -i ~/.ssh/KALIT root@<server IP> /opt/pack24/deploy/bots-setup.sh
+```
+
+Qo'lda: BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /opt/pack24/.env`):
 
 - `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot): ariza berish, holatni kuzatish, tortishni tasdiqlash
 - `DRIVER_BOT_TOKEN` — haydovchi boti (@pack24MX_bot): topshiriqlar, tortish, hamyon, kabinet paroli
