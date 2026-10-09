@@ -55,8 +55,8 @@ async function adminGuard(req: NextRequest) {
 async function driverGuard(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname === '/driver/login' || pathname === '/driver/forgot') return NextResponse.next();
-  const id = await verifyDriverSession(req.cookies.get(DRIVER_COOKIE)?.value).catch(() => null);
-  if (!id) {
+  const session = await verifyDriverSession(req.cookies.get(DRIVER_COOKIE)?.value).catch(() => null);
+  if (!session) {
     const url = req.nextUrl.clone();
     url.pathname = '/driver/login';
     url.search = '';

@@ -21,12 +21,15 @@ export async function signDriverSession(driverId: number): Promise<string> {
     .sign(secretKey());
 }
 
-export async function verifyDriverSession(token: string | undefined): Promise<number | null> {
+export type DriverSession = { id: number; issuedAt: Date };
+
+export async function verifyDriverSession(token: string | undefined): Promise<DriverSession | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ['HS256'], audience: AUD });
     const id = Number(payload.sub);
-    return Number.isSafeInteger(id) && id > 0 ? id : null;
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    return { id, issuedAt: new Date((payload.iat ?? 0) * 1000) };
   } catch {
     return null;
   }

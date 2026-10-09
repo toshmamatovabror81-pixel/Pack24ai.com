@@ -18,10 +18,12 @@ export async function endDriverSession() {
 /** Cookie'dagi sessiya + bazada haydovchi faolligi */
 export async function currentDriver() {
   const jar = await cookies();
-  const id = await verifyDriverSession(jar.get(DRIVER_COOKIE)?.value);
-  if (!id) return null;
-  const driver = await prisma.driver.findUnique({ where: { id }, include: { point: true, supervisor: { select: { id: true, name: true, phone: true } } } });
+  const session = await verifyDriverSession(jar.get(DRIVER_COOKIE)?.value);
+  if (!session) return null;
+  const driver = await prisma.driver.findUnique({ where: { id: session.id }, include: { point: true, supervisor: { select: { id: true, name: true, phone: true } } } });
   if (!driver || driver.status === 'inactive') return null;
+  // Bot orqali parol yangilangan bo'lsa, undan oldin ochilgan sessiyalar bekor (telefon yo'qolganda himoya)
+  if (driver.passwordSetByBotAt && session.issuedAt.getTime() < driver.passwordSetByBotAt.getTime() - 2_000) return null;
   return driver;
 }
 
