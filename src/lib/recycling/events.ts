@@ -23,6 +23,8 @@ export type EventInput = {
   dedupeKey?: string;
   /** HQ adminlarga (HQ boti) ham yuborilsinmi */
   notifyHq?: boolean;
+  /** true bo'lsa hodisa darhol "ko'rilgan" (admin/HQ o'zi bajargan amallar uchun) */
+  processed?: boolean;
 };
 
 /** Hodisalar jurnali (admin /admin/recycling/events + HQ boti). Xato bo'lsa biznes jarayonni to'xtatmaydi. */
@@ -42,6 +44,7 @@ export async function logEvent(input: EventInput): Promise<BotEvent | null> {
     pointId: input.pointId ?? null,
     userId: input.userId ?? null,
     payload: input.payload ?? Prisma.JsonNull,
+    ...(input.processed ? { status: 'processed' as const, processedAt: new Date() } : {}),
   };
   let row: BotEvent | null = null;
   try {

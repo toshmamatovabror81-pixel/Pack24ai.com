@@ -13,7 +13,17 @@ import { materialLabels, pickupTypeLabels, statusLabels } from './statuses';
  * Hammasi "jim" ishlaydi — token yo'q yoki foydalanuvchi botni bloklagan bo'lsa jarayon to'xtamaydi.
  */
 
-export type RequestWithRefs = RecycleRequest & { point?: RecyclePoint | null; supervisor?: Supervisor | null; assignedDriver?: Driver | null };
+/** Bildirishnomalar va kartalar uchun yetarli maydonlar: to'liq Driver/Supervisor ham, mijoz uchun toraytirilgan select ham mos keladi */
+export type DriverLite = Pick<Driver, 'id' | 'name' | 'vehicleInfo'> & Partial<Pick<Driver, 'phone' | 'telegramId'>>;
+export type SupervisorLite = Pick<Supervisor, 'id' | 'name'> & Partial<Pick<Supervisor, 'phone' | 'telegramId'>>;
+export type RequestWithRefs = RecycleRequest & { point?: RecyclePoint | null; supervisor?: SupervisorLite | null; assignedDriver?: DriverLite | null };
+
+/** Mijozga ketadigan qisqa matnlar (customerLang bo'yicha) */
+const C = {
+  uz: { created: 'Arizangiz qabul qilindi', soon: 'Tez orada operator bog\'lanadi.', track: '🔎 Arizani kuzatish', assigned: 'haydovchi tayinlandi', weighed: 'tortish natijasi', confirmQ: 'Natijani tasdiqlaysizmi?', ok: '✅ Tasdiqlayman', no: '❌ Rozi emasman', more: '🔎 Batafsil', cancelled: 'bekor qilindi', reason: 'Sabab', weight: "Haqiqiy og'irlik", discount: 'Chegirma', price: 'Narx', total: 'Jami', request: 'Ariza' },
+  ru: { created: 'Ваша заявка принята', soon: 'Скоро с вами свяжется оператор.', track: '🔎 Отслеживать заявку', assigned: 'назначен водитель', weighed: 'результат взвешивания', confirmQ: 'Подтверждаете результат?', ok: '✅ Подтверждаю', no: '❌ Не согласен', more: '🔎 Подробнее', cancelled: 'отменена', reason: 'Причина', weight: 'Фактический вес', discount: 'Скидка', price: 'Цена', total: 'Итого', request: 'Заявка' },
+  en: { created: 'Your request has been received', soon: 'An operator will contact you shortly.', track: '🔎 Track request', assigned: 'driver assigned', weighed: 'weighing result', confirmQ: 'Do you confirm the result?', ok: '✅ Confirm', no: '❌ Disagree', more: '🔎 Details', cancelled: 'cancelled', reason: 'Reason', weight: 'Actual weight', discount: 'Discount', price: 'Price', total: 'Total', request: 'Request' },
+} as const;
 
 export const trackingUrl = (token: string | null | undefined, lang: Locale = 'uz') => (token ? `${siteUrl()}/${lang}/recycling/${token}` : null);
 
@@ -34,17 +44,16 @@ export function requestCardHtml(r: RequestWithRefs, opts: { forCustomer?: boolea
     lines.push(`🏭 ${esc(r.point.cityUz)}${r.point.address ? `, ${esc(r.point.address)}` : ''} · ${esc(r.point.workingHours)}`);
   }
   if (!opts.forCustomer && r.supervisor) lines.push(`🧑‍💼 Masul: ${esc(r.supervisor.name)}`);
-  if (r.assignedDriver) lines.push(`🚛 Haydovchi: ${esc(r.assignedDriver.name)}${!opts.forCustomer ? ` · ${esc(displayPhone(r.assignedDriver.phone))}` : ''}`);
+  if (r.assignedDriver) lines.push(`🚛 Haydovchi: ${esc(r.assignedDriver.name)}${!opts.forCustomer && r.assignedDriver.phone ? ` · ${esc(displayPhone(r.assignedDriver.phone))}` : ''}`);
   lines.push(`🕒 ${formatDate(r.createdAt, l, true)}`);
   return lines.join('\n');
 }
 
-export function collectionHtml(c: RecycleCollection): string {
-  const lines = [
-    `⚖️ Haqiqiy og'irlik: <b>${c.actualWeight} kg</b>`,
-  ];
-  if (c.discountPercent > 0) lines.push(`➖ Chegirma: ${c.discountPercent}%${c.discountReason ? ` (${esc(c.discountReason)})` : ''} → ${c.effectiveWeight} kg`);
-  lines.push(`💵 Narx: ${sum(c.pricePerKg)}/kg`, `💰 Jami: <b>${sum(c.totalAmount)}</b>`);
+export function collectionHtml(c: RecycleCollection, locale: Locale = 'uz'): string {
+  const t = C[locale];
+  const lines = [`⚖️ ${t.weight}: <b>${c.actualWeight} kg</b>`];
+  if (c.discountPercent > 0) lines.push(`➖ ${t.discount}: ${c.discountPercent}%${c.discountReason ? ` (${esc(c.discountReason)})` : ''} → ${c.effectiveWeight} kg`);
+  lines.push(`💵 ${t.price}: ${sum(c.pricePerKg)}/kg`, `💰 ${t.total}: <b>${sum(c.totalAmount)}</b>`);
   return lines.join('\n');
 }
 
@@ -59,8 +68,9 @@ export async function onRequestCreated(r: RequestWithRefs): Promise<void> {
   }
   await notifyOpsChat([`♻️ Yangi makulatura arizasi #${r.id}`, `${r.name}, ${displayPhone(r.phone)}`, r.volume ? `~${r.volume} kg` : null, r.pickupType === 'pickup' ? `Olib ketish: ${r.address ?? ''}` : 'Bazaga olib keladi']);
   if (r.customerTgId) {
+    const t = C[r.customerLang];
     const url = trackingUrl(r.accessToken, r.customerLang);
-    await notifyCustomer(r.customerTgId, `✅ <b>Arizangiz qabul qilindi</b>\n${requestCardHtml(r, { forCustomer: true, locale: r.customerLang })}\n\nTez orada operator bog'lanadi.`, url ? [[{ text: '🔎 Arizani kuzatish', url }]] : undefined);
+    await notifyCustomer(r.customerTgId, `✅ <b>${t.created}</b>\n${requestCardHtml(r, { forCustomer: true, locale: r.customerLang })}\n\n${t.soon}`, url ? [[{ text: t.track, url }]] : undefined);
   }
 }
 
@@ -78,7 +88,8 @@ export async function onAssigned(r: RequestWithRefs, previousDriver?: Driver | n
     await notifyDriver(previousDriver.telegramId, `ℹ️ Ariza #${r.id} boshqa haydovchiga o'tkazildi.`);
   }
   if (r.customerTgId && d) {
-    await notifyCustomer(r.customerTgId, `🚛 Ariza #${r.id}: haydovchi tayinlandi — <b>${esc(d.name)}</b>${d.vehicleInfo ? ` (${esc(d.vehicleInfo)})` : ''}.`);
+    const t = C[r.customerLang];
+    await notifyCustomer(r.customerTgId, `🚛 ${t.request} #${r.id}: ${t.assigned} — <b>${esc(d.name)}</b>${d.vehicleInfo ? ` (${esc(d.vehicleInfo)})` : ''}.`);
   }
 }
 
@@ -105,10 +116,11 @@ export async function onDriverProgress(r: RequestWithRefs): Promise<void> {
 export async function onCollected(r: RequestWithRefs, c: RecycleCollection): Promise<void> {
   const body = collectionHtml(c);
   if (r.customerTgId) {
+    const t = C[r.customerLang];
     const url = trackingUrl(r.accessToken, r.customerLang);
-    await notifyCustomer(r.customerTgId, `⚖️ <b>Ariza #${r.id}: tortish natijasi</b>\n${body}\n\nNatijani tasdiqlaysizmi?`, [
-      [{ text: '✅ Tasdiqlayman', callback_data: `cust_ok_${r.id}` }, { text: '❌ Rozi emasman', callback_data: `cust_no_${r.id}` }],
-      ...(url ? [[{ text: '🔎 Batafsil', url }]] : []),
+    await notifyCustomer(r.customerTgId, `⚖️ <b>${t.request} #${r.id}: ${t.weighed}</b>\n${collectionHtml(c, r.customerLang)}\n\n${t.confirmQ}`, [
+      [{ text: t.ok, callback_data: `cust_ok_${r.id}` }, { text: t.no, callback_data: `cust_no_${r.id}` }],
+      ...(url ? [[{ text: t.more, url }]] : []),
     ]);
   }
   if (r.supervisor?.telegramId) {
@@ -129,14 +141,17 @@ export async function onCompleted(r: RequestWithRefs, c?: RecycleCollection | nu
   if (r.customerTgId) {
     const l = r.customerLang;
     const thanks = { uz: '🎉 Arizangiz yakunlandi. Tabiatni asraganingiz uchun rahmat!', ru: '🎉 Заявка завершена. Спасибо, что заботитесь о природе!', en: '🎉 Your request is complete. Thank you for caring about nature!' }[l];
-    await notifyCustomer(r.customerTgId, `Ariza #${r.id}: ${thanks}${c ? `\n${collectionHtml(c)}` : ''}`);
+    await notifyCustomer(r.customerTgId, `${C[l].request} #${r.id}: ${thanks}${c ? `\n${collectionHtml(c, l)}` : ''}`);
   }
   if (r.assignedDriver?.telegramId) await notifyDriver(r.assignedDriver.telegramId, `✅ Ariza #${r.id} yakunlandi. Rahmat!`);
 }
 
 export async function onCancelled(r: RequestWithRefs, reason?: string): Promise<void> {
   const why = reason ? ` Sabab: ${esc(reason)}` : '';
-  if (r.customerTgId) await notifyCustomer(r.customerTgId, `❌ Ariza #${r.id} bekor qilindi.${why}`);
+  if (r.customerTgId) {
+    const t = C[r.customerLang];
+    await notifyCustomer(r.customerTgId, `❌ ${t.request} #${r.id} ${t.cancelled}.${reason ? ` ${t.reason}: ${esc(reason)}` : ''}`);
+  }
   if (r.assignedDriver?.telegramId) await notifyDriver(r.assignedDriver.telegramId, `❌ Ariza #${r.id} bekor qilindi.${why}`);
   if (r.supervisor?.telegramId) await notifySupervisor(r.supervisor.telegramId, `❌ Ariza #${r.id} bekor qilindi.${why}`);
 }

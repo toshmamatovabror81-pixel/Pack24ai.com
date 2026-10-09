@@ -107,18 +107,28 @@ export type DaySummary = {
 
 type Scope = { supervisorId: number } | { pointId: number };
 const scopeWhere = (s: Scope) => ('supervisorId' in s ? { supervisorId: s.supervisorId } : { pointId: s.pointId });
+/** Kun — [yarim tun, keyingi yarim tun) oralig'i: vaqt belgisi bilan yozilgan eski qatorlar ham shu kunga tushadi */
+const dayRange = (date: Date) => ({ gte: date, lt: new Date(date.getTime() + 86_400_000) });
+
+/** Punkt bo'yicha kassa ochilishi — har masulning (birinchi) ochilishi yig'indisi; masul bo'yicha — o'zi */
+function openingOf(rows: { supervisorId: number; openingBalance: unknown }[]): number | null {
+  if (!rows.length) return null;
+  const seen = new Map<number, number>();
+  for (const c of rows) if (!seen.has(c.supervisorId)) seen.set(c.supervisorId, toNumber(c.openingBalance as number));
+  return [...seen.values()].reduce((a, b) => a + b, 0);
+}
 
 /** Bir kunlik yig'indilar (masul yoki punkt bo'yicha) */
 export async function dailySummary(scope: Scope, date: Date): Promise<DaySummary> {
-  const where = { ...scopeWhere(scope), date };
+  const where = { ...scopeWhere(scope), date: dayRange(date) };
   const [intake, press, expense, sales, cash] = await Promise.all([
     prisma.recycleManualIntake.aggregate({ where, _sum: { weightKg: true, totalAmount: true }, _count: true }),
     prisma.recyclePressLog.aggregate({ where, _sum: { pressedKg: true, baleCount: true } }),
     prisma.recycleExpenseLog.aggregate({ where, _sum: { expenseAmount: true, advanceAmount: true } }),
     prisma.recycleSalesLog.aggregate({ where, _sum: { weightKg: true, totalAmount: true }, _count: true }),
-    prisma.recycleDailyCash.findFirst({ where, orderBy: { id: 'asc' } }),
+    prisma.recycleDailyCash.findMany({ where, orderBy: { id: 'asc' } }),
   ]);
-  const opening = cash ? toNumber(cash.openingBalance) : null;
+  const opening = openingOf(cash);
   const intakeSum = toNumber(intake._sum.totalAmount);
   const exp = toNumber(expense._sum.expenseAmount);
   const adv = toNumber(expense._sum.advanceAmount);
@@ -145,22 +155,31 @@ export async function monthGrid(scope: Scope, year: number, month: number): Prom
     prisma.recycleSalesLog.groupBy({ by: ['date'], where, _sum: { weightKg: true, totalAmount: true }, _count: true }),
     prisma.recycleDailyCash.findMany({ where, orderBy: { id: 'asc' } }),
   ]);
-  const byKey = <T extends { date: Date }>(rows: T[]) => new Map(rows.map((r) => [dateKey(r.date), r]));
-  const im = byKey(intakes), pm = byKey(presses), em = byKey(expenses), sm = byKey(sales);
-  const cm = new Map<string, number>();
-  for (const c of cash) if (!cm.has(dateKey(c.date))) cm.set(dateKey(c.date), toNumber(c.openingBalance));
+  // Bir kunga bir nechta guruh tushishi mumkin (vaqt belgili eski qatorlar) — kalit bo'yicha qo'shib boramiz
+  const acc = new Map<string, { intakeKg: number; intakeSum: number; intakeCount: number; pressedKg: number; bales: number; expense: number; advance: number; salesKg: number; salesSum: number; salesCount: number }>();
+  const get = (k: string) => {
+    let v = acc.get(k);
+    if (!v) { v = { intakeKg: 0, intakeSum: 0, intakeCount: 0, pressedKg: 0, bales: 0, expense: 0, advance: 0, salesKg: 0, salesSum: 0, salesCount: 0 }; acc.set(k, v); }
+    return v;
+  };
+  for (const i of intakes) { const v = get(dateKey(i.date)); v.intakeKg += i._sum.weightKg ?? 0; v.intakeSum += toNumber(i._sum.totalAmount); v.intakeCount += i._count; }
+  for (const p of presses) { const v = get(dateKey(p.date)); v.pressedKg += p._sum.pressedKg ?? 0; v.bales += p._sum.baleCount ?? 0; }
+  for (const e of expenses) { const v = get(dateKey(e.date)); v.expense += toNumber(e._sum.expenseAmount); v.advance += toNumber(e._sum.advanceAmount); }
+  for (const s of sales) { const v = get(dateKey(s.date)); v.salesKg += s._sum.weightKg ?? 0; v.salesSum += toNumber(s._sum.totalAmount); v.salesCount += s._count; }
+  const cashByDay = new Map<string, typeof cash>();
+  for (const c of cash) { const k = dateKey(c.date); cashByDay.set(k, [...(cashByDay.get(k) ?? []), c]); }
   const days: DaySummary[] = [];
   for (let d = new Date(from); d < to; d = new Date(d.getTime() + 86_400_000)) {
     const k = dateKey(d);
-    const i = im.get(k), p = pm.get(k), e = em.get(k), s = sm.get(k);
-    const opening = cm.get(k) ?? null;
-    const intakeSum = toNumber(i?._sum.totalAmount), exp = toNumber(e?._sum.expenseAmount), adv = toNumber(e?._sum.advanceAmount), salesSum = toNumber(s?._sum.totalAmount);
+    const v = acc.get(k);
+    const opening = openingOf(cashByDay.get(k) ?? []);
+    const intakeSum = v?.intakeSum ?? 0, exp = v?.expense ?? 0, adv = v?.advance ?? 0, salesSum = v?.salesSum ?? 0;
     days.push({
       date: new Date(d), opening,
-      intakeKg: i?._sum.weightKg ?? 0, intakeSum, intakeCount: i?._count ?? 0,
-      pressedKg: p?._sum.pressedKg ?? 0, bales: p?._sum.baleCount ?? 0,
+      intakeKg: Math.round((v?.intakeKg ?? 0) * 100) / 100, intakeSum, intakeCount: v?.intakeCount ?? 0,
+      pressedKg: Math.round((v?.pressedKg ?? 0) * 100) / 100, bales: v?.bales ?? 0,
       expense: exp, advance: adv,
-      salesKg: s?._sum.weightKg ?? 0, salesSum, salesCount: s?._count ?? 0,
+      salesKg: Math.round((v?.salesKg ?? 0) * 100) / 100, salesSum, salesCount: v?.salesCount ?? 0,
       closing: opening == null ? null : Math.round(opening + salesSum - intakeSum - exp - adv),
     });
   }
@@ -172,7 +191,7 @@ export const journalKindLabels: Record<JournalKind, string> = { intake: 'Qabul',
 
 /** Bir kun yozuvlari (admin tahriri va bot ko'rinishi uchun) */
 export async function dayEntries(scope: Scope, date: Date) {
-  const where = { ...scopeWhere(scope), date };
+  const where = { ...scopeWhere(scope), date: dayRange(date) };
   const [intake, press, expense, sales, cash] = await Promise.all([
     prisma.recycleManualIntake.findMany({ where, orderBy: { id: 'asc' }, include: { supervisor: { select: { name: true } } } }),
     prisma.recyclePressLog.findMany({ where, orderBy: { id: 'asc' }, include: { supervisor: { select: { name: true } } } }),

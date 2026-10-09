@@ -1087,6 +1087,7 @@ model RecycleRequest {
   assignedDriverId Int?
   assignedDriver   Driver?   @relation(fields: [assignedDriverId], references: [id])
   assignedAt       DateTime? // Haydovchi tayinlangan vaqt
+  acceptedAt       DateTime? // Haydovchi topshiriqni qabul qilgan vaqt (rad etilsa/qayta tayinlansa null)
 
   // Jarayon vaqtlari
   driverEnRouteAt DateTime? // Haydovchi yo'lga chiqdi

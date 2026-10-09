@@ -32,8 +32,8 @@ export function driverTransactions(driverId: number, limit = 50): Promise<(Drive
   return prisma.driverTransaction.findMany({ where: { driverId }, include: { card: true }, orderBy: { id: 'desc' }, take: limit });
 }
 
-/** Yechib olish so'rovi: balans yetarli bo'lsa `pending`; masul/HQ tasdiqlaydi (settleWithdrawal) */
-export async function requestWithdrawal(driverId: number, amount: number, cardId?: number | null): Promise<DriverTransaction> {
+/** Yechib olish so'rovi: balans yetarli bo'lsa `pending`; masul/HQ tasdiqlaydi (settleWithdrawal). cash=true — kartasiz, naqd. */
+export async function requestWithdrawal(driverId: number, amount: number, cardId?: number | null, opts: { cash?: boolean } = {}): Promise<DriverTransaction> {
   const sum = Math.round(Number(amount) || 0);
   if (sum < MIN_WITHDRAWAL) throw new WalletError('amount', `Kamida ${MIN_WITHDRAWAL.toLocaleString('ru-RU')} so'm`);
   const trx = await prisma.$transaction(async (tx) => {
@@ -43,7 +43,7 @@ export async function requestWithdrawal(driverId: number, amount: number, cardId
     if (cardId) {
       card = await tx.driverCard.findFirst({ where: { id: cardId, driverId, isActive: true } });
       if (!card) throw new WalletError('card', 'Karta topilmadi');
-    } else {
+    } else if (!opts.cash) {
       card = await tx.driverCard.findFirst({ where: { driverId, isActive: true }, orderBy: [{ isDefault: 'desc' }, { id: 'asc' }] });
     }
     return tx.driverTransaction.create({ data: { driverId, type: 'withdrawal', amount: sum, status: 'pending', cardId: card?.id ?? null, description: card ? `Kartaga: ${card.cardNumber}` : 'Naqd' } });
@@ -57,12 +57,15 @@ export async function requestWithdrawal(driverId: number, amount: number, cardId
   return trx;
 }
 
-/** Masul/HQ/admin: so'rov to'landi yoki rad etildi */
+/** Masul/HQ/admin: so'rov to'landi yoki rad etildi. Masul faqat o'z haydovchisi yoki o'z punkti haydovchisi so'rovini yopadi. */
 export async function settleWithdrawal(txId: number, status: 'completed' | 'failed', by: { name: string; supervisorId?: number }): Promise<DriverTransaction> {
   const t = await prisma.driverTransaction.findUnique({ where: { id: txId }, include: { driver: true } });
   if (!t || t.type !== 'withdrawal') throw new WalletError('not_found', "So'rov topilmadi");
   if (t.status !== 'pending') throw new WalletError('status', "So'rov allaqachon ko'rib chiqilgan");
-  if (by.supervisorId && t.driver.supervisorId !== by.supervisorId) throw new WalletError('not_found', 'Bu haydovchi sizning punktingizda emas');
+  if (by.supervisorId && t.driver.supervisorId !== by.supervisorId) {
+    const sup = await prisma.supervisor.findUnique({ where: { id: by.supervisorId }, select: { pointId: true } });
+    if (!sup?.pointId || t.driver.pointId !== sup.pointId) throw new WalletError('not_found', 'Bu haydovchi sizning punktingizda emas');
+  }
   const updated = await prisma.driverTransaction.update({ where: { id: txId }, data: { status, metadata: { settledBy: by.name, settledAt: new Date().toISOString() } } });
   await logEvent({ sourceBot: by.supervisorId ? 'supervisor' : 'platform', eventType: status === 'completed' ? 'withdrawal_paid' : 'withdrawal_rejected', severity: status === 'completed' ? 'success' : 'warning', title: `Yechib olish ${status === 'completed' ? "to'landi" : 'rad etildi'}: ${toNumber(t.amount).toLocaleString('ru-RU')} so'm`, message: `${t.driver.name} · ${by.name}`, driverId: t.driverId, supervisorId: t.driver.supervisorId });
   if (t.driver.telegramId) {
@@ -102,10 +105,13 @@ export async function addCard(driverId: number, input: { number: string; holder:
   const holder = input.holder.trim().slice(0, 100);
   if (holder.length < 2) throw new WalletError('card', 'Karta egasi ismi kerak');
   return prisma.$transaction(async (tx) => {
+    const masked = maskCard(digits);
+    const dup = await tx.driverCard.findFirst({ where: { driverId, isActive: true, cardNumber: masked, expiryMonth: month, expiryYear: year } });
+    if (dup) throw new WalletError('card', "Bu karta allaqachon qo'shilgan");
     const count = await tx.driverCard.count({ where: { driverId, isActive: true } });
     const isDefault = input.isDefault || count === 0;
     if (isDefault) await tx.driverCard.updateMany({ where: { driverId }, data: { isDefault: false } });
-    return tx.driverCard.create({ data: { driverId, cardNumber: maskCard(digits), cardHolder: holder, expiryMonth: month, expiryYear: year, cardType: cardTypeFromNumber(digits), isDefault } });
+    return tx.driverCard.create({ data: { driverId, cardNumber: masked, cardHolder: holder, expiryMonth: month, expiryYear: year, cardType: cardTypeFromNumber(digits), isDefault } });
   });
 }
 

@@ -20,13 +20,20 @@ export async function createAccessRequest(input: {
   vehicleInfo?: string | null;
   requestedPointId?: number | null;
   requestedSupervisorId?: number | null;
-}): Promise<BotAccessRequest> {
+}): Promise<BotAccessRequest & { existing?: boolean }> {
   const name = input.name.trim().slice(0, 100);
   if (name.length < 2) throw new StaffError('name', "Ism kamida 2 ta harf bo'lsin");
   const phone = phoneDigits(input.phone);
   if (!phone) throw new StaffError('phone', "Telefon noto'g'ri");
   const existing = await prisma.botAccessRequest.findFirst({ where: { role: input.role, status: 'pending', OR: [{ telegramId: input.telegramId }, { phone }] } });
-  if (existing) return existing;
+  if (existing) {
+    // Takroriy so'rov: yangi so'rov ochilmaydi, lekin oxirgi tanlovlar (ism, punkt, mashina) saqlanadi
+    const updated = await prisma.botAccessRequest.update({
+      where: { id: existing.id },
+      data: { name, telegramName: input.telegramName?.slice(0, 100) ?? existing.telegramName, vehicleInfo: input.vehicleInfo?.trim().slice(0, 120) || existing.vehicleInfo, requestedPointId: input.requestedPointId ?? existing.requestedPointId, requestedSupervisorId: input.requestedSupervisorId ?? existing.requestedSupervisorId },
+    });
+    return Object.assign(updated, { existing: true as const });
+  }
   if (input.role === 'supervisor' && (await findSupervisorByPhone(phone))) throw new StaffError('duplicate', "Bu telefon allaqachon masul sifatida ro'yxatda — kod bilan kiring");
   if (input.role === 'driver' && (await findDriverByPhone(phone))) throw new StaffError('duplicate', "Bu telefon allaqachon haydovchi sifatida ro'yxatda — kod bilan kiring");
   const req = await prisma.botAccessRequest.create({

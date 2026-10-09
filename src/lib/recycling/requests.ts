@@ -6,8 +6,8 @@ import { normalizePhone } from '@/lib/format';
 import { getSettings } from '@/lib/settings';
 import { isValidLat, isValidLng, nearestPoint } from './geo';
 import { logEvent } from './events';
-import { onAssigned, onCancelled, onDispatched, onRequestCreated, type RequestWithRefs } from './notifications';
-import { canTransition, STATUS_TIMESTAMP, TERMINAL_STATUSES, volumeSizeFromKg } from './statuses';
+import { onAssigned, onCancelled, onDispatched, onRequestCreated } from './notifications';
+import { ACTIVE_STATUSES, canTransition, STATUS_TIMESTAMP, TERMINAL_STATUSES, volumeSizeFromKg } from './statuses';
 
 /**
  * Ariza hayot sikli: yaratish -> masulga yo'naltirish -> haydovchi tayinlash -> ... -> yakun/bekor.
@@ -31,6 +31,17 @@ export class RequestError extends Error {
 }
 
 export const REQUEST_INCLUDE = { point: true, supervisor: true, assignedDriver: true } satisfies Prisma.RecycleRequestInclude;
+/** Xodimlar (admin, masul, haydovchi) uchun to'liq ariza: punkt, masul, haydovchi yozuvlari bilan */
+export type RequestFull = Prisma.RecycleRequestGetPayload<{ include: typeof REQUEST_INCLUDE }>;
+
+/** Mijoz uchun (kuzatuv havolasi, mijoz boti): haydovchi/masulning faqat ismi va mashinasi — telefon, parol, Telegram ID, kodlar yuklanmaydi */
+export const PUBLIC_REQUEST_INCLUDE = {
+  point: true,
+  supervisor: { select: { id: true, name: true } },
+  assignedDriver: { select: { id: true, name: true, vehicleInfo: true } },
+  collections: { orderBy: { id: 'desc' } },
+} satisfies Prisma.RecycleRequestInclude;
+export type RequestPublic = Prisma.RecycleRequestGetPayload<{ include: typeof PUBLIC_REQUEST_INCLUDE }>;
 
 export const newAccessToken = () => randomBytes(18).toString('base64url');
 
@@ -64,7 +75,21 @@ export async function pickPoint(lat?: number | null, lng?: number | null): Promi
   return { point: list[0], km: null };
 }
 
-export async function createRequest(input: CreateRequestInput): Promise<{ request: RequestWithRefs; token: string }> {
+/**
+ * Punktning yangi ariza uchun masuli: faol va botda ro'yxatdan o'tganlar afzal, ular orasida faol arizasi eng kam bo'lgani
+ * (teng bo'lsa — eng avval yaratilgani). Ro'yxatdan o'tgan masul bo'lmasa — istalgan faol masul.
+ */
+export async function pickSupervisor(pointId: number): Promise<{ id: number; name: string } | null> {
+  const sups = await prisma.supervisor.findMany({ where: { pointId, isActive: true }, select: { id: true, name: true, telegramId: true }, orderBy: { id: 'asc' } });
+  if (!sups.length) return null;
+  const candidates = sups.some((s) => s.telegramId) ? sups.filter((s) => s.telegramId) : sups;
+  if (candidates.length === 1) return candidates[0];
+  const load = await prisma.recycleRequest.groupBy({ by: ['supervisorId'], where: { supervisorId: { in: candidates.map((s) => s.id) }, status: { in: ACTIVE_STATUSES } }, _count: true });
+  const count = new Map(load.map((l) => [l.supervisorId, l._count]));
+  return [...candidates].sort((a, b) => (count.get(a.id) ?? 0) - (count.get(b.id) ?? 0) || a.id - b.id)[0];
+}
+
+export async function createRequest(input: CreateRequestInput): Promise<{ request: RequestFull; token: string }> {
   const name = input.name.trim().slice(0, 100);
   if (name.length < 2) throw new RequestError('name', "Ism kamida 2 ta harf bo'lsin");
   const phone = normalizePhone(input.phone);
@@ -77,14 +102,15 @@ export async function createRequest(input: CreateRequestInput): Promise<{ reques
     if (!hasCoords && !input.address?.trim()) throw new RequestError('location', 'Manzil yoki joylashuv kerak');
   }
   let pointId = input.pointId ?? null;
-  if (pointId && !(await prisma.recyclePoint.findFirst({ where: { id: pointId, status: 'active' }, select: { id: true } }))) pointId = null;
+  // Tanlangan punkt faol va qabul qilayotgan bo'lishi kerak; aks holda eng yaqin/birinchi qabul qilayotgan punkt
+  if (pointId && !(await prisma.recyclePoint.findFirst({ where: { id: pointId, status: 'active', isAccepting: true }, select: { id: true } }))) pointId = null;
   if (!pointId) {
     const picked = await pickPoint(hasCoords ? input.pickupLat : null, hasCoords ? input.pickupLng : null);
     if (!picked) throw new RequestError('point', 'Hozircha faol qabul punkti yo\'q');
     pointId = picked.point.id;
   }
-  // Punktga biriktirilgan faol, botda ro'yxatdan o'tgan masul bo'lsa darhol yo'naltiramiz
-  const supervisor = await prisma.supervisor.findFirst({ where: { pointId, isActive: true }, orderBy: [{ registeredAt: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }] });
+  // Punktga biriktirilgan faol masul bo'lsa darhol yo'naltiramiz (eng kam yuklangani)
+  const supervisor = await pickSupervisor(pointId);
   const token = newAccessToken();
   const now = new Date();
   const request = await prisma.recycleRequest.create({
@@ -127,7 +153,7 @@ export async function transition(
   requestId: number,
   to: RecycleRequestStatus,
   extra: Prisma.RecycleRequestUncheckedUpdateInput = {},
-): Promise<RequestWithRefs> {
+): Promise<RequestFull> {
   const current = await tx.recycleRequest.findUnique({ where: { id: requestId }, select: { status: true } });
   if (!current) throw new RequestError('not_found', 'Ariza topilmadi');
   if (!canTransition(current.status, to)) throw new RequestError('status', `Holatni ${current.status} → ${to} ga o'tkazib bo'lmaydi`);
@@ -135,19 +161,19 @@ export async function transition(
   return tx.recycleRequest.update({ where: { id: requestId }, data: { status: to, ...(ts ? { [ts]: new Date() } : {}), ...extra }, include: REQUEST_INCLUDE });
 }
 
-export async function getRequest(id: number): Promise<RequestWithRefs | null> {
+export async function getRequest(id: number): Promise<RequestFull | null> {
   return prisma.recycleRequest.findUnique({ where: { id }, include: REQUEST_INCLUDE });
 }
 
 /** Masulga yo'naltirish (admin yoki HQ). Tayinlangan haydovchi bo'lsa bo'shatiladi. */
-export async function dispatchToSupervisor(requestId: number, supervisorId: number, actor: Actor, note?: string): Promise<RequestWithRefs> {
+export async function dispatchToSupervisor(requestId: number, supervisorId: number, actor: Actor, note?: string): Promise<RequestFull> {
   const sup = await prisma.supervisor.findUnique({ where: { id: supervisorId } });
   if (!sup || !sup.isActive) throw new RequestError('supervisor', 'Masul topilmadi yoki faol emas');
   const updated = await prisma.$transaction(async (tx) => {
     const r = await tx.recycleRequest.findUnique({ where: { id: requestId }, select: { status: true, assignedDriverId: true } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
     if (r.assignedDriverId) await freeDriver(tx, r.assignedDriverId, requestId);
-    return transition(tx, requestId, 'dispatched', { supervisorId, assignedDriverId: null, assignedAt: null });
+    return transition(tx, requestId, 'dispatched', { supervisorId, assignedDriverId: null, assignedAt: null, acceptedAt: null });
   });
   await logEvent({ sourceBot: actorSource(actor), eventType: 'request_dispatched', title: `Ariza #${requestId} masulga yo'naltirildi`, message: `${sup.name} ← ${actor.name}`, requestId, supervisorId, pointId: updated.pointId });
   await onDispatched(updated, note);
@@ -163,29 +189,31 @@ export async function freeDriver(tx: Prisma.TransactionClient | typeof prisma, d
 }
 
 /** Haydovchi tayinlash (masul, admin yoki HQ). Haydovchi faol va shu punkt/masulga tegishli bo'lishi kerak. */
-export async function assignDriver(requestId: number, driverId: number, actor: Actor): Promise<RequestWithRefs> {
-  const { updated, previous, driver } = await prisma.$transaction(async (tx) => {
+export async function assignDriver(requestId: number, driverId: number, actor: Actor): Promise<RequestFull> {
+  const { updated, previous, driver, noop } = await prisma.$transaction(async (tx) => {
     const r = await tx.recycleRequest.findUnique({ where: { id: requestId }, include: { assignedDriver: true } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
     if (!['new_', 'dispatched', 'assigned'].includes(r.status)) throw new RequestError('status', 'Bu holatda haydovchi tayinlab bo\'lmaydi');
     const d = await tx.driver.findUnique({ where: { id: driverId } });
     if (!d || d.status === 'inactive') throw new RequestError('driver', 'Haydovchi topilmadi yoki faol emas');
     if (actor.kind === 'supervisor' && d.supervisorId !== actor.id && d.pointId !== r.pointId) throw new RequestError('driver', 'Bu haydovchi sizning punktingizga tegishli emas');
-    if (r.assignedDriverId === driverId && r.status === 'assigned') return { updated: await transition(tx, requestId, 'assigned'), previous: null as Driver | null, driver: d };
+    // O'sha haydovchi qayta tanlandi — hech narsa o'zgarmaydi, takroriy xabar ketmaydi
+    if (r.assignedDriverId === driverId && r.status === 'assigned') return { updated: await tx.recycleRequest.findUniqueOrThrow({ where: { id: requestId }, include: REQUEST_INCLUDE }), previous: null as Driver | null, driver: d, noop: true };
     const previous = r.assignedDriver;
     if (previous && previous.id !== driverId) await freeDriver(tx, previous.id, requestId);
     const supervisorId = r.supervisorId ?? (actor.kind === 'supervisor' ? actor.id : d.supervisorId);
-    const updated = await transition(tx, requestId, 'assigned', { assignedDriverId: driverId, supervisorId, ...(supervisorId && !r.dispatchedAt ? { dispatchedAt: new Date() } : {}) });
+    const updated = await transition(tx, requestId, 'assigned', { assignedDriverId: driverId, supervisorId, acceptedAt: null, ...(supervisorId && !r.dispatchedAt ? { dispatchedAt: new Date() } : {}) });
     await tx.driver.update({ where: { id: driverId }, data: { status: 'busy' } });
-    return { updated, previous, driver: d };
+    return { updated, previous, driver: d, noop: false };
   });
+  if (noop) return updated;
   await logEvent({ sourceBot: actorSource(actor), eventType: 'driver_assigned', title: `Ariza #${requestId}: haydovchi tayinlandi`, message: `${driver.name} ← ${actor.name}`, requestId, driverId, supervisorId: updated.supervisorId, pointId: updated.pointId });
   await onAssigned(updated, previous);
   return updated;
 }
 
 /** Bekor qilish: faol holatlardan. Mijoz faqat haydovchi yo'lga chiqmagan bo'lsa bekor qila oladi. */
-export async function cancelRequest(requestId: number, actor: Actor, reason?: string): Promise<RequestWithRefs> {
+export async function cancelRequest(requestId: number, actor: Actor, reason?: string): Promise<RequestFull> {
   const updated = await prisma.$transaction(async (tx) => {
     const r = await tx.recycleRequest.findUnique({ where: { id: requestId }, select: { status: true, assignedDriverId: true } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
@@ -200,10 +228,10 @@ export async function cancelRequest(requestId: number, actor: Actor, reason?: st
   return updated;
 }
 
-/** Mehmon kuzatuv havolasi orqali ariza (token bo'yicha) */
-export async function requestByToken(token: string): Promise<(RequestWithRefs & { collections: Prisma.RecycleCollectionGetPayload<object>[] }) | null> {
+/** Mehmon kuzatuv havolasi orqali ariza (token bo'yicha) — mijozga xavfsiz maydonlar bilan */
+export async function requestByToken(token: string): Promise<RequestPublic | null> {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
-  return prisma.recycleRequest.findUnique({ where: { accessToken: token }, include: { ...REQUEST_INCLUDE, collections: { orderBy: { id: 'desc' } } } });
+  return prisma.recycleRequest.findUnique({ where: { accessToken: token }, include: PUBLIC_REQUEST_INCLUDE });
 }
 
 /** Mijozning arizaga egaligi: token, Telegram ID yoki sayt foydalanuvchisi */

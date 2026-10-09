@@ -3,8 +3,9 @@ import { Prisma, type MaterialType, type RecycleCollection } from '@prisma/clien
 import { prisma } from '@/lib/db';
 import { toNumber } from '@/lib/format';
 import { logEvent } from './events';
-import { onCollected, onCompleted, onCustomerDecision, onPaymentRecorded, type RequestWithRefs } from './notifications';
-import { actorSource, freeDriver, ownsRequest, REQUEST_INCLUDE, RequestError, transition, type Actor, type Owner } from './requests';
+import { onCollected, onCompleted, onCustomerDecision, onPaymentRecorded } from './notifications';
+import { actorSource, freeDriver, ownsRequest, REQUEST_INCLUDE, RequestError, transition, type Actor, type Owner, type RequestFull } from './requests';
+import { todayTashkent } from './journal';
 
 /**
  * Tortish va hisob-kitob. Narx HAR DOIM punktning pricePerKg dan olinadi (haydovchi narxni o'zgartira olmaydi).
@@ -33,7 +34,7 @@ export type WeighInput = {
 };
 
 /** Haydovchi (yoki masul/admin uning nomidan) tortish natijasini kiritadi → ariza `collected` */
-export async function recordWeighing(input: WeighInput): Promise<{ request: RequestWithRefs; collection: RecycleCollection }> {
+export async function recordWeighing(input: WeighInput): Promise<{ request: RequestFull; collection: RecycleCollection }> {
   const weight = Math.round((Number(input.actualWeight) || 0) * 100) / 100;
   if (!(weight > 0) || weight > 100_000) throw new RequestError('status', "Og'irlik 0 dan katta bo'lsin");
   const result = await prisma.$transaction(async (tx) => {
@@ -65,7 +66,7 @@ export async function recordWeighing(input: WeighInput): Promise<{ request: Requ
     // Haydovchi daromadi: punkt stavkasi × haqiqiy og'irlik
     const earning = Math.round(weight * toNumber(r.point.driverRatePerKg));
     const prevTx = await tx.driverTransaction.findFirst({ where: { collectionId: collection.id, type: 'earning' } });
-    if (prevTx) await tx.driverTransaction.update({ where: { id: prevTx.id }, data: { amount: earning, driverId: r.assignedDriverId } });
+    if (prevTx) await tx.driverTransaction.update({ where: { id: prevTx.id }, data: { amount: earning, driverId: r.assignedDriverId, description: `Ariza #${r.id}: ${weight} kg` } });
     else if (earning > 0) await tx.driverTransaction.create({ data: { driverId: r.assignedDriverId, type: 'earning', amount: earning, status: 'completed', collectionId: collection.id, description: `Ariza #${r.id}: ${weight} kg` } });
     const request = r.status === 'collected' ? await tx.recycleRequest.update({ where: { id: r.id }, data: { collectedAt: new Date() }, include: REQUEST_INCLUDE }) : await transition(tx, r.id, 'collected');
     return { request, collection };
@@ -75,23 +76,23 @@ export async function recordWeighing(input: WeighInput): Promise<{ request: Requ
   return result;
 }
 
-/** Mijoz bazaga o'zi olib kelgan (pickupType=base): masul tortadi, jurnalga qabul yozuvi tushadi, ariza yakunlanadi */
-export async function acceptAtBase(input: { requestId: number; weightKg: number; pricePerKg?: number | null; note?: string | null; actor: Actor; supervisorId: number }): Promise<RequestWithRefs> {
+/**
+ * Mijoz bazaga o'zi olib kelgan (pickupType=base): masul tortadi, jurnalga qabul yozuvi tushadi (bugungi kun), ariza yakunlanadi.
+ * Faqat haydovchi hali tortmagan arizalar uchun (new_/dispatched/assigned/en_route va hisobi yo'q) — aks holda og'irlik ikki marta hisoblanadi.
+ */
+export async function acceptAtBase(input: { requestId: number; weightKg: number; pricePerKg?: number | null; note?: string | null; actor: Actor; supervisorId: number }): Promise<RequestFull> {
   const weight = Math.round((Number(input.weightKg) || 0) * 100) / 100;
   if (!(weight > 0)) throw new RequestError('status', "Og'irlik 0 dan katta bo'lsin");
   const updated = await prisma.$transaction(async (tx) => {
-    const r = await tx.recycleRequest.findUnique({ where: { id: input.requestId }, include: REQUEST_INCLUDE });
+    const r = await tx.recycleRequest.findUnique({ where: { id: input.requestId }, include: { ...REQUEST_INCLUDE, _count: { select: { collections: true } } } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
     if (['completed', 'cancelled'].includes(r.status)) throw new RequestError('status', 'Ariza allaqachon yakunlangan');
+    if (r._count.collections > 0 || !['new_', 'dispatched', 'assigned', 'en_route'].includes(r.status)) throw new RequestError('status', "Ariza allaqachon tortilgan — to'lovni belgilang");
     const price = input.pricePerKg && input.pricePerKg > 0 ? input.pricePerKg : toNumber(r.point.pricePerKg);
     const total = Math.round(weight * price);
-    await tx.recycleManualIntake.create({ data: { supervisorId: input.supervisorId, pointId: r.pointId, date: new Date(), weightKg: weight, pricePerKg: price, totalAmount: total, note: `Ariza #${r.id}, ${r.name}${input.note ? ` — ${input.note.slice(0, 200)}` : ''}` } });
+    await tx.recycleManualIntake.create({ data: { supervisorId: input.supervisorId, pointId: r.pointId, date: todayTashkent(), weightKg: weight, pricePerKg: price, totalAmount: total, note: `Ariza #${r.id}, ${r.name}${input.note ? ` — ${input.note.slice(0, 200)}` : ''}` } });
     if (r.assignedDriverId) await freeDriver(tx, r.assignedDriverId, r.id);
-    // Holat jadvalidan o'tish: faol holatlar → collected → completed
-    const toCollected = ['new_', 'dispatched', 'assigned', 'en_route', 'arrived', 'collecting', 'disputed'].includes(r.status);
-    const mid = toCollected ? await tx.recycleRequest.update({ where: { id: r.id }, data: { status: 'collected', collectedAt: new Date() } }) : r;
-    void mid;
-    return transition(tx, r.id, 'completed', { completedNote: `Bazada qabul qilindi: ${weight} kg × ${price} = ${total} so'm (${input.actor.name})` });
+    return transition(tx, r.id, 'completed', { collectedAt: new Date(), completedNote: `Bazada qabul qilindi: ${weight} kg × ${price} = ${total} so'm (${input.actor.name})` });
   });
   await logEvent({ sourceBot: actorSource(input.actor), eventType: 'accepted_at_base', severity: 'success', title: `Ariza #${input.requestId} bazada qabul qilindi`, message: `${weight} kg (${input.actor.name})`, requestId: input.requestId, supervisorId: input.supervisorId, pointId: updated.pointId });
   await onCompleted(updated, null);
@@ -99,7 +100,7 @@ export async function acceptAtBase(input: { requestId: number; weightKg: number;
 }
 
 /** Mijoz tasdiqlashi / inkor qilishi — egalik tekshiriladi */
-export async function customerDecision(requestId: number, owner: Owner, confirmed: boolean, comment?: string): Promise<RequestWithRefs> {
+export async function customerDecision(requestId: number, owner: Owner, confirmed: boolean, comment?: string): Promise<RequestFull> {
   const updated = await prisma.$transaction(async (tx) => {
     const r = await tx.recycleRequest.findUnique({ where: { id: requestId }, include: { collections: true } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
@@ -112,7 +113,8 @@ export async function customerDecision(requestId: number, owner: Owner, confirme
     }
     return transition(tx, requestId, confirmed ? 'confirmed' : 'disputed');
   });
-  await logEvent({ sourceBot: 'customer', eventType: confirmed ? 'customer_confirmed' : 'customer_disputed', severity: confirmed ? 'success' : 'warning', title: `Ariza #${requestId}: mijoz ${confirmed ? 'tasdiqladi' : 'rozi emas'}`, message: comment ?? '', requestId, supervisorId: updated.supervisorId, driverId: updated.assignedDriverId, pointId: updated.pointId, notifyHq: !confirmed });
+  // HQ ga xabar onCustomerDecision ichida ketadi (ikki marta yubormaslik uchun bu yerda notifyHq yo'q)
+  await logEvent({ sourceBot: 'customer', eventType: confirmed ? 'customer_confirmed' : 'customer_disputed', severity: confirmed ? 'success' : 'warning', title: `Ariza #${requestId}: mijoz ${confirmed ? 'tasdiqladi' : 'rozi emas'}`, message: comment?.trim() || (confirmed ? 'Tortish natijasi tasdiqlandi' : 'Mijoz tortish natijasiga rozi emas (izohsiz)'), requestId, supervisorId: updated.supervisorId, driverId: updated.assignedDriverId, pointId: updated.pointId });
   await onCustomerDecision(updated, confirmed, comment);
   return updated;
 }
@@ -120,7 +122,7 @@ export async function customerDecision(requestId: number, owner: Owner, confirme
 export type PaymentInput = { collectionId: number; paymentToCustomer?: number | null; paymentToDriver?: number | null; note?: string | null; actor: Actor };
 
 /** Masul to'lovni belgilaydi → ariza `completed`, haydovchi bo'shaydi */
-export async function recordPayment(input: PaymentInput): Promise<{ request: RequestWithRefs; collection: RecycleCollection }> {
+export async function recordPayment(input: PaymentInput): Promise<{ request: RequestFull; collection: RecycleCollection }> {
   const toCustomer = input.paymentToCustomer != null && input.paymentToCustomer >= 0 ? Math.round(input.paymentToCustomer) : null;
   const toDriver = input.paymentToDriver != null && input.paymentToDriver >= 0 ? Math.round(input.paymentToDriver) : null;
   const result = await prisma.$transaction(async (tx) => {
@@ -128,6 +130,7 @@ export async function recordPayment(input: PaymentInput): Promise<{ request: Req
     if (!c) throw new RequestError('not_found', 'Hisob topilmadi');
     if (input.actor.kind === 'supervisor' && c.request.supervisorId !== input.actor.id) throw new RequestError('supervisor', 'Bu ariza sizning punktingizga tegishli emas');
     if (!['collected', 'confirmed', 'disputed', 'completed'].includes(c.request.status)) throw new RequestError('status', 'Avval tortish kiritilishi kerak');
+    if (c.paymentStatus !== 'pending') throw new RequestError('status', "To'lov allaqachon belgilangan");
     const paymentStatus: RecycleCollection['paymentStatus'] = toCustomer != null && toDriver != null ? 'paid_both' : toDriver != null ? 'paid_to_driver' : toCustomer != null ? 'paid_to_customer' : 'completed';
     const collection = await tx.recycleCollection.update({
       where: { id: c.id },
@@ -149,11 +152,12 @@ export async function recordPayment(input: PaymentInput): Promise<{ request: Req
 export async function adminFixCollection(collectionId: number, patch: { actualWeight?: number; discountPercent?: number; discountReason?: string | null; notes?: string | null }, actor: Actor): Promise<RecycleCollection> {
   const c = await prisma.recycleCollection.findUnique({ where: { id: collectionId }, include: { request: { include: { point: true } } } });
   if (!c) throw new RequestError('not_found', 'Hisob topilmadi');
+  if (c.paymentStatus !== 'pending') throw new RequestError('status', "To'lov allaqachon belgilangan — hisobni o'zgartirib bo'lmaydi");
   const calc = calcCollection({ actualWeight: patch.actualWeight ?? c.actualWeight, discountPercent: patch.discountPercent ?? c.discountPercent, pricePerKg: toNumber(c.pricePerKg) });
   const updated = await prisma.$transaction(async (tx) => {
     const u = await tx.recycleCollection.update({ where: { id: collectionId }, data: { actualWeight: patch.actualWeight ?? c.actualWeight, discountPercent: calc.discountPercent, effectiveWeight: calc.effectiveWeight, totalAmount: calc.totalAmount, discountReason: patch.discountReason === undefined ? c.discountReason : patch.discountReason, notes: patch.notes === undefined ? c.notes : patch.notes } });
     const earning = Math.round(u.actualWeight * toNumber(c.request.point.driverRatePerKg));
-    await tx.driverTransaction.updateMany({ where: { collectionId, type: 'earning' }, data: { amount: earning } });
+    await tx.driverTransaction.updateMany({ where: { collectionId, type: 'earning' }, data: { amount: earning, description: `Ariza #${c.requestId}: ${u.actualWeight} kg` } });
     return u;
   });
   await logEvent({ sourceBot: 'platform', eventType: 'collection_fixed', severity: 'warning', title: `Hisob #${collectionId} to'g'rilandi`, message: `${actor.name}: ${updated.actualWeight} kg, ${calc.totalAmount} so'm`, requestId: c.requestId, collectionId, driverId: c.driverId });

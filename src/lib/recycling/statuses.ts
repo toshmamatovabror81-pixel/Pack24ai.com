@@ -14,10 +14,11 @@ export const REQUEST_STATUSES: RecycleRequestStatus[] = [
 ];
 
 export const TRANSITIONS: Record<RecycleRequestStatus, RecycleRequestStatus[]> = {
-  new_: ['dispatched', 'assigned', 'cancelled'],
-  dispatched: ['dispatched', 'assigned', 'new_', 'cancelled'], // dispatched -> dispatched: boshqa masulga qayta yo'naltirish
-  assigned: ['en_route', 'dispatched', 'new_', 'assigned', 'cancelled'], // -> dispatched/new_: haydovchi rad etdi; -> assigned: boshqa haydovchi
-  en_route: ['arrived', 'assigned', 'cancelled'],
+  // -> completed to'g'ridan-to'g'ri: mijoz bazaga o'zi olib keldi (acceptAtBase), haydovchi va tortish hisobi kerak emas
+  new_: ['dispatched', 'assigned', 'cancelled', 'completed'],
+  dispatched: ['dispatched', 'assigned', 'new_', 'cancelled', 'completed'], // dispatched -> dispatched: boshqa masulga qayta yo'naltirish
+  assigned: ['en_route', 'dispatched', 'new_', 'assigned', 'cancelled', 'completed'], // -> dispatched/new_: haydovchi rad etdi; -> assigned: boshqa haydovchi
+  en_route: ['arrived', 'assigned', 'dispatched', 'new_', 'cancelled', 'completed'], // -> dispatched/new_: haydovchi yo'lda rad etdi
   arrived: ['collecting', 'collected', 'cancelled'],
   collecting: ['collected', 'cancelled'],
   collected: ['confirmed', 'disputed', 'completed', 'cancelled'],

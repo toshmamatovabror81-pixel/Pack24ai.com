@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
  */
 const cache = new Map<string, { address: string; at: number }>();
 const TTL = 24 * 60 * 60_000;
+// Tashqi xizmat ishlamasa 60 s davomida qayta so'ramaymiz (har bosishda 6 s kutmaslik uchun)
+let failedUntil = 0;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -20,6 +22,7 @@ export async function GET(req: Request) {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
   const hit = cache.get(key);
   if (hit && hit.at > Date.now() - TTL) return NextResponse.json({ ok: true, address: hit.address, cached: true });
+  if (failedUntil > Date.now()) return NextResponse.json({ ok: false, error: 'geocode', message: 'vaqtincha ishlamayapti' }, { status: 502 });
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=uz,ru`, {
       headers: { 'User-Agent': 'pack24.uz recycling form (info@pack24.uz)' },
@@ -38,6 +41,7 @@ export async function GET(req: Request) {
     }
     return NextResponse.json({ ok: true, address });
   } catch (e) {
+    failedUntil = Date.now() + 60_000;
     return NextResponse.json({ ok: false, error: 'geocode', message: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

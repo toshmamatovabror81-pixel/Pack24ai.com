@@ -18,9 +18,20 @@ export type BotStatus = {
 };
 
 const meCache = new Map<BotKind, { username: string; at: number }>();
+let statusCache: { at: number; value: BotStatus[] } | null = null;
 
-/** Admin Sozlamalar sahifasi uchun botlar holati (getMe + getWebhookInfo) */
-export async function botStatuses(): Promise<BotStatus[]> {
+/** Admin Sozlamalar sahifasi uchun botlar holati (getMe + getWebhookInfo). Natija 60 s keshlanadi; Telegram javob bermasa 8 s dan keyin xato bilan qaytadi. */
+export async function botStatuses(force = false): Promise<BotStatus[]> {
+  if (!force && statusCache && statusCache.at > Date.now() - 60_000) return statusCache.value;
+  const value = await Promise.race([
+    statusesUncached(),
+    new Promise<BotStatus[]>((resolve) => setTimeout(() => resolve(BOT_KINDS.map((kind) => ({ kind, title: botMeta[kind].title, description: botMeta[kind].description, envKey: botMeta[kind].envKey, configured: !!botToken(kind), error: 'Telegram javob bermadi (8 s)' }))), 8_000)),
+  ]);
+  statusCache = { at: Date.now(), value };
+  return value;
+}
+
+async function statusesUncached(): Promise<BotStatus[]> {
   return Promise.all(
     BOT_KINDS.map(async (kind): Promise<BotStatus> => {
       const m = botMeta[kind];
@@ -51,6 +62,7 @@ export async function setupWebhooks(baseUrl = siteUrl()): Promise<{ kind: BotKin
     if (!token) continue;
     const url = `${baseUrl.replace(/\/$/, '')}${webhookPath(kind)}`;
     try {
+      statusCache = null;
       await setWebhook(token, url, secret);
       await setMyCommands(token, botMeta[kind].commands).catch(() => undefined);
       out.push({ kind, ok: true, url });
@@ -62,6 +74,7 @@ export async function setupWebhooks(baseUrl = siteUrl()): Promise<{ kind: BotKin
 }
 
 export async function removeWebhooks(): Promise<void> {
+  statusCache = null;
   for (const kind of BOT_KINDS) {
     const token = botToken(kind);
     if (token) await deleteWebhook(token).catch(() => undefined);

@@ -1,8 +1,8 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { logEvent } from './events';
-import { onDriverAccepted, onDriverProgress, onDriverRejected, type RequestWithRefs } from './notifications';
-import { freeDriver, REQUEST_INCLUDE, RequestError, transition } from './requests';
+import { onDriverAccepted, onDriverProgress, onDriverRejected } from './notifications';
+import { freeDriver, REQUEST_INCLUDE, RequestError, transition, type RequestFull } from './requests';
 import { DRIVER_TASK_STATUSES } from './statuses';
 
 /** Haydovchi tomonidan bajariladigan qadamlar. Har birida ariza aynan shu haydovchiga tayinlanganligi tekshiriladi. */
@@ -14,31 +14,33 @@ async function ownTask(requestId: number, driverId: number) {
   return r;
 }
 
-export async function driverTasks(driverId: number): Promise<RequestWithRefs[]> {
+export async function driverTasks(driverId: number): Promise<RequestFull[]> {
   return prisma.recycleRequest.findMany({ where: { assignedDriverId: driverId, status: { in: DRIVER_TASK_STATUSES } }, include: REQUEST_INCLUDE, orderBy: { assignedAt: 'asc' } });
 }
 
-export async function driverHistory(driverId: number, limit = 30): Promise<RequestWithRefs[]> {
+export async function driverHistory(driverId: number, limit = 30): Promise<RequestFull[]> {
   return prisma.recycleRequest.findMany({ where: { assignedDriverId: driverId, status: { in: ['collected', 'confirmed', 'disputed', 'completed'] } }, include: REQUEST_INCLUDE, orderBy: { updatedAt: 'desc' }, take: limit });
 }
 
-/** Qabul qilish: holat `assigned` ligicha qoladi, masulga xabar boradi */
-export async function acceptTask(requestId: number, driverId: number): Promise<RequestWithRefs> {
+/** Qabul qilish: holat `assigned` ligicha qoladi, acceptedAt yoziladi, masulga bir marta xabar boradi */
+export async function acceptTask(requestId: number, driverId: number): Promise<RequestFull> {
   const r = await ownTask(requestId, driverId);
   if (r.status !== 'assigned') throw new RequestError('status', 'Topshiriq allaqachon boshlangan');
-  await logEvent({ sourceBot: 'driver', eventType: 'driver_accepted', title: `Ariza #${r.id}: haydovchi qabul qildi`, message: r.assignedDriver?.name ?? '', requestId: r.id, driverId, supervisorId: r.supervisorId, pointId: r.pointId, dedupeKey: `driver_accepted:${r.id}:${driverId}` });
-  await onDriverAccepted(r);
-  return r;
+  if (r.acceptedAt) return r; // takroriy bosish — hech narsa qilmaymiz
+  const updated = await prisma.recycleRequest.update({ where: { id: r.id }, data: { acceptedAt: new Date() }, include: REQUEST_INCLUDE });
+  await logEvent({ sourceBot: 'driver', eventType: 'driver_accepted', title: `Ariza #${r.id}: haydovchi qabul qildi`, message: r.assignedDriver?.name ?? '', requestId: r.id, driverId, supervisorId: r.supervisorId, pointId: r.pointId, dedupeKey: `driver_accepted:${r.id}:${driverId}:${r.assignedAt?.getTime() ?? 0}` });
+  await onDriverAccepted(updated);
+  return updated;
 }
 
 /** Rad etish: ariza masulga (dispatched) yoki navbatga (new_) qaytadi, haydovchi bo'shaydi */
-export async function rejectTask(requestId: number, driverId: number, reason?: string): Promise<RequestWithRefs> {
+export async function rejectTask(requestId: number, driverId: number, reason?: string): Promise<RequestFull> {
   const { updated, driver } = await prisma.$transaction(async (tx) => {
     const r = await tx.recycleRequest.findUnique({ where: { id: requestId }, include: { assignedDriver: true } });
     if (!r) throw new RequestError('not_found', 'Ariza topilmadi');
     if (r.assignedDriverId !== driverId || !r.assignedDriver) throw new RequestError('driver', 'Bu topshiriq sizga tegishli emas');
     if (!['assigned', 'en_route'].includes(r.status)) throw new RequestError('status', 'Bu bosqichda rad etib bo\'lmaydi');
-    const updated = await transition(tx, requestId, r.supervisorId ? 'dispatched' : 'new_', { assignedDriverId: null, assignedAt: null, driverEnRouteAt: null });
+    const updated = await transition(tx, requestId, r.supervisorId ? 'dispatched' : 'new_', { assignedDriverId: null, assignedAt: null, acceptedAt: null, driverEnRouteAt: null });
     await freeDriver(tx, driverId, requestId);
     return { updated, driver: r.assignedDriver };
   });
@@ -47,7 +49,7 @@ export async function rejectTask(requestId: number, driverId: number, reason?: s
   return updated;
 }
 
-export async function startEnRoute(requestId: number, driverId: number): Promise<RequestWithRefs> {
+export async function startEnRoute(requestId: number, driverId: number): Promise<RequestFull> {
   await ownTask(requestId, driverId);
   const updated = await prisma.$transaction(async (tx) => {
     const u = await transition(tx, requestId, 'en_route');
@@ -59,7 +61,7 @@ export async function startEnRoute(requestId: number, driverId: number): Promise
   return updated;
 }
 
-export async function markArrived(requestId: number, driverId: number): Promise<RequestWithRefs> {
+export async function markArrived(requestId: number, driverId: number): Promise<RequestFull> {
   await ownTask(requestId, driverId);
   const updated = await transition(prisma, requestId, 'arrived');
   await logEvent({ sourceBot: 'driver', eventType: 'driver_arrived', title: `Ariza #${requestId}: haydovchi yetib keldi`, message: updated.assignedDriver?.name ?? '', requestId, driverId, supervisorId: updated.supervisorId, pointId: updated.pointId });
@@ -67,7 +69,7 @@ export async function markArrived(requestId: number, driverId: number): Promise<
   return updated;
 }
 
-export async function startCollecting(requestId: number, driverId: number): Promise<RequestWithRefs> {
+export async function startCollecting(requestId: number, driverId: number): Promise<RequestFull> {
   await ownTask(requestId, driverId);
   return transition(prisma, requestId, 'collecting');
 }

@@ -71,6 +71,11 @@ export function editMessageText(token: string, chatId: number | string, messageI
   });
 }
 
+/** Faqat tugmalarni o'zgartirish/olib tashlash (matn va HTML formati saqlanadi) */
+export function editMessageReplyMarkup(token: string, chatId: number | string, messageId: number, inline?: InlineKeyboard) {
+  return call<true>(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: inline ?? [] } });
+}
+
 export function answerCallbackQuery(token: string, id: string, text?: string, alert = false) {
   return call<true>(token, 'answerCallbackQuery', { callback_query_id: id, text: text?.slice(0, 200), show_alert: alert });
 }
