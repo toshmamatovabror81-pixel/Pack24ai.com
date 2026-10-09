@@ -49,6 +49,22 @@ Tekshirish: `curl -s https://pack24.uz/api/health` → `{"ok":true,"db":"up"}`.
 
 Admin panel: `https://pack24.uz/admin` (login `admin`, skript bergan parol). Kirgach **Xodimlar** bo'limida parolni almashtiring.
 
+### Serverda boshqa sayt (nginx) bo'lsa
+
+Agar shu serverda allaqachon boshqa sayt ishlayotgan bo'lsa (masalan nginx 80 va 443 portlarni egallagan), skript buni
+o'zi sezadi va **nginx rejimi**da o'rnatadi (qo'lda: `PROXY=nginx`):
+
+- Caddy ishga tushmaydi; sayt faqat `127.0.0.1:WEB_PORT` da tinglaydi (`WEB_PORT` `.env` ga yoziladi, standart 3010).
+- `deploy/compose.proxy.yml` `docker-compose.override.yml` sifatida nusxalanadi (git'ga kirmaydi, yangilanishda saqlanadi).
+- Mavjud nginx'ga `deploy/nginx-pack24.conf` asosida `/etc/nginx/sites-available/pack24.uz` bo'limi qo'shiladi
+  (oldin `/root/nginx-backup-*.tgz` zaxira olinadi), `nginx -t` o'tsa qayta yuklanadi.
+- `certbot --nginx` bepul HTTPS sertifikat oladi va 80 → 443 yo'naltirishni qo'shadi. DNS hali tarqalmagan bo'lsa,
+  keyinroq: `certbot --nginx -d pack24.uz -d www.pack24.uz --redirect`.
+- Firewall sozlamalariga tegilmaydi (boshqa saytning portlari yopilib qolmasligi uchun).
+
+Agar 80/443 ni egallagan nginx konteyner ichida bo'lsa, skript faqat eslatma chiqaradi: o'sha nginx'da
+`pack24.uz → 127.0.0.1:WEB_PORT` yo'naltirishni qo'lda qo'shasiz (namuna: `deploy/nginx-pack24.conf`).
+
 ## 4. To'lov va Telegram kalitlari
 
 `/opt/pack24/.env` faylini oching (`nano /opt/pack24/.env`), quyidagilarni to'ldiring va
