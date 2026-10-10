@@ -87,7 +87,8 @@ else
   rm -f docker-compose.override.yml
 fi
 # Har 5 daqiqada GitHub'dan yangilanish, har kuni 03:00 da zaxira nusxa
-( crontab -l 2>/dev/null | grep -v "$DIR/deploy/" ; \
+# (crontab hali yo'q yoki bo'sh bo'lsa crontab -l / grep 1 qaytaradi — bu xato emas)
+( { crontab -l 2>/dev/null | grep -v "$DIR/deploy/" || true; } ; \
   echo "*/5 * * * * $DIR/deploy/auto-update.sh >> /var/log/pack24-update.log 2>&1" ; \
   echo "0 3 * * * $DIR/deploy/backup.sh >> /var/log/pack24-backup.log 2>&1" ) | crontab -
 

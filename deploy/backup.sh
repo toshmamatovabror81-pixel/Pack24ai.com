@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Kunlik zaxira: baza (pg_dump) + yuklangan rasmlar. 14 kunlik nusxalar saqlanadi.
 # Cron (har kuni 03:00):  0 3 * * * /opt/pack24/deploy/backup.sh >> /var/log/pack24-backup.log 2>&1
+# deploy.sh ham yangi baza migratsiyasi kelganda, uni qo'llashdan oldin shu skriptni chaqiradi.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${BACKUP_DIR:-/var/backups/pack24}"

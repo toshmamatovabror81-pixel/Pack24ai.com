@@ -107,6 +107,10 @@ Avtomatik: server har 5 daqiqada GitHub'dagi o'z branch'ini tekshiradi; yangi co
 ishga tushiradi (log: `/var/log/pack24-update.log`). Branch GitHub'da o'chirilsa (PR `main` ga qo'shilgach) server
 o'zi `main` ga o'tadi. Hech qanday kalit kerak emas.
 
+Yangi commit baza migratsiyasi (`prisma/migrations`) olib kelsa, `deploy.sh` kodni almashtirishdan **oldin**
+`deploy/backup.sh` ni ishga tushiradi. Zaxira o'tmasa yangilanish to'xtaydi (eski versiya ishlayveradi) va 5 daqiqadan
+keyin qayta uriniladi. Zaxirasiz davom ettirish (faqat ongli ravishda): `SKIP_BACKUP=1 /opt/pack24/deploy/deploy.sh`.
+
 Qo'lda: `/opt/pack24/deploy/deploy.sh`
 
 Ixtiyoriy (SSH orqali push'dan keyin darhol): GitHub repo > Settings > Secrets and variables > Actions ga
@@ -115,6 +119,7 @@ Ixtiyoriy (SSH orqali push'dan keyin darhol): GitHub repo > Settings > Secrets a
 ## 6. Zaxira nusxa
 
 Har kuni 03:00 da baza va rasmlar `/var/backups/pack24` ga saqlanadi (14 kun), cron'ni o'rnatish skripti qo'shadi.
+Bundan tashqari har bir yangi baza migratsiyasidan oldin ham zaxira olinadi (5-bo'lim).
 Tiklash buyruqlari `deploy/backup.sh` oxirida.
 
 ## 7. Foydali buyruqlar

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Yangilash: git'dan oxirgi kodni olib, qayta build qilib, ishga tushiradi.
 # Serverda: /opt/pack24/deploy/deploy.sh   (auto-update.sh va GitHub Actions ham shuni chaqiradi)
+# Yangi baza migratsiyasi kelsa, kodni almashtirishdan oldin zaxira nusxa oladi (SKIP_BACKUP=1 bilan o'tkazib yuboriladi).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -9,6 +10,19 @@ BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 || BRANCH=main
 
 git fetch -q origin "$BRANCH"
+
+# Migratsiyani yangi konteyner ishga tushganda entrypoint.sh qo'llaydi (prisma migrate deploy), shuning uchun
+# zaxira kod almashishidan OLDIN olinadi. Oxirgi zaxira qaysi migratsiyalar ro'yxati bilan olingani MIG_STATE
+# faylida turadi (git'ga kirmaydi): ro'yxat o'zgarsa — zaxira. Zaxira o'tmasa skript shu yerda to'xtaydi:
+# HEAD o'zgarmagan, eski konteyner ishlayveradi, cron 5 daqiqadan keyin qayta urinadi.
+MIG_STATE=".deploy-migrations"
+MIG_NOW="$(git ls-tree -d --name-only FETCH_HEAD prisma/migrations/)"
+if [ "${SKIP_BACKUP:-0}" != "1" ] && [ "$MIG_NOW" != "$(cat "$MIG_STATE" 2>/dev/null || true)" ]; then
+  echo "Yangi migratsiya bor — avval zaxira nusxa (deploy/backup.sh)"
+  ./deploy/backup.sh
+  printf '%s\n' "$MIG_NOW" > "$MIG_STATE"
+fi
+
 git checkout -q "$BRANCH"
 git pull -q --ff-only origin "$BRANCH"
 
