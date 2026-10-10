@@ -45,10 +45,10 @@ describe('telegram webhook himoyasi', () => {
     expect(verifyWebhook(req({}))).toBe(false);
   });
   it('sozlash API: Bearer TELEGRAM_OPS_SECRET', () => {
-    vi.stubEnv('TELEGRAM_OPS_SECRET', 'ops-secret-0123456789');
-    expect(verifyOpsBearer(req({ authorization: 'Bearer ops-secret-0123456789' }))).toBe(true);
-    expect(verifyOpsBearer(req({ authorization: 'Bearer wrong-secret-0123456789' }))).toBe(false);
-    expect(verifyOpsBearer(req({ authorization: 'ops-secret-0123456789' }))).toBe(false);
+    vi.stubEnv('TELEGRAM_OPS_SECRET', 'ci-dummy-ops-secret');
+    expect(verifyOpsBearer(req({ authorization: 'Bearer ci-dummy-ops-secret' }))).toBe(true);
+    expect(verifyOpsBearer(req({ authorization: 'Bearer ci-dummy-wrong-secret' }))).toBe(false);
+    expect(verifyOpsBearer(req({ authorization: 'ci-dummy-ops-secret' }))).toBe(false);
     vi.stubEnv('TELEGRAM_OPS_SECRET', '');
     expect(verifyOpsBearer(req({ authorization: 'Bearer ' }))).toBe(false);
   });
