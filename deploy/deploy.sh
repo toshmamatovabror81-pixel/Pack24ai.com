@@ -15,11 +15,12 @@ git fetch -q origin "$BRANCH"
 # zaxira kod almashishidan OLDIN olinadi. Oxirgi zaxira qaysi migratsiyalar ro'yxati bilan olingani MIG_STATE
 # faylida turadi (git'ga kirmaydi): ro'yxat o'zgarsa — zaxira. Zaxira o'tmasa skript shu yerda to'xtaydi:
 # HEAD o'zgarmagan, eski konteyner ishlayveradi, cron 5 daqiqadan keyin qayta urinadi.
+# Migratsiya oldidan olingan baza nusxasi premigration-* nomi bilan saqlanadi va 14 kunlik tozalashga tushmaydi.
 MIG_STATE=".deploy-migrations"
 MIG_NOW="$(git ls-tree -d --name-only FETCH_HEAD prisma/migrations/)"
 if [ "${SKIP_BACKUP:-0}" != "1" ] && [ "$MIG_NOW" != "$(cat "$MIG_STATE" 2>/dev/null || true)" ]; then
   echo "Yangi migratsiya bor — avval zaxira nusxa (deploy/backup.sh)"
-  ./deploy/backup.sh
+  BACKUP_PREFIX=premigration ./deploy/backup.sh
   printf '%s\n' "$MIG_NOW" > "$MIG_STATE"
 fi
 
@@ -31,6 +32,10 @@ if [ ! -f docker-compose.yml ]; then
   git checkout -q -
   exit 1
 fi
+
+# Shu yerdan HEAD yangi kodda: build yoki ishga tushirish yiqilsa cron qayta urinmaydi (HEAD == remote).
+# Belgi o'chiriladi — keyingi (qo'lda) urinish migratsiyadan oldin yangi zaxira oladi.
+trap '[ "$?" -eq 0 ] || rm -f "$MIG_STATE"' EXIT
 
 docker compose build web
 docker compose up -d

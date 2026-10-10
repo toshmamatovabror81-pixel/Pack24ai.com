@@ -119,8 +119,12 @@ Ixtiyoriy (SSH orqali push'dan keyin darhol): GitHub repo > Settings > Secrets a
 ## 6. Zaxira nusxa
 
 Har kuni 03:00 da baza va rasmlar `/var/backups/pack24` ga saqlanadi (14 kun), cron'ni o'rnatish skripti qo'shadi.
-Bundan tashqari har bir yangi baza migratsiyasidan oldin ham zaxira olinadi (5-bo'lim).
-Tiklash buyruqlari `deploy/backup.sh` oxirida.
+Bundan tashqari har bir yangi baza migratsiyasidan oldin ham zaxira olinadi (5-bo'lim): baza nusxasi
+`premigration-YYYY-MM-DD_HHMM.sql.gz` nomi bilan saqlanadi va 14 kunlik tozalashga **tushmaydi** — kerak bo'lmay
+qolganda qo'lda o'chiriladi. Papka faqat `root` uchun ochiq (nusxalarda mijozlar ma'lumoti bor).
+
+Tiklash tartibi `deploy/backup.sh` oxirida. Muhim: nusxa faqat bo'sh bazaga to'g'ri tushadi, shuning uchun avval
+baza qayta yaratiladi (ishlab turgan baza ustiga quyish aralash holat qoldiradi).
 
 ## 7. Foydali buyruqlar
 

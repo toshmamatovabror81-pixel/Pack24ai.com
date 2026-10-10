@@ -48,6 +48,12 @@ fi
 echo "== 4/6 Kod: $DIR ($BRANCH)"
 if [ -d "$DIR/.git" ]; then
   git -C "$DIR" fetch -q origin "$BRANCH"
+  # Mavjud o'rnatma ustidan qayta ishga tushirilganda 6-qadam yangi migratsiyani qo'llashi mumkin:
+  # deploy.sh dagi kabi avval zaxira nusxa (baza konteyneri ishlab turgan bo'lsa)
+  if [ "${SKIP_BACKUP:-0}" != "1" ] && [ -n "$(cd "$DIR" && docker compose ps -q db 2>/dev/null)" ]; then
+    BACKUP_PREFIX=premigration bash "$DIR/deploy/backup.sh"
+    git -C "$DIR" ls-tree -d --name-only FETCH_HEAD prisma/migrations/ > "$DIR/.deploy-migrations"
+  fi
   git -C "$DIR" checkout -q "$BRANCH"
   git -C "$DIR" pull -q --ff-only origin "$BRANCH"
 else
