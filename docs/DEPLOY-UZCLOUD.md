@@ -72,11 +72,72 @@ Agar 80/443 ni egallagan nginx konteyner ichida bo'lsa, skript faqat eslatma chi
 
 - `PAYME_MERCHANT_ID`, `PAYME_SECRET_KEY` (Payme Business kabineti; webhook: `https://pack24.uz/api/payment/payme/webhook`)
 - `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` (webhook: `https://pack24.uz/api/payment/click`)
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID` (yangi buyurtma va arizalar xabari)
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID` (yangi buyurtma va arizalar haqida admin guruhiga xabar)
 
 Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
 ### Telegram botlar (2 ta)
+
+Ikkala bot ham admin panel bilan bitta bazada ishlaydi — alohida dastur yoki server kerak emas.
+
+**Mijoz boti** (@Pack24AI_bot). Mijoz o'z buyurtmalarini (ro'yxatga olingan sana, hozirgi holat va ishlab chiqarish
+bosqichi, summa, to'lov), balansini, sotuvchi rekvizitlari va aloqa ma'lumotlarini ko'radi. "Balans" — oldindan
+to'langan hamyon emas, mijozning qarzi: ochiq hisob-fakturalar, ularning muddati o'tgan qismi, shartnomadagi nasiya
+limiti va to'lanmagan buyurtmalar. Buyurtma holati o'zgarsa, to'lov qabul qilinsa, hisob-faktura berilsa yoki
+ishlab chiqarish bosqichi almashsa bot mijozga o'zi xabar yuboradi (o'zbek yoki rus tilida — mijoz botda tanlaydi).
+
+Mijoz ikki yo'l bilan ulanadi:
+
+- botda **o'z telefon raqamini ulashadi** (bot tugmasi orqali). Shu raqam bilan berilgan barcha buyurtmalar ko'rinadi.
+  Raqamni yozib yuborish qabul qilinmaydi — faqat Telegram tasdiqlagan o'z kontakti;
+- saytdagi buyurtma sahifasida **"Telegram'da kuzatish"** tugmasini bosadi — shu bitta buyurtma chatga ulanadi va
+  holati o'zgarsa xabar keladi (telefon ulashmasdan ham). Tugma faqat mijoz boti tokeni kiritilgandan keyin chiqadi
+  (token yo'q paytda bot javob bermaydi).
+
+Saytdagi Telegram tugmalari Admin > Sozlamalar > Aloqa > "Telegram bot (mijozlar uchun)" maydonidagi botga olib
+boradi — u yerda mijoz botining nomi (`Pack24AI_bot`, @ belgisisiz) turishi kerak.
+
+**Boshqaruv boti** (@pack24AUP_bot) — xodimlar uchun. Yangi buyurtma va to'lov xabarlari tugmalari bilan keladi
+(qabul qilish, jo'natildi, yetkazildi, bekor qilish, naqd yoki o'tkazma to'landi), buyurtma holati botning o'zidan
+o'zgartiriladi, buyurtmalarni qidirish, bugungi raqamlar va muddati o'tgan qarzlar ko'rinadi. Botdagi amal admin
+paneldagi bilan bir xil ishlaydi: mijozga xabar ketadi, buyurtma sahifasidagi "Tarix"da esa kim, qachon va qayerdan
+(admin panel, boshqaruv boti, Payme, Click, hisob-faktura) o'zgartirgani yoziladi.
+
+Xodim ikki yo'l bilan ulanadi (faqat Admin > Xodimlar ro'yxatidagi faol xodimlar):
+
+- botda /start bosib **o'z telefon raqamini ulashadi** — raqam Xodimlar ro'yxatidagi telefon bilan bir xil bo'lsa
+  bot darhol ulanadi;
+- yoki admin **Admin > Xodimlar > "Telegram kodi"** tugmasini bosadi va chiqqan 6 xonali kodni xodimga aytadi, xodim
+  kodni botga yozadi. Kod 30 daqiqa amal qiladi va bir marta ishlaydi (telefonsiz "admin" logini uchun ham shu yo'l).
+  Boshqaruv boti tokeni kiritilmaguncha tugma yashirin turadi va sahifada bu haqda ogohlantirish chiqadi.
+
+Ruxsatlar admin paneldagi rol bilan bir xil; xodim o'chirilsa yoki "Faol" belgisi olinsa botdan ham darhol uziladi.
+Xodimlar sahifasida har bir xodim uchun "Telegram xabar" belgisi (xabarnomalarni o'chirib qo'yish) va "Uzish" tugmasi bor.
+
+Eski tizimdan qolgan Telegram ulanishlari (`User.telegramId`) `6_bots_orders` migratsiyasida bir marta bekor qilinadi:
+ularni eski botlar zaifroq tekshiruv bilan yozgan. Ilgari ulangan xodim yuqoridagi ikki yo'ldan biri bilan qayta ulanadi.
+
+**Xabarnomalar va kunlik eslatma.** Yangi buyurtma, onlayn to'lov (Payme, Click) va to'langan hisob-faktura haqida
+"buyurtmalar" ruxsati bor xodimlarga, yangi ariza haqida "arizalar" ruxsati bor xodimlarga xabar boradi. Har kuni
+soat 09:00 dan keyin (Toshkent vaqti) bir marta eslatma yuboriladi: muddati o'tgan hisob-fakturalar ("moliya" ruxsati
+bor xodimlarga) va 24 soatdan beri "Yangi" holatida turgan buyurtmalar. Eslatma uchun alohida sozlash kerak emas:
+uni avtomatik yangilanish cron'i (`deploy/auto-update.sh`, har 5 daqiqada) ishga tushiradi. Qo'lda tekshirish:
+
+```bash
+cd /opt/pack24 && docker compose exec -T web node -e "fetch('http://127.0.0.1:3000/api/cron/tick',{method:'POST',headers:{authorization:'Bearer '+process.env.TELEGRAM_OPS_SECRET}}).then(async r=>console.log(r.status,await r.text()))"
+```
+
+Javob `200 {"ok":true,"digest":null}` bo'lsa hammasi joyida (bugungi eslatma allaqachon yuborilgan yoki hali 09:00
+bo'lmagan); `"digest":{...}` — eslatma shu so'rov bilan yuborildi (nechta xodimga yetgani ko'rsatiladi).
+
+Cron signali o'tmasa (web konteyneri ishlamayapti, `.env` da `TELEGRAM_OPS_SECRET` yo'q yoki ilova xato qaytardi),
+`/var/log/pack24-update.log` ga sababi bilan bitta `cron tick o'tmadi: ...` satri yoziladi. Nosozlik davom etsa satr
+takrorlanmaydi (sababi o'zgarsa — yangi satr yoziladi), signal yana o'tgach esa keyingi nosozlikda qayta yoziladi. Yangilanish bunga qaramay davom etaveradi.
+
+`TELEGRAM_BOT_TOKEN` va `TELEGRAM_ADMIN_CHAT_ID` orqali admin guruhiga boradigan xabarlar avvalgidek, botlardan
+mustaqil ishlaydi.
+
+#### Botlarni ulash
 
 Eng oson yo'li — savol-javob skripti (2 ta tokenni so'raydi, `.env` ga yozadi, saytni qayta ishga tushiradi va
 webhook'larni o'rnatadi):
@@ -92,8 +153,10 @@ Qo'lda: BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /op
 - `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_OPS_SECRET` — o'rnatish skripti o'zi yaratgan, o'zgartirmang
 
 Keyin `cd /opt/pack24 && docker compose up -d` qiling va Admin > Sozlamalar > "Telegram botlar" bo'limida
-**"Webhook'larni o'rnatish"** tugmasini bosing (sayt HTTPS bilan ochilgan bo'lishi shart). Shu sahifada har bot
-holati (@username, webhook, xatolar) ko'rinadi.
+**"Webhook'larni o'rnatish"** tugmasini bosing (sayt HTTPS bilan ochilgan bo'lishi shart) — tokenlar yozilgandan
+keyin bu majburiy: tugma bosilmaguncha botlar xabar qabul qilmaydi. Shu sahifada har bot holati (@username, webhook,
+xatolar) ko'rinadi. Token almashtirilganda yoki botlarga yangi buyruqlar qo'shilgan yangilanishdan keyin ham tugmani
+bir marta bosing — Telegram'dagi buyruqlar menyusi (/orders, /balance, /new, /find va boshqalar) shunda yangilanadi.
 
 Eski botlarni o'chirib qo'ying (yoki tokenlarini BotFather'da yangilang) — bitta tokenga faqat bitta webhook bo'ladi.
 
@@ -118,6 +181,9 @@ cd /opt/pack24 && docker compose exec -T web rm -rf /data/uploads/recycling
 Avtomatik: server har 5 daqiqada GitHub'dagi o'z branch'ini tekshiradi; yangi commit bo'lsa `deploy/deploy.sh` ni
 ishga tushiradi (log: `/var/log/pack24-update.log`). Branch GitHub'da o'chirilsa (PR `main` ga qo'shilgach) server
 o'zi `main` ga o'tadi. Hech qanday kalit kerak emas.
+
+Shu cron satri ilovaning davriy ishlarini ham ishga tushiradi: har 5 daqiqada `/api/cron/tick` ga signal yuboradi
+(Telegram'dagi kunlik eslatma, 4-bo'lim). Avtomatik yangilanish cron'dan olib tashlansa, eslatmalar ham to'xtaydi.
 
 Yangi commit baza migratsiyasi (`prisma/migrations`) olib kelsa, `deploy.sh` kodni almashtirishdan **oldin**
 `deploy/backup.sh` ni ishga tushiradi. Zaxira o'tmasa yangilanish to'xtaydi (eski versiya ishlayveradi) va 5 daqiqadan
@@ -150,7 +216,40 @@ docker compose restart web         # qayta ishga tushirish
 tail -f /var/log/pack24-update.log # avtomatik yangilanish logi
 ```
 
+## Ishlab chiquvchilar uchun: testlar
+
+`npm test` bazasiz ishlaydi va `src/lib/__tests__/db` dagi testlarni o'tkazib yuboradi (natijada "skipped" deb chiqadi).
+Mijozlar orasidagi ajratish, qarzdorlik hisobi, holat va to'lov o'zgarishi, xodimni botga ulash, checkout aynan shu
+testlarda haqiqiy PostgreSQL bilan tekshiriladi. Server yangi commit'ni CI tugashini kutmasdan 5 daqiqada joylaydi,
+shuning uchun `src/lib` yoki botlar o'zgarganda push'dan oldin ularni mahalliy ishga tushiring.
+
+Kerak: shu mashinadagi **bo'sh** Postgres 16 bazasi (ishchi baza emas — testlar yozadi va o'chiradi). Git Bash'da:
+
+```bash
+export DATABASE_URL=postgresql://postgres@127.0.0.1:5432/pack24_test DIRECT_URL=postgresql://postgres@127.0.0.1:5432/pack24_test
+npx prisma migrate deploy                 # bir marta va har yangi migratsiyadan keyin
+P24_DB_TESTS=1 npx vitest run             # hamma testlar; faqat bazaviylari: ... npx vitest run src/lib/__tests__/db
+```
+
+PowerShell'da o'zgaruvchilar `$env:P24_DB_TESTS='1'; $env:DATABASE_URL='...'; $env:DIRECT_URL='...'` ko'rinishida beriladi.
+Himoya: `P24_DB_TESTS=1` bo'lsa ham manzil faqat `localhost`, `127.0.0.1` yoki `postgres` (CI xizmati) bo'lishi shart,
+aks holda birorta so'rov ham yuborilmaydi (`src/lib/__tests__/db/helpers.ts`). Poyga testlari bir vaqtda kamida 3 ta
+ulanish ochadi — manzilga `connection_limit=1` yoki `2` qo'shmang. GitHub Actions (`.github/workflows/ci.yml`) shu
+testlarni vaqtinchalik bazada faqat `main` ga push yoki PR bo'lganda ishga tushiradi — boshqa branch'da ular faqat
+mahalliy tekshiriladi.
+
 ## Supabase'dagi ma'lumotlarni ko'chirish (ixtiyoriy)
 
 Yangi serverga katalog o'zi yuklanadi. Agar Supabase'da keyin qo'shilgan buyurtma yoki mijozlar bo'lsa, u yerdan
 `pg_dump --data-only` olib, serverda `docker compose exec -T db psql -U pack24 pack24 < dump.sql` bilan yuklash mumkin.
+
+Eski foydalanuvchilar shu yo'l bilan `6_bots_orders` migratsiyasidan KEYIN yuklansa, ular bilan birga eski Telegram
+ulanishlari ham qaytib keladi (migratsiyadagi tozalash faqat bir marta ishlaydi). Botlarni ulashdan
+(`deploy/bots-setup.sh`) oldin tekshiring va tozalang:
+
+```bash
+cd /opt/pack24
+docker compose exec -T db psql -U pack24 pack24 -c 'SELECT id, name, role, "telegramId" FROM "User" WHERE "telegramId" IS NOT NULL;'
+# Qatorlar chiqsa va ular yangi boshqaruv boti orqali ulanmagan bo'lsa (yuklashdan keyin hali hech kim ulanmagan):
+docker compose exec -T db psql -U pack24 pack24 -c 'UPDATE "User" SET "telegramId" = NULL, "telegramVerifiedAt" = NULL, "telegramCode" = NULL, "otpExpiry" = NULL WHERE "telegramId" IS NOT NULL OR "telegramCode" IS NOT NULL OR "otpExpiry" IS NOT NULL;'
+```

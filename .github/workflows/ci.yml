@@ -28,6 +28,8 @@ jobs:
       DIRECT_URL: postgresql://postgres:ci@localhost:5432/pack24
       AUTH_SECRET: ci-only-secret-ci-only-secret-0123456789
       APP_URL: https://pack24.uz
+      # Haqiqiy baza bilan ishlaydigan testlar (src/lib/__tests__/db): faqat shu yerdagi vaqtinchalik Postgres'da yoqiladi
+      P24_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -5,11 +5,16 @@ import { z } from 'zod';
 import { prisma } from './db';
 import { normalizePhone, displayPhone } from './format';
 import { notifyAdmins } from './telegram';
+import { notifyStaffLead } from './orderNotify';
+import { settleWithin } from './background';
 import { parseAttribution, UTM_COOKIE } from './utm';
 import { rateLimit } from './rateLimit';
 import { siteUrl } from './site';
 
 export type LeadState = { ok?: boolean; error?: 'phone' | 'name' | 'rate' | 'server' } | null;
+
+/** Ariza saqlangach mijoz Telegram xabarnomalarini ko'pi bilan shuncha kutadi (checkout bilan bir xil — orders.ts) */
+const NOTIFY_WAIT_MS = 3_000;
 
 const TYPES = ['wholesale', 'custom_box', 'callback', 'contact'] as const;
 const TYPE_NAMES: Record<(typeof TYPES)[number], string> = {
@@ -47,6 +52,7 @@ export async function submitLead(_: LeadState, fd: FormData): Promise<LeadState>
   }
   const productId = Number(fd.get('productId')) || null;
   const a = parseAttribution((await cookies()).get(UTM_COOKIE)?.value);
+  let leadId: number;
   try {
     const lead = await prisma.lead.create({
       data: {
@@ -63,18 +69,28 @@ export async function submitLead(_: LeadState, fd: FormData): Promise<LeadState>
         landingPage: a.landingPage,
       },
     });
-    await notifyAdmins([
-      `📩 ${TYPE_NAMES[parsed.data.type]} #${lead.id}`,
-      `${parsed.data.name}${parsed.data.company ? `, ${parsed.data.company}` : ''}`,
-      displayPhone(phone),
-      ...Object.entries(details).map(([k, v]) => `${k}: ${v}`),
-      parsed.data.message,
-      a.utmSource ? `Manba: ${a.utmSource}` : null,
-      `${siteUrl()}/admin/leads`,
-    ]);
-    return { ok: true };
+    leadId = lead.id;
   } catch (e) {
     console.error('submitLead', e);
     return { error: 'server' };
   }
+  // Ariza saqlanib bo'ldi: xabarnomadagi xato endi mijozga "xato" bo'lib qaytmaydi (aks holda u arizani qayta yuboradi).
+  // Eski admin guruhga va boshqaruv botiga ulangan, "arizalar" ruxsati bor xodimlarga bir xil matn birga ketadi; mijoz ko'pi
+  // bilan 3 s kutadi — Telegram sekin yoki javob bermayotgan bo'lsa qolgani fonda tugaydi (background.ts).
+  await settleWithin(
+    (async () => {
+      const lines = [
+        `📩 ${TYPE_NAMES[parsed.data.type]} #${leadId}`,
+        `${parsed.data.name}${parsed.data.company ? `, ${parsed.data.company}` : ''}`,
+        displayPhone(phone),
+        ...Object.entries(details).map(([k, v]) => `${k}: ${v}`),
+        parsed.data.message,
+        a.utmSource ? `Manba: ${a.utmSource}` : null,
+        `${siteUrl()}/admin/leads`,
+      ];
+      await Promise.all([notifyAdmins(lines), notifyStaffLead(lines)]);
+    })().catch((e) => console.error('submitLead: xabarnoma', leadId, e)),
+    NOTIFY_WAIT_MS,
+  );
+  return { ok: true };
 }

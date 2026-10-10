@@ -1,14 +1,7 @@
-import type { ProductionStage, TaskPriority, WorkOrderStageStatus, WorkOrderStatus } from '@prisma/client';
+import type { TaskPriority, WorkOrderStageStatus, WorkOrderStatus } from '@prisma/client';
 
-/** Ishlab chiqarish bosqichlari — belgilangan tartibda */
-export const STAGE_ORDER: ProductionStage[] = ['gofra', 'pechat', 'yiguv', 'qc'];
-
-export const productionStageNames: Record<ProductionStage, string> = {
-  gofra: 'Gofra',
-  pechat: 'Pechat',
-  yiguv: "Yig'uv",
-  qc: 'Sifat nazorati',
-};
+// Bosqichlar tartibi va nomlari React'siz umumiy modulda (botlar ham ishlatadi)
+export { productionStageNames, STAGE_ORDER } from '@/lib/productionStages';
 
 export const workOrderStatusNames: Record<WorkOrderStatus, string> = {
   planned: 'Rejalashtirilgan',

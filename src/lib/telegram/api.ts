@@ -43,6 +43,16 @@ export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
 }
 
+/**
+ * s.slice(0, max), lekin kesish joyi emoji (surrogat juftligi) o'rtasiga tushsa, yarim qolgan bo'lagini ham tashlaydi:
+ * juftsiz surrogatli matnni Telegram "400 text must be encoded in UTF-8" bilan rad etadi va butun xabar yo'qoladi.
+ */
+export function clip(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const last = s.charCodeAt(max - 1);
+  return s.slice(0, last >= 0xd800 && last <= 0xdbff ? max - 1 : max);
+}
+
 /** Test uchun almashtirish mumkin (TELEGRAM_API_BASE=http://localhost:8081 — soxta server) */
 export const apiBase = () => (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '');
 
@@ -61,12 +71,12 @@ export async function call<T = unknown>(token: string, method: string, params: R
 export type SendOptions = { reply_markup?: ReplyMarkup; disable_web_page_preview?: boolean; disable_notification?: boolean };
 
 export function sendMessage(token: string, chatId: number | string, html: string, opts: SendOptions = {}) {
-  return call<TgMessage>(token, 'sendMessage', { chat_id: chatId, text: html.slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true, ...opts });
+  return call<TgMessage>(token, 'sendMessage', { chat_id: chatId, text: clip(html, 4000), parse_mode: 'HTML', disable_web_page_preview: true, ...opts });
 }
 
 export function editMessageText(token: string, chatId: number | string, messageId: number, html: string, inline?: InlineKeyboard) {
   return call<TgMessage | true>(token, 'editMessageText', {
-    chat_id: chatId, message_id: messageId, text: html.slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true,
+    chat_id: chatId, message_id: messageId, text: clip(html, 4000), parse_mode: 'HTML', disable_web_page_preview: true,
     reply_markup: inline ? { inline_keyboard: inline } : { inline_keyboard: [] },
   });
 }
@@ -77,7 +87,7 @@ export function editMessageReplyMarkup(token: string, chatId: number | string, m
 }
 
 export function answerCallbackQuery(token: string, id: string, text?: string, alert = false) {
-  return call<true>(token, 'answerCallbackQuery', { callback_query_id: id, text: text?.slice(0, 200), show_alert: alert });
+  return call<true>(token, 'answerCallbackQuery', { callback_query_id: id, text: text === undefined ? undefined : clip(text, 200), show_alert: alert });
 }
 
 export function sendLocation(token: string, chatId: number | string, lat: number, lng: number) {

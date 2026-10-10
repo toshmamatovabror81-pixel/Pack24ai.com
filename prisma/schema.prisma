@@ -225,7 +225,7 @@ model User {
 
   // ─── Telegram orqali ro'yxatdan o'tish ───
   telegramId         String?   @unique // Telegram user ID
-  telegramCode       String? // Doimiy kirish kodi (kabinetga kirish uchun)
+  telegramCode       String? // Xodimni boshqaruv botiga ulash uchun bir martalik kod (muddati otpExpiry da)
   telegramVerifiedAt DateTime? // Telegram orqali tasdiqlangan vaqt
 
   // ─── OTP (Bir martalik kod — saytga kirish uchun) ─
@@ -376,7 +376,7 @@ model Category {
 
 model Order {
   id             Int     @id @default(autoincrement())
-  telegramUserId String? // ID from Telegram
+  telegramUserId String? // Mijoz botida shu buyurtma havolasi (/start <token>) orqali ulangan Telegram ID
   customerName   String?
   contactPhone   String?
 
@@ -426,6 +426,7 @@ model Order {
   workOrders        WorkOrder[]
 
   staffTasks Task[]
+  events     OrderEvent[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -434,6 +435,23 @@ model Order {
   @@index([userId])
   @@index([status, createdAt])
   @@index([paymentStatus])
+  @@index([contactPhone])
+  @@index([telegramUserId])
+}
+
+// Buyurtma tarixi: holat va to'lov o'zgarishlari (kim, qayerdan). Admin sahifasi, botlar va tekshiruvlar uchun
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind      String // status | payment
+  fromValue String?
+  toValue   String
+  actor     String? // xodim ismi yoki tizim nomi
+  via       String // admin | staff_bot | payme | click | invoice | system
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 model OrderItem {
@@ -605,13 +623,29 @@ model News {
 // Telegram bot suhbat holati (webhook'lar orasida saqlanadi; server qayta ishga tushsa ham yo'qolmaydi)
 model BotSession {
   id         Int      @id @default(autoincrement())
-  bot        String // customer | staff
+  bot        String // customer | staff | staff_code (boshqaruv botida noto'g'ri ulash kodlari hisobi — telegram/session.ts SessionScope)
   telegramId String
   data       Json
   updatedAt  DateTime @updatedAt
 
   @@unique([bot, telegramId])
   @@index([updatedAt])
+}
+
+// Mijoz botidan foydalanuvchi: til va xabarnoma sozlamasi; telefon — faqat Telegram kontakti orqali tasdiqlangan
+// bo'lsa to'ldiriladi (shundan keyin buyurtmalar va balans ko'rinadi). Saytda ro'yxatdan o'tmagan mijoz ham bo'lishi mumkin.
+model TelegramCustomer {
+  id         Int       @id @default(autoincrement())
+  telegramId String    @unique
+  phone      String? // 998XXXXXXXXX
+  name       String?
+  lang       String    @default("uz") // uz | ru
+  notify     Boolean   @default(true) // buyurtma holati o'zgarsa xabar olish
+  verifiedAt DateTime? // telefon tasdiqlangan vaqt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([phone])
 }
 
 // ─── Ichki vazifalar / jamoa topshiriqlari (admin CRM ichki modul) ────────────

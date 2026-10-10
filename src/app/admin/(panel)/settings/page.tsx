@@ -5,7 +5,7 @@ import { DEFAULT_CONTRACT_TEXT } from '@/lib/documents';
 import { displayPhone } from '@/lib/format';
 import { paymeConfigured } from '@/lib/payments/payme';
 import { clickConfigured } from '@/lib/payments/click';
-import { BOT_KINDS, botMeta, botToken } from '@/lib/telegram/bots';
+import { BOT_KINDS, botMeta, botToken, type BotKind } from '@/lib/telegram/bots';
 import { botStatuses, type BotStatus } from '@/lib/telegram/setup';
 import { Badge, Field, I18nFields, Notice, PageHeader, Table } from '@/components/admin/ui';
 import { updateSettings } from './actions';
@@ -43,20 +43,23 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   await requireStaff('settings');
   const s = await getSettings();
   const sp = await searchParams;
+  // Qaysi botning tokeni bor — sahifadagi hamma joy (ulanishlar ro'yxati, jadval, yordam matni) shu bitta qiymatdan foydalanadi,
+  // shuning uchun token yo'q bot hech qayerda "ishlaydi" deb ta'riflanmaydi
+  const configured: Record<BotKind, boolean> = { customer: !!botToken('customer'), staff: !!botToken('staff') };
   const integrations = [
     { name: 'Payme', ok: paymeConfigured(), env: 'PAYME_MERCHANT_ID, PAYME_SECRET_KEY' },
     { name: 'Click', ok: clickConfigured(), env: 'CLICK_SERVICE_ID, CLICK_MERCHANT_ID, CLICK_SECRET_KEY' },
     { name: 'Telegram xabarlar', ok: !!process.env.TELEGRAM_BOT_TOKEN && !!process.env.TELEGRAM_ADMIN_CHAT_ID, env: 'TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID' },
-    ...BOT_KINDS.map((k) => ({ name: botMeta[k].title, ok: !!botToken(k), env: botMeta[k].envKey })),
+    ...BOT_KINDS.map((k) => ({ name: botMeta[k].title, ok: configured[k], env: botMeta[k].envKey })),
   ];
   // Botlar holati: faqat kamida bitta token sozlangan bo'lsa Telegram'ga so'rov yuboriladi (keshli, vaqt chegarasi bilan); xato sahifani yiqitmaydi
   const tg = sp.tg;
-  const anyBot = BOT_KINDS.some((k) => !!botToken(k));
+  const anyBot = BOT_KINDS.some((k) => configured[k]);
   const forceStatus = tg === 'status' || tg === 'ok' || tg === 'removed';
   const live = anyBot ? await loadBotStatuses(forceStatus) : { statuses: [], error: null, at: null };
   const statusError = live.error;
   // Holat olinmagan bo'lsa ham jadval statik ustunlar bilan ko'rinadi
-  const statuses: BotStatus[] = live.statuses.length ? live.statuses : BOT_KINDS.map((k) => ({ kind: k, title: botMeta[k].title, description: botMeta[k].description, envKey: botMeta[k].envKey, configured: !!botToken(k) }));
+  const statuses: BotStatus[] = live.statuses.length ? live.statuses : BOT_KINDS.map((k) => ({ kind: k, title: botMeta[k].title, description: botMeta[k].description, envKey: botMeta[k].envKey, configured: configured[k] }));
   const statusAge = live.at ? Math.max(0, Math.round((Date.now() - live.at) / 1000)) : null;
   const webhookSecretOk = (process.env.TELEGRAM_WEBHOOK_SECRET ?? '').trim().length >= 16;
   return (
@@ -127,6 +130,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <p className="mb-3 text-sm text-slate-500">
           Tokenlar faqat serverdagi <code className="font-mono">.env</code> faylida: {BOT_KINDS.map((k) => <span key={k}><code className="font-mono">{botMeta[k].envKey}</code> ({botMeta[k].title.toLowerCase()}), </span>)}<code className="font-mono">TELEGRAM_WEBHOOK_SECRET</code> (kamida 16 belgi).
           Webhook manzili <code className="font-mono">APP_URL/api/telegram/&lt;bot&gt;</code> — faqat https. Token o'zgarganda «Webhook'larni o'rnatish»ni qayta bosing.
+        </p>
+        <p className="mb-3 text-sm text-slate-500">
+          {configured.customer ? (
+            <>Mijozlar botni saytdagi tugmalardan (Telegram tugmasi yoki buyurtma sahifasidagi «Telegram'da kuzatish») ochadi va o'z telefon raqamini ulashadi — shundan keyin buyurtmalari va balansini ko'radi, holat o'zgarsa xabar oladi.</>
+          ) : (
+            <>Mijoz boti hali ishlamaydi (tokeni kiritilmagan): buyurtma sahifasida «Telegram'da kuzatish» tugmasi chiqmaydi va mijozlarga bot orqali xabar bormaydi. Token kiritilgach mijozlar botni saytdagi tugmalardan ochib, o'z telefon raqamini ulashadi — shundan keyin buyurtmalari va balansini ko'radi, holat o'zgarsa xabar oladi.</>
+          )}{' '}
+          {configured.staff ? (
+            <>Xodimlar boshqaruv botiga <Link href="/admin/staff" className="text-brand-500 hover:underline">Admin &gt; Xodimlar</Link> sahifasi orqali ulanadi (telefon raqami yoki «Telegram kodi» bilan).</>
+          ) : (
+            <>Boshqaruv boti hali ishlamaydi (tokeni kiritilmagan): xodimlar unga ulana olmaydi va ularga xabarnoma ketmaydi. Token kiritilgach xodimlar <Link href="/admin/staff" className="text-brand-500 hover:underline">Admin &gt; Xodimlar</Link> sahifasi orqali ulanadi (telefon raqami yoki «Telegram kodi» bilan).</>
+          )}
         </p>
         <Notice show={tg === 'ok'}>Webhook'lar va bot buyruqlari o'rnatildi.</Notice>
         <Notice show={tg === 'removed'}>Webhook'lar o'chirildi — botlar xabar qabul qilmaydi.</Notice>

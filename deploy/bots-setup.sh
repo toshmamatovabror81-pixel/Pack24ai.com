@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Telegram botlar (2 ta: mijoz va boshqaruv) tokenlarini .env ga yozish, saytni qayta ishga tushirish va webhook'larni o'rnatish.
+# Mijoz boti: buyurtmalar, balans (qarzdorlik), holat o'zgarishi haqida xabarnomalar. Boshqaruv boti: xodimlar uchun —
+# yangi buyurtma va to'lov xabarlari, holatni o'zgartirish, kunlik eslatma.
 # Serverda (savol-javob rejimida, shuning uchun ssh -t):
 #   ssh -t -i ~/.ssh/KALIT root@SERVER /opt/pack24/deploy/bots-setup.sh
 # Har bir savolga BotFather'dagi tokenni qo'yib Enter bosiladi; bo'sh qoldirilsa avvalgi qiymat qoladi.
@@ -43,8 +45,8 @@ if [ -z "$(current STAFF_BOT_TOKEN)" ] && [ -n "$(current SUPERVISOR_BOT_TOKEN)"
 fi
 
 echo "== Telegram botlar tokenlari (BotFather > /mybots > bot > API Token)"
-ask_token CUSTOMER_BOT_TOKEN "1/2 Mijoz boti (@Pack24AI_bot)"
-ask_token STAFF_BOT_TOKEN    "2/2 Boshqaruv boti (@pack24AUP_bot), xodimlar uchun"
+ask_token CUSTOMER_BOT_TOKEN "1/2 Mijoz boti (@Pack24AI_bot): buyurtmalar, balans, xabarnomalar"
+ask_token STAFF_BOT_TOKEN    "2/2 Boshqaruv boti (@pack24AUP_bot): xodimlar uchun"
 chmod 600 .env
 
 echo
@@ -60,6 +62,8 @@ done
 echo "== Webhook'lar o'rnatilmoqda"
 OPS="$(current TELEGRAM_OPS_SECRET)"
 [ -n "$OPS" ] || { echo "XATO: .env da TELEGRAM_OPS_SECRET yo'q"; exit 1; }
+# DIQQAT: quyidagi node skripti bash'da bitta tirnoq ichida — ichidagi matnlarda apostrof (o', g', yo'q) ISHLATILMAYDI,
+# aks holda satr o'sha joyda uzilib, node sintaksis xatosi beradi va webhook'lar o'rnatilmaydi.
 docker compose exec -T -e OPS="$OPS" web node -e '
 const h = { authorization: "Bearer " + process.env.OPS, "content-type": "application/json" };
 const base = "http://127.0.0.1:3000/api/telegram/setup";
@@ -69,10 +73,13 @@ const base = "http://127.0.0.1:3000/api/telegram/setup";
   if (!r.ok && j.error) { console.log("XATO:", j.error); process.exit(1); }
   const s = await (await fetch(base, { headers: h })).json();
   for (const b of s.bots || []) {
-    const st = !b.configured ? "token yo'q" : b.error ? "XATO: " + b.error : b.webhookUrl ? "ishlayapti" : "webhook yo'q";
+    const st = !b.configured ? "token kiritilmagan" : b.error ? "XATO: " + b.error : b.webhookUrl ? "ishlayapti" : "webhook ulanmagan";
     console.log(`  ${b.title.padEnd(16)} ${b.username ? "@" + b.username : "-"}`.padEnd(42) + st);
   }
   if (!j.ok) process.exit(1);
 })().catch((e) => { console.log("XATO:", e.message); process.exit(1); });
-' && echo "== TAYYOR: botlar saytga ulandi. Admin > Sozlamalar > Telegram botlar bo'limida ham ko'rinadi." \
-  || echo "== Webhook o'rnatishda xato. Admin > Sozlamalar > Telegram botlar bo'limida qayta urinib ko'ring."
+' && {
+  echo "== TAYYOR: botlar saytga ulandi. Admin > Sozlamalar > Telegram botlar bo'limida ham ko'rinadi."
+  echo "   Xodimlar: Admin > Xodimlar sahifasi orqali ulanadi (botda telefonini ulashadi yoki «Telegram kodi»ni yozadi)."
+  echo "   Mijozlar: botni saytdagi tugmalardan ochib, telefon raqamini ulashadi."
+} || echo "== Webhook o'rnatishda xato. Admin > Sozlamalar > Telegram botlar bo'limida qayta urinib ko'ring."

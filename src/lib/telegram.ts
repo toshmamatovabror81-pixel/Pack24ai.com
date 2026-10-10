@@ -12,7 +12,7 @@ export async function notifyAdmins(lines: (string | null | undefined)[]) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true }),
       signal: AbortSignal.timeout(5000),
     });
   } catch (err) {

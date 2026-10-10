@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { toNumber } from '@/lib/format';
 import { notifyAdmins } from '@/lib/telegram';
 import { clickSignatureValid, type ClickParams } from '@/lib/payments/click';
+import { recordPayment } from '@/lib/payments/record';
 
 // Click Shop API: PREPARE (action=0) va COMPLETE (action=1). Kabinetda ikkala URL ham shu manzil.
 
@@ -32,6 +33,8 @@ async function handle(form: URLSearchParams) {
   if (order.paymentStatus === 'paid') return reply(p, -4, 'Already paid', { merchant_confirm_id: order.id });
   if (Number(p.error) < 0) {
     await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: 'failed' } });
+    // Takroriy "o'tmadi" signali tarixni ko'paytirmasin
+    if (order.paymentStatus !== 'failed') await recordPayment({ ...order, paymentStatus: 'failed' }, order.paymentStatus, { name: 'Click', via: 'click' });
     return reply(p, -9, 'Transaction cancelled');
   }
   // Takroriy so'rovda ikki marta "to'landi" bo'lmasligi uchun shartli yangilash
@@ -39,7 +42,10 @@ async function handle(form: URLSearchParams) {
     where: { id: order.id, paymentStatus: { not: 'paid' } },
     data: { paymentStatus: 'paid', paymentMethod: 'click', confirmedAt: new Date() },
   });
-  if (updated.count === 1) await notifyAdmins([`✅ Click: buyurtma #${order.id} to'landi (${p.amount} so'm)`]);
+  if (updated.count === 1) {
+    await notifyAdmins([`✅ Click: buyurtma #${order.id} to'landi (${p.amount} so'm)`]);
+    await recordPayment({ ...order, paymentStatus: 'paid' }, order.paymentStatus, { name: 'Click', via: 'click' });
+  }
   return reply(p, 0, 'Success', { merchant_confirm_id: order.id });
 }
 

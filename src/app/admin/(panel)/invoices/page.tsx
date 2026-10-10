@@ -3,6 +3,7 @@ import type { InvoiceStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { formatDate, formatPrice, toNumber } from '@/lib/format';
+import { invoiceStatusWhere } from '@/lib/invoiceStatus';
 import { str } from '@/lib/params';
 import { PageHeader, Pager, Table } from '@/components/admin/ui';
 import { effectiveInvoiceStatus, invoiceStatusBadge, invoiceStatusNames } from '@/components/admin/finance/status';
@@ -19,10 +20,8 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const page = Math.max(1, Number(str(sp.page)) || 1);
   const now = new Date();
   const and: Prisma.CorporateInvoiceWhereInput[] = [];
-  // "Muddati o'tgan" bazada saqlanmaydi: berilgan/qisman to'langan va muddati o'tgan bo'yicha hisoblanadi
-  if (status === 'overdue') and.push({ OR: [{ status: 'overdue' }, { status: { in: ['issued', 'partial'] }, dueDate: { lt: now } }] });
-  else if (status === 'issued' || status === 'partial') and.push({ status, dueDate: { gte: now } });
-  else if (status && status in invoiceStatusNames) and.push({ status });
+  // "Muddati o'tgan" bazada saqlanmaydi: filtr ham nishon (effectiveInvoiceStatus) bilan bir xil chegaradan hisoblanadi
+  if (status && status in invoiceStatusNames) and.push(invoiceStatusWhere(status, now));
   if (contract) and.push({ contractId: contract });
   if (q) {
     and.push({

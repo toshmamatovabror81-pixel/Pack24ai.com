@@ -37,6 +37,16 @@ export function normalizePhone(input: string): string | null {
   return null;
 }
 
+/**
+ * Telegram kontaktidagi raqam (shaxsni tasdiqlash uchun). Telegram o'z kontaktini doim to'liq xalqaro ko'rinishda beradi,
+ * shuning uchun 9 xonali yozuv qabul qilinmaydi: aks holda jami 9 raqamli xorijiy raqam (+508 41 12 34) oldiga 998 qo'shilib,
+ * boshqa odamning O'zbekiston raqamiga aylanib qolardi.
+ */
+export function normalizeContactPhone(input: string): string | null {
+  const digits = input.replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('998') ? digits : null;
+}
+
 export function displayPhone(digits: string): string {
   const d = digits.replace(/\D/g, '');
   if (d.length !== 12) return digits;

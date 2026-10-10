@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { toNumber } from '@/lib/format';
 import { notifyAdmins } from '@/lib/telegram';
 import { PAYME_TIMEOUT_MS, PaymeError, paymeAuthorized } from '@/lib/payments/payme';
+import { recordPayment } from '@/lib/payments/record';
 
 // Payme Merchant API (JSON-RPC). Kassa sozlamasida endpoint: https://pack24.uz/api/payment/payme/webhook
 
@@ -84,11 +85,26 @@ export async function POST(req: NextRequest) {
           return err(id, PaymeError.cannotPerform, 'Tranzaksiya muddati o\'tgan');
         }
         const performTime = BigInt(Date.now());
-        await prisma.$transaction([
-          prisma.paymeTransaction.update({ where: { id: txId }, data: { state: 2, performTime } }),
-          prisma.order.update({ where: { id: tx.orderId }, data: { paymentStatus: 'paid', paymentMethod: 'payme', confirmedAt: new Date() } }),
-        ]);
+        const before = await prisma.order.findUnique({ where: { id: tx.orderId }, select: { paymentStatus: true } });
+        // "Holat hali 1" sharti: bir vaqtda kelgan ikki Perform'dan faqat bittasi yozadi. Ikkinchisi P2025 oladi — hech narsa
+        // o'zgarmaydi (tarix va xabarnoma takrorlanmaydi) va takroriy so'rov kabi saqlangan holat bilan javob beradi.
+        const done = await prisma
+          .$transaction([
+            prisma.paymeTransaction.update({ where: { id: txId, state: 1 }, data: { state: 2, performTime } }),
+            prisma.order.update({ where: { id: tx.orderId }, data: { paymentStatus: 'paid', paymentMethod: 'payme', confirmedAt: new Date() } }),
+          ])
+          .catch((e: unknown) => {
+            if ((e as { code?: string } | null)?.code === 'P2025') return null;
+            throw e;
+          });
+        if (!done) {
+          const current = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
+          if (current?.state === 2) return ok(id, { transaction: current.id, perform_time: Number(current.performTime), state: 2 });
+          return err(id, PaymeError.cannotPerform, 'Tranzaksiya bekor qilingan');
+        }
+        const paid = done[1];
         await notifyAdmins([`✅ Payme: buyurtma #${tx.orderId} to'landi (${tx.amount / 100} so'm)`]);
+        if (before?.paymentStatus !== 'paid') await recordPayment(paid, before?.paymentStatus ?? null, { name: 'Payme', via: 'payme' });
         return ok(id, { transaction: txId, perform_time: Number(performTime), state: 2 });
       }
 
@@ -98,16 +114,16 @@ export async function POST(req: NextRequest) {
         const tx = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
         if (!tx) return err(id, PaymeError.txNotFound, 'Tranzaksiya topilmadi');
         if (tx.state < 0) return ok(id, { transaction: tx.id, cancel_time: Number(tx.cancelTime), state: tx.state });
-        if (tx.state === 2) {
-          const order = await prisma.order.findUnique({ where: { id: tx.orderId } });
-          if (order?.status === 'delivered') return err(id, PaymeError.cannotCancel, 'Yetkazilgan buyurtma bekor qilinmaydi');
-        }
+        const before = await prisma.order.findUnique({ where: { id: tx.orderId }, select: { status: true, paymentStatus: true } });
+        if (tx.state === 2 && before?.status === 'delivered') return err(id, PaymeError.cannotCancel, 'Yetkazilgan buyurtma bekor qilinmaydi');
         const newState = tx.state === 2 ? -2 : -1;
         const cancelTime = BigInt(Date.now());
-        await prisma.$transaction([
+        const [, cancelled] = await prisma.$transaction([
           prisma.paymeTransaction.update({ where: { id: txId }, data: { state: newState, cancelTime, reason } }),
           prisma.order.update({ where: { id: tx.orderId }, data: { paymentStatus: newState === -2 ? 'refunded' : 'pending' } }),
         ]);
+        // Bekor qilish / qaytarish ham buyurtma tarixiga tushadi (xabarnoma faqat "to'langan"da ketadi)
+        if (before && before.paymentStatus !== cancelled.paymentStatus) await recordPayment(cancelled, before.paymentStatus, { name: 'Payme', via: 'payme' });
         return ok(id, { transaction: txId, cancel_time: Number(cancelTime), state: newState });
       }
 

@@ -138,6 +138,7 @@ const uz = {
     pay: "To'lash",
     items: 'Mahsulotlar',
     invoice: 'Hisob-faktura',
+    trackTelegram: "Telegram'da kuzatish",
     production: 'Ishlab chiqarish',
     deadline: 'Muddat',
     stages: {

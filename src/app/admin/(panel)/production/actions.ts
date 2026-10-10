@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { date, num, optText, text } from '@/lib/formData';
 import { normalizePhone } from '@/lib/format';
+import { notifyCustomerProduction } from '@/lib/orderNotify';
 import { STAGE_ORDER } from '@/components/admin/production/names';
 
 const PRIORITIES: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
@@ -115,7 +116,10 @@ export async function updateWorkOrder(fd: FormData) {
   redirect(`/admin/production/${wo.id}?saved=1`);
 }
 
-/** Bosqich bo'yicha progress, joriy bosqich va umumiy holatni qayta hisoblash */
+/**
+ * Bosqich bo'yicha progress, joriy bosqich va umumiy holatni qayta hisoblash. Joriy bosqich yoki holat haqiqatan o'zgargan
+ * bo'lsa (ish boshlandi, keyingi bosqichga o'tdi, tayyor bo'ldi) buyurtmaga bog'langan topshiriq mijoziga Telegram xabari ketadi.
+ */
 async function recomputeWorkOrder(workOrderId: number) {
   const wo = await prisma.workOrder.findUnique({ where: { id: workOrderId }, include: { stages: true } });
   if (!wo) return;
@@ -123,14 +127,18 @@ async function recomputeWorkOrder(workOrderId: number) {
   const completed = STAGE_ORDER.filter((s) => done.has(s)).length;
   const allDone = completed === STAGE_ORDER.length;
   const anyStarted = wo.stages.some((s) => s.status !== 'pending');
-  await prisma.workOrder.update({
+  const after = await prisma.workOrder.update({
     where: { id: workOrderId },
     data: {
       progress: Math.round((completed / STAGE_ORDER.length) * 100),
       currentStage: STAGE_ORDER.find((s) => !done.has(s)) ?? 'qc',
       ...(allDone ? { status: 'completed' } : wo.status === 'planned' && anyStarted ? { status: 'in_progress' } : {}),
     },
+    select: { orderId: true, productName: true, currentStage: true, progress: true, status: true },
   });
+  // Bekor qilingan topshiriq haqida mijozga yozilmaydi; xabar ketmasa ham bosqich saqlangan bo'ladi (funksiya xato tashlamaydi)
+  const changed = after.currentStage !== wo.currentStage || after.status !== wo.status;
+  if (changed && after.orderId && after.status !== 'cancelled') await notifyCustomerProduction(after);
 }
 
 async function applyStage(fd: FormData, mode: 'save' | 'start' | 'finish') {

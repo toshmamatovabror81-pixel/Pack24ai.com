@@ -140,6 +140,7 @@ const ru: Dict = {
     pay: 'Оплатить',
     items: 'Товары',
     invoice: 'Счёт-фактура',
+    trackTelegram: 'Следить в Telegram',
     production: 'Производство',
     deadline: 'Срок',
     stages: {

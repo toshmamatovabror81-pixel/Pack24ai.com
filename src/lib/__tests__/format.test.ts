@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayPhone, formatPrice, normalizePhone } from '../format';
+import { displayPhone, formatPrice, normalizeContactPhone, normalizePhone } from '../format';
 import { idFromParam, slugify } from '../slug';
 import { pickText } from '../i18n/config';
 
@@ -9,6 +9,17 @@ describe('format', () => {
     expect(normalizePhone('90 123 45 67')).toBe('998901234567');
     expect(normalizePhone('12345')).toBeNull();
     expect(displayPhone('998880557888')).toBe('+998 88 055 78 88');
+  });
+
+  it("Telegram kontaktidagi raqam: faqat to'liq xalqaro ko'rinish (998 + 9 xona)", () => {
+    expect(normalizeContactPhone('+998 (90) 123-45-67')).toBe('998901234567');
+    expect(normalizeContactPhone('998901234567')).toBe('998901234567');
+    // 9 xonali yozuv saytdagi formada mahalliy raqam, kontaktda esa jami 9 raqamli xorijiy raqam bo'lishi mumkin (+508 41 12 34)
+    for (const bad of ['901234567', '90 123 45 67', '+508 41 12 34', '+7 900 123 45 67', '99890123456', '9989012345678', '799890123456', '', 'abc']) {
+      expect(normalizeContactPhone(bad), bad).toBeNull();
+    }
+    // Sayt formalari va xodim qidiruvi uchun eski qoida o'zgarmagan
+    expect(normalizePhone('+508 41 12 34')).toBe('998508411234');
   });
 
   it('narx formati', () => {

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { can } from '@/lib/auth/permissions';
 import { formatDate, formatPrice, toNumber, displayPhone } from '@/lib/format';
+import { overdueInvoiceWhere } from '@/lib/invoiceStatus';
 import { getSettings } from '@/lib/settings';
 import { lowStockProducts } from '@/lib/inventory';
 import { Badge, Notice, PageHeader, Table } from '@/components/admin/ui';
@@ -36,7 +37,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.order.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 10 }),
     seeInventory ? lowStockProducts(settings.lowStockThreshold) : [],
     seeProduction ? prisma.workOrder.count({ where: { status: { in: ['planned', 'in_progress'] } } }) : 0,
-    seeFinance ? prisma.corporateInvoice.count({ where: { status: { in: ['issued', 'partial'] }, dueDate: { lt: now } } }) : 0,
+    seeFinance ? prisma.corporateInvoice.count({ where: overdueInvoiceWhere(now) }) : 0,
   ]);
   const cards = [
     { label: 'Bugungi buyurtmalar', value: String(todayOrders) },

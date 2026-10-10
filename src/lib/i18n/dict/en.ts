@@ -140,6 +140,7 @@ const en: Dict = {
     pay: 'Pay now',
     items: 'Items',
     invoice: 'Invoice',
+    trackTelegram: 'Track in Telegram',
     production: 'Production',
     deadline: 'Deadline',
     stages: {

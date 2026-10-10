@@ -1,20 +1,9 @@
-import type { ContractStatus, CorporateInvoice, InvoiceStatus } from '@prisma/client';
+import type { ContractStatus, CorporateInvoice } from '@prisma/client';
+import { contractStatusNames, effectiveInvoiceStatus, invoiceStatusNames } from '@/lib/invoiceStatus';
 import { Badge } from '../ui';
 
-export const contractStatusNames: Record<ContractStatus, string> = { active: 'Faol', suspended: "To'xtatilgan", closed: 'Yopilgan' };
-export const invoiceStatusNames: Record<InvoiceStatus, string> = {
-  issued: 'Berilgan',
-  partial: "Qisman to'langan",
-  paid: "To'langan",
-  overdue: "Muddati o'tgan",
-  cancelled: 'Bekor qilingan',
-};
-
-/** Muddati o'tganini o'qishda hisoblaymiz: berilgan/qisman to'langan va muddati o'tgan bo'lsa */
-export function effectiveInvoiceStatus(inv: Pick<CorporateInvoice, 'status' | 'dueDate'>, now = new Date()): InvoiceStatus {
-  if ((inv.status === 'issued' || inv.status === 'partial') && inv.dueDate < now) return 'overdue';
-  return inv.status;
-}
+// Nomlar va hisob React'siz modulda (botlar ham ishlatadi); admin sahifalar eski joyidan import qilaveradi
+export { contractStatusNames, effectiveInvoiceStatus, invoiceStatusNames } from '@/lib/invoiceStatus';
 
 export function contractStatusBadge(s: ContractStatus) {
   const tone = s === 'active' ? 'green' : s === 'suspended' ? 'amber' : 'slate';

@@ -75,6 +75,8 @@ export class Bot {
     if (!from || chatId == null || from.is_bot) return;
     const message = cb?.message ?? msg;
     const text = (msg?.text ?? msg?.caption ?? '').trim();
+    // Callback'ga Telegram faqat bitta javobni qabul qiladi: handler o'zi javob bergan bo'lsa, oxiridagi bo'sh javob yuborilmaydi
+    let answered = false;
     const ctx: Ctx = {
       kind: this.kind, token, update, chatId, from, message, text, callback: cb, data: cb?.data ?? '',
       reply: (html, opts) => sendMessage(token, chatId, html, opts).catch((e) => { console.error(`[bot:${this.kind}] reply`, e); return null; }),
@@ -82,7 +84,11 @@ export class Bot {
         if (!cb?.message) { await sendMessage(token, chatId, html, inlineKb ? { reply_markup: { inline_keyboard: inlineKb } } : {}).catch(() => null); return; }
         await editMessageText(token, chatId, cb.message.message_id, html, inlineKb).catch((e) => { if (!String(e).includes('message is not modified')) console.error(`[bot:${this.kind}] edit`, e); });
       },
-      answer: async (t, alert) => { if (cb) await answerCallbackQuery(token, cb.id, t, alert).catch(() => undefined); },
+      answer: async (t, alert) => {
+        if (!cb || answered) return;
+        answered = true;
+        await answerCallbackQuery(token, cb.id, t, alert).catch(() => undefined);
+      },
       sendLocation: async (lat, lng) => { await sendLocation(token, chatId, lat, lng).catch(() => undefined); },
       session: <T extends object>() => getSession<T>(this.kind, from.id),
       setSession: (d) => setSession(this.kind, from.id, d),

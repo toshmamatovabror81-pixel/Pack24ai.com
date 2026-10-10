@@ -1,22 +1,9 @@
 import type { LeadStatus, OrderStatus, PaymentStatus } from '@prisma/client';
+import { orderStatusNames, paymentNames } from '@/lib/orderStatus';
 import { Badge } from './ui';
 
-export const orderStatusNames: Record<OrderStatus, string> = {
-  draft: 'Qoralama',
-  new_: 'Yangi',
-  processing: 'Tayyorlanmoqda',
-  shipping: "Yo'lda",
-  delivered: 'Yetkazildi',
-  cancelled: 'Bekor qilingan',
-};
-export const paymentNames: Record<PaymentStatus, string> = {
-  pending: "To'lanmagan",
-  processing: 'Jarayonda',
-  paid: "To'langan",
-  failed: "O'tmadi",
-  refunded: 'Qaytarilgan',
-};
-export const paymentMethodNames: Record<string, string> = { cash: 'Naqd', payme: 'Payme', click: 'Click', bank_transfer: "Bank o'tkazmasi" };
+// Nomlar React'siz modulda (botlar ham ishlatadi); admin sahifalar eski joyidan import qilaveradi
+export { orderStatusNames, paymentMethodNames, paymentNames } from '@/lib/orderStatus';
 export const leadStatusNames: Record<LeadStatus, string> = { new_: 'Yangi', in_progress: 'Ishlanmoqda', done: 'Bajarildi', rejected: 'Rad etildi' };
 export const leadTypeNames: Record<string, string> = {
   wholesale: 'Ulgurji narx',

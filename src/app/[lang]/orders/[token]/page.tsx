@@ -1,13 +1,17 @@
 import { SiteImage as Image } from '@/components/site/SiteImage';
+import { TrackedLink } from '@/components/site/TrackedLink';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CheckCircle2, FileText } from 'lucide-react';
+import { CheckCircle2, FileText, Send } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { resolveLocale } from '@/lib/locale';
 import { formatDate, formatPrice, toNumber } from '@/lib/format';
 import { pickText } from '@/lib/i18n/config';
 import { paymentUrl } from '@/lib/orders';
+import { workOrderPercent } from '@/lib/orderStage';
 import { statusKey } from '@/lib/orderStatus';
+import { getSettings } from '@/lib/settings';
+import { botToken } from '@/lib/telegram/bots';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
@@ -24,11 +28,16 @@ export default async function OrderPage({ params }: Props) {
   });
   if (!order || order.deletedAt) notFound();
   // B2B: hisob-faktura havolasi va ishlab chiqarish holati (bo'lsa)
-  const [invoice, workOrders] = await Promise.all([
+  const [invoice, workOrders, settings] = await Promise.all([
     prisma.corporateInvoice.findFirst({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'desc' }, select: { invoiceNo: true } }),
     prisma.workOrder.findMany({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'asc' } }),
+    getSettings(),
   ]);
   const pay = order.paymentStatus !== 'paid' && order.status !== 'cancelled' ? paymentUrl(order, locale) : null;
+  // Mijoz botidagi /start <token>: shu buyurtma chatga ulanadi va holat o'zgarsa xabar keladi (telegram/customers.ts bindOrderByToken).
+  // Tugma faqat mijoz boti haqiqatan ishlaydigan bo'lsa chiqadi: token hali kiritilmagan bo'lsa (deploy/bots-setup.sh) /start ga hech kim
+  // javob bermaydi va buyurtma ulanmaydi. Sahifa force-dynamic — token kiritilishi bilan tugma o'zi paydo bo'ladi.
+  const telegram = botToken('customer') && /^[A-Za-z0-9_]{5,32}$/.test(settings.telegramBot) ? `https://t.me/${settings.telegramBot}?start=${token}` : null;
   const sum = (v: Parameters<typeof formatPrice>[0]) => formatPrice(v, t.common.sum);
   return (
     <div className="container-site max-w-3xl py-10">
@@ -51,7 +60,7 @@ export default async function OrderPage({ params }: Props) {
             <dd className="font-semibold">{t.order.paymentStatuses[order.paymentStatus]}</dd>
           </div>
         </dl>
-        {(pay || invoice) && (
+        {(pay || invoice || telegram) && (
           <div className="mt-6 flex flex-wrap gap-3">
             {pay && <a href={pay} className="btn-accent w-full sm:w-auto">{t.order.pay}: {sum(order.totalAmount)}</a>}
             {invoice && (
@@ -60,6 +69,12 @@ export default async function OrderPage({ params }: Props) {
                 {t.order.invoice} {invoice.invoiceNo}
               </Link>
             )}
+            {telegram && (
+              <TrackedLink event="telegram_click" href={telegram} target="_blank" rel="noopener" className="btn-ghost w-full sm:w-auto">
+                <Send className="h-4 w-4" />
+                {t.order.trackTelegram}
+              </TrackedLink>
+            )}
           </div>
         )}
         {workOrders.length > 0 && (
@@ -67,7 +82,7 @@ export default async function OrderPage({ params }: Props) {
             <h2 className="mt-8 font-semibold">{t.order.production}</h2>
             <ul className="mt-3 space-y-3">
               {workOrders.map((wo) => {
-                const pct = wo.status === 'completed' ? 100 : Math.min(100, Math.max(0, wo.progress));
+                const pct = workOrderPercent(wo);
                 return (
                   <li key={wo.id} className="rounded-lg bg-slate-50 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
