@@ -52,7 +52,7 @@ export default async function PointDetailPage({ params, searchParams }: { params
         <aside className="min-w-0 space-y-4">
           <div className="card p-4 text-sm">
             <p className="mb-2 flex items-center justify-between font-semibold">Masullar ({point.supervisors.length}) <Link href={`/admin/recycling/supervisors/new?pointId=${point.id}`} className="text-xs font-normal text-brand-500">+ qo'shish</Link></p>
-            {!point.supervisors.length ? <p className="text-amber-700">Masul biriktirilmagan — yangi arizalar «Yangi» holatida qoladi, HQ botiga xabar boradi.</p> : (
+            {!point.supervisors.length ? <p className="text-amber-700">Masul biriktirilmagan — yangi arizalar «Yangi» holatida qoladi, rahbariyatga (boshqaruv boti) xabar boradi.</p> : (
               <ul className="space-y-2">
                 {point.supervisors.map((s) => (
                   <li key={s.id} className="flex flex-wrap items-center gap-2">

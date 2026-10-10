@@ -14,6 +14,7 @@ import { ACTIVE_STATUSES, statusLabels } from '@/lib/recycling/statuses';
 import { driverBalance, settleWithdrawal } from '@/lib/recycling/wallet';
 import { esc, inline, keyboard, type InlineButton, type InlineKeyboard } from '../api';
 import { idFrom, type Ctx } from '../router';
+import { setSession } from '../session';
 import {
   ask, BACK, cancelReasonStep, clearButtons, codeFrom, codeKnown, complaintHtml, contactKeyboard, driverLine, finishRegistration, ids, isSkip, kg, MONTHS_UZ, parseNum,
   notifiedByFoundation, pendingAccessRequest, phoneFrom, pointInfoHtml, pointRows, regFailText, resolveComplaints, sendLines, SKIP_ROW, sNum, sStr, sum, TODAY_ROW, todayRange, val, wdRows, when, withdrawalHtml, type Sess,
@@ -56,7 +57,7 @@ export async function showMenu(ctx: Ctx, sup: Sup, text?: string): Promise<void>
 
 export async function showHelp(ctx: Ctx): Promise<void> {
   await ctx.reply([
-    '<b>Masul boti</b>',
+    '<b>Boshqaruv boti — masul</b>',
     `${MENU.requests} — punkt arizalari: haydovchi tayinlash, bazada qabul, to'lov, bekor`,
     `${MENU.drivers} — haydovchilar ro'yxati, yangi haydovchi (kod bilan)`,
     `${MENU.payments} — tortilgan, to'lov kutayotgan arizalar`,
@@ -65,13 +66,14 @@ export async function showHelp(ctx: Ctx): Promise<void> {
     `${MENU.withdrawals} — haydovchilarning yechib olish so'rovlari`,
     `${MENU.complaints} — mijoz shikoyatlariga javob`,
     `${MENU.today} — bugungi ko'rsatkichlar`,
+    "Rahbariyat huquqingiz ham bo'lsa: /hq — rahbariyat menyusi, /masul — shu menyu",
   ].join('\n'));
 }
 
 export async function startRegistration(ctx: Ctx): Promise<void> {
   await ctx.setSession({ step: 'reg_code' });
   await ctx.reply(
-    "👋 Salom! Bu <b>Pack24 masul boti</b>.\n\nRo'yxatdan o'tish uchun rahbariyat bergan <b>5 raqamli kodni</b> yuboring.\nKodingiz bo'lmasa — kirish so'rovi yuboring.",
+    "👋 Salom! Bu <b>Pack24 boshqaruv boti</b> (masullar va rahbariyat uchun).\n\nRo'yxatdan o'tish uchun rahbariyat bergan <b>5 raqamli kodni</b> yuboring.\nKodingiz bo'lmasa — kirish so'rovi yuboring.",
     { reply_markup: guestKeyboard() },
   );
 }
@@ -92,7 +94,17 @@ export async function guestText(ctx: Ctx, s: Sess | null, text: string): Promise
       const code = codeFrom(text);
       if (!code) { await ctx.reply("❌ Kod 5 ta raqamdan iborat bo'lishi kerak. Qaytadan yuboring:"); return; }
       // Kod mavjudligi telefon so'ralishidan oldin tekshiriladi (foydalanuvchi bekorga raqam ulashmasin)
-      if (!(await codeKnown('supervisor', code))) { await ctx.reply(regFailText.code, { reply_markup: guestKeyboard() }); return; }
+      if (!(await codeKnown('supervisor', code))) {
+        // Rahbariyat kodi: shu botda, lekin HQ roli sessiyasida davom etadi (handlers.ts keyingi kontaktni HQ oqimiga beradi)
+        if (await codeKnown('hq', code)) {
+          await ctx.clearSession();
+          await setSession('hq', ctx.from.id, { step: 'reg_contact', code });
+          await ctx.reply('📱 Endi telefon raqamingizni tugma orqali ulashing:', { reply_markup: contactKeyboard() });
+          return;
+        }
+        await ctx.reply(regFailText.code, { reply_markup: guestKeyboard() });
+        return;
+      }
       await ctx.setSession({ step: 'reg_contact', code });
       await ctx.reply('📱 Endi telefon raqamingizni tugma orqali ulashing:', { reply_markup: contactKeyboard() });
       return;

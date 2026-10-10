@@ -76,7 +76,7 @@ Agar 80/443 ni egallagan nginx konteyner ichida bo'lsa, skript faqat eslatma chi
 
 Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
-### Makulatura botlari (4 ta)
+### Makulatura botlari (3 ta)
 
 Eng oson yo'li — savol-javob skripti (tokenlarni so'raydi, `.env` ga yozadi, saytni qayta ishga tushiradi va
 webhook'larni o'rnatadi):
@@ -89,9 +89,10 @@ Qo'lda: BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /op
 
 - `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot): ariza berish, holatni kuzatish, tortishni tasdiqlash
 - `DRIVER_BOT_TOKEN` — haydovchi boti (@pack24MX_bot): topshiriqlar, tortish, hamyon, kabinet paroli
-- `SUPERVISOR_BOT_TOKEN` — masul boti (@pack24AUP_bot): arizalar, haydovchi tayinlash, to'lovlar, jurnal
-- `HQ_BOT_TOKEN` — rahbariyat boti (@pack24admin_bot): masul/haydovchi qo'shish, tasdiqlashlar, hodisalar
-- `HQ_ALLOWED_TELEGRAM_IDS` — rahbariyat Telegram ID'lari (vergul bilan), ixtiyoriy
+- `SUPERVISOR_BOT_TOKEN` — boshqaruv boti (@pack24AUP_bot), masul va rahbariyat bitta botda. Masul: arizalar,
+  haydovchi tayinlash, to'lovlar, jurnal. Rahbariyat: masul/haydovchi qo'shish, tasdiqlashlar, hodisalar.
+  Bot kim yozganiga qarab menyuni o'zi tanlaydi; ikkala huquqi bor odam `/hq` va `/masul` bilan almashadi
+- `HQ_ALLOWED_TELEGRAM_IDS` — boshqaruv botida rahbariyat menyusini ko'radigan Telegram ID'lar (vergul bilan), ixtiyoriy
 - `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_OPS_SECRET` — o'rnatish skripti o'zi yaratgan, o'zgartirmang
 
 Keyin `cd /opt/pack24 && docker compose up -d` qiling va Admin > Sozlamalar > "Telegram botlar" bo'limida

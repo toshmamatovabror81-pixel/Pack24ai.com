@@ -37,14 +37,14 @@ export default async function HqAdminsPage({ searchParams }: { searchParams: Sea
         <div className="card mb-4 border-amber-200 bg-amber-50 p-4 text-sm">
           <p className="font-semibold text-amber-900">{createdId ? 'HQ admin yaratildi.' : 'Telegram uzildi, yangi kod berildi.'} <b>{highlight.name}</b> ga shu kodni bering:</p>
           <p className="my-3 flex flex-wrap items-center gap-3"><RegistrationCode code={highlight.registrationCode} big /><CopyButton text={highlight.registrationCode} label="Kodni nusxalash" /></p>
-          <p className="text-amber-900">HQ admin boti → <b>/start</b> → kodni yuboradi → «Telefonni ulashish» (raqam <b>{displayPhone(highlight.phone)}</b> bilan mos bo'lishi shart). Kod bir martalik.</p>
+          <p className="text-amber-900">Boshqaruv boti (@pack24AUP_bot) → <b>/start</b> → kodni yuboradi → «Telefonni ulashish» (raqam <b>{displayPhone(highlight.phone)}</b> bilan mos bo'lishi shart). Kod bir martalik.</p>
         </div>
       )}
       <p className="mb-4 text-sm text-slate-500">
-        HQ admin — HQ botida kirish so'rovlarini tasdiqlaydi, hodisalar va shikoyatlarni ko'radi, masul/haydovchilarni boshqaradi. Botga kirish: ro'yxatdan o'tish kodi + telefon.
+        HQ admin — boshqaruv botida (rahbariyat menyusi) kirish so'rovlarini tasdiqlaydi, hodisalar va shikoyatlarni ko'radi, masul/haydovchilarni boshqaradi. Botga kirish: ro'yxatdan o'tish kodi + telefon.
       </p>
       <div className="card mb-4 border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-        Eslatma: serverdagi <code className="font-mono">.env</code> faylidagi <code className="font-mono">HQ_ALLOWED_TELEGRAM_IDS</code> ro'yxatidagi Telegram ID'lar ham HQ botida <b>doim</b> ruxsatli (kod kerak emas, bu ro'yxatda ko'rinmaydi).
+        Eslatma: serverdagi <code className="font-mono">.env</code> faylidagi <code className="font-mono">HQ_ALLOWED_TELEGRAM_IDS</code> ro'yxatidagi Telegram ID'lar ham boshqaruv botida rahbariyat sifatida <b>doim</b> ruxsatli (kod kerak emas, bu ro'yxatda ko'rinmaydi).
         {envIds.length ? <> Hozir: {envIds.map((id) => <code key={id} className="ml-1 rounded bg-white px-1 font-mono">{id}</code>)}</> : <> Hozir bo'sh.</>}
       </div>
       <Table head={['Ism', 'Telefon', 'Telegram', 'Kod', 'Holat', "Ro'yxatdan o'tdi", 'Oxirgi faollik', 'Amallar']} empty={!admins.length}>

@@ -9,7 +9,7 @@ import { BACK, cancelPrompt, cancelReasonCallback, clearButtons, ids, type Sess 
 import * as F from './hqFlow';
 
 /**
- * HQ admin boti (@pack24admin_bot): barcha punktlar nazorati. Ruxsat — TelegramHqAdmin (faol) yoki HQ_ALLOWED_TELEGRAM_IDS.
+ * Rahbariyat (HQ) roli — boshqaruv boti (@pack24AUP_bot) ichida, alohida bot emas: barcha punktlar nazorati. Ruxsat — TelegramHqAdmin (faol) yoki HQ_ALLOWED_TELEGRAM_IDS.
  * Poydevor yuboradigan callback'lar: acc_ok_/acc_no_<id> (kirish so'rovi), wd_ok_/wd_no_<txId> (yechib olish), complaint_<requestId>.
  */
 export const bot = createBot('hq');

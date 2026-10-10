@@ -131,7 +131,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <section id="telegram" className="card mt-8 p-5">
         <h2 className="mb-1 font-semibold">Telegram botlar (makulatura)</h2>
         <p className="mb-3 text-sm text-slate-500">
-          Tokenlar faqat serverdagi <code className="font-mono">.env</code> faylida: <code className="font-mono">CUSTOMER_BOT_TOKEN</code>, <code className="font-mono">DRIVER_BOT_TOKEN</code>, <code className="font-mono">SUPERVISOR_BOT_TOKEN</code>, <code className="font-mono">HQ_BOT_TOKEN</code> va <code className="font-mono">TELEGRAM_WEBHOOK_SECRET</code> (kamida 16 belgi).
+          Tokenlar faqat serverdagi <code className="font-mono">.env</code> faylida: <code className="font-mono">CUSTOMER_BOT_TOKEN</code>, <code className="font-mono">DRIVER_BOT_TOKEN</code>, <code className="font-mono">SUPERVISOR_BOT_TOKEN</code> (boshqaruv boti: masul va rahbariyat) va <code className="font-mono">TELEGRAM_WEBHOOK_SECRET</code> (kamida 16 belgi).
           Webhook manzili <code className="font-mono">APP_URL/api/telegram/&lt;bot&gt;</code> — faqat https. Token o'zgarganda «Webhook'larni o'rnatish»ni qayta bosing.
         </p>
         <Notice show={tg === 'ok'}>Webhook'lar va bot buyruqlari o'rnatildi.</Notice>

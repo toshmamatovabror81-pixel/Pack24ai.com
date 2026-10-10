@@ -1116,7 +1116,7 @@ model RecycleRequest {
 // Telegram bot suhbat holati (webhook'lar orasida saqlanadi; server qayta ishga tushsa ham yo'qolmaydi)
 model BotSession {
   id         Int      @id @default(autoincrement())
-  bot        String // customer | driver | supervisor | hq
+  bot        String // customer | driver | supervisor | hq | shmode
   telegramId String
   data       Json
   updatedAt  DateTime @updatedAt

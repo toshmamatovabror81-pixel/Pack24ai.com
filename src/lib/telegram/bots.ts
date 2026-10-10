@@ -1,11 +1,15 @@
 import 'server-only';
 
 /**
- * To'rtta bot: mijoz (@Pack24AI_bot), haydovchi (@pack24MX_bot), masul (@pack24AUP_bot), HQ admin (@pack24admin_bot).
+ * Uchta bot: mijoz (@Pack24AI_bot), haydovchi (@pack24MX_bot), boshqaruv (@pack24AUP_bot — masul va rahbariyat bitta botda).
  * Tokenlar faqat serverdagi .env da. Webhook manzili: /api/telegram/<kind>.
+ *
+ * `BotKind` — rol (sessiya va handlerlar shu bo'yicha ajraladi), `BOT_KINDS` — haqiqiy Telegram botlar.
+ * 'hq' roli alohida botga ega emas: boshqaruv boti ('supervisor') tokenidan foydalanadi, kim yozganiga qarab
+ * handlers.ts masul yoki rahbariyat menyusini ochadi.
  */
 export type BotKind = 'customer' | 'driver' | 'supervisor' | 'hq';
-export const BOT_KINDS: BotKind[] = ['customer', 'driver', 'supervisor', 'hq'];
+export const BOT_KINDS: BotKind[] = ['customer', 'driver', 'supervisor'];
 
 export const botMeta: Record<BotKind, { envKey: string; legacyEnvKey?: string; title: string; description: string; commands: { command: string; description: string }[] }> = {
   customer: {
@@ -23,14 +27,15 @@ export const botMeta: Record<BotKind, { envKey: string; legacyEnvKey?: string; t
   supervisor: {
     envKey: 'SUPERVISOR_BOT_TOKEN',
     legacyEnvKey: 'ADMIN_BOT_TOKEN',
-    title: 'Masul boti',
-    description: "Arizalar, haydovchi tayinlash, to'lovlar, punkt holati, kunlik jurnal",
+    title: 'Boshqaruv boti',
+    description: "Masul: arizalar, haydovchi tayinlash, to'lovlar, jurnal. Rahbariyat: masul va haydovchilar, tasdiqlashlar, hodisalar",
     commands: [{ command: 'start', description: 'Bosh menyu' }, { command: 'requests', description: 'Arizalar' }, { command: 'help', description: 'Yordam' }],
   },
   hq: {
-    envKey: 'HQ_BOT_TOKEN',
-    legacyEnvKey: 'PACK24ADMIN_BOT_TOKEN',
-    title: 'HQ admin boti',
+    // Alohida bot emas: boshqaruv boti tokeni
+    envKey: 'SUPERVISOR_BOT_TOKEN',
+    legacyEnvKey: 'ADMIN_BOT_TOKEN',
+    title: 'Rahbariyat (boshqaruv botida)',
     description: 'Masul va haydovchilarni boshqarish, tasdiqlashlar, hodisalar',
     commands: [{ command: 'start', description: 'Bosh menyu' }, { command: 'events', description: 'Hodisalar' }, { command: 'help', description: 'Yordam' }],
   },
@@ -48,7 +53,7 @@ export function botToken(kind: BotKind): string | null {
 
 export const webhookPath = (kind: BotKind) => `/api/telegram/${kind}`;
 
-/** HQ admin sifatida har doim ruxsat etilgan Telegram ID'lar (vergul bilan) */
+/** Boshqaruv botida rahbariyat (HQ) sifatida har doim ruxsat etilgan Telegram ID'lar (vergul bilan) */
 export function hqAllowedIds(): string[] {
   return (process.env.HQ_ALLOWED_TELEGRAM_IDS || process.env.PACK24ADMIN_ALLOWED_TELEGRAM_IDS || '')
     .split(',')

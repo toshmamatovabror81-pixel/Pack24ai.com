@@ -5,7 +5,7 @@ import { botToken, hqAllowedIds, type BotKind } from './bots';
 import { notifyAdmins } from '@/lib/telegram';
 
 /**
- * Botlararo xabar yuborish: mijozga mijoz boti, haydovchiga haydovchi boti, masulga masul boti, HQ adminlarga HQ boti orqali.
+ * Botlararo xabar yuborish: mijozga mijoz boti, haydovchiga haydovchi boti, masul va rahbariyatga (HQ) boshqaruv boti orqali.
  * Token sozlanmagan yoki foydalanuvchi botni bloklagan bo'lsa jim o'tadi (false qaytaradi) — biznes jarayon to'xtamaydi.
  */
 export async function notify(kind: BotKind, chatId: number | string | null | undefined, html: string, inline?: InlineKeyboard, opts: SendOptions = {}): Promise<boolean> {

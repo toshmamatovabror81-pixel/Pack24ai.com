@@ -23,7 +23,7 @@ export default async function SupervisorsPage() {
     <>
       <PageHeader title={`Masullar (${supervisors.length})`} action={{ href: '/admin/recycling/supervisors/new', label: '➕ Yangi masul' }} />
       <RecyclingNav badges={badges} />
-      <p className="mb-4 text-sm text-slate-500">Masul — punkt boshlig'i: Masul botida arizalarni qabul qiladi, haydovchi tayinlaydi, to'lovni belgilaydi, kunlik jurnal yuritadi. Botga kirish: /start → ro'yxatdan o'tish kodi → telefon ulashish.</p>
+      <p className="mb-4 text-sm text-slate-500">Masul — punkt boshlig'i: boshqaruv botida arizalarni qabul qiladi, haydovchi tayinlaydi, to'lovni belgilaydi, kunlik jurnal yuritadi. Botga kirish: /start → ro'yxatdan o'tish kodi → telefon ulashish.</p>
       <Table head={['Masul', 'Telefon', 'Punkt', 'Telegram', 'Kod', 'Holat', 'Haydovchilar', 'Faol arizalar', '']} empty={!supervisors.length}>
         {supervisors.map((s) => (
           <tr key={s.id} className={`hover:bg-slate-50 ${s.isActive ? '' : 'opacity-60'}`}>

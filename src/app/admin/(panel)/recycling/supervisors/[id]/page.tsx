@@ -42,7 +42,7 @@ export default async function SupervisorDetailPage({ params, searchParams }: { p
         <div className="card mb-4 border-amber-200 bg-amber-50 p-4 text-sm">
           <p className="font-semibold text-amber-900">{created ? 'Masul yaratildi.' : reset ? 'Telegram uzildi, yangi kod berildi.' : 'Masul hali botga ulanmagan.'} Masulga shu kodni va bot manzilini bering:</p>
           <p className="my-3 flex flex-wrap items-center gap-3"><RegistrationCode code={s.registrationCode} big /><CopyButton text={s.registrationCode} label="Kodni nusxalash" /></p>
-          <p className="text-amber-900">Masul boti → <b>/start</b> → kodni yuboradi → «Telefonni ulashish» tugmasi (raqam <b>{displayPhone(s.phone)}</b> bilan mos bo'lishi shart). Kod bir martalik.</p>
+          <p className="text-amber-900">Boshqaruv boti (@pack24AUP_bot) → <b>/start</b> → kodni yuboradi → «Telefonni ulashish» tugmasi (raqam <b>{displayPhone(s.phone)}</b> bilan mos bo'lishi shart). Kod bir martalik.</p>
         </div>
       )}
       <div className="grid gap-4 xl:grid-cols-[1fr_360px]">

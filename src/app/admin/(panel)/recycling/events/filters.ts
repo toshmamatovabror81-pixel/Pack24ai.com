@@ -3,7 +3,7 @@ import type { BotEventSource, EventSeverity } from '@prisma/client';
 /** Hodisalar ro'yxati filtrlari (sahifa va action'lar uchun umumiy) */
 
 export const SOURCES: BotEventSource[] = ['customer', 'driver', 'supervisor', 'pack24admin', 'platform', 'system'];
-export const sourceLabels: Record<BotEventSource, string> = { customer: 'Mijoz boti', driver: 'Haydovchi boti', supervisor: 'Masul boti', pack24admin: 'HQ boti', platform: 'Sayt / admin', system: 'Tizim' };
+export const sourceLabels: Record<BotEventSource, string> = { customer: 'Mijoz boti', driver: 'Haydovchi boti', supervisor: 'Boshqaruv boti (masul)', pack24admin: 'Boshqaruv boti (rahbariyat)', platform: 'Sayt / admin', system: 'Tizim' };
 export const SEVERITIES: EventSeverity[] = ['info', 'success', 'warning', 'error'];
 export type StatusFilter = 'new_' | 'processed' | 'all';
 export const statusFilterLabels: Record<StatusFilter, string> = { new_: 'Yangi', processed: "Ko'rilgan", all: 'Hammasi' };

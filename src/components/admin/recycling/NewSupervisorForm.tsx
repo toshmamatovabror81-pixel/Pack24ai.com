@@ -22,7 +22,7 @@ export function NewSupervisorForm({ points, defaultPointId }: { points: PointCho
             {points.map((p) => <option key={p.id} value={p.id}>{p.cityUz} ({p.regionUz}){p.status === 'planned' ? ' — rejada' : ''}</option>)}
           </select>
         </Field>
-        <p className="text-xs text-slate-500 sm:col-span-2">Saqlangach 5 xonali ro'yxatdan o'tish kodi ko'rsatiladi. Masul uni Masul botida /start → kod → telefon ulashish tartibida kiritadi.</p>
+        <p className="text-xs text-slate-500 sm:col-span-2">Saqlangach 5 xonali ro'yxatdan o'tish kodi ko'rsatiladi. Masul uni boshqaruv botida /start → kod → telefon ulashish tartibida kiritadi.</p>
         <div className="sm:col-span-2"><button className="btn-primary" disabled={pending}>{pending ? 'Yaratilmoqda…' : 'Masul yaratish'}</button></div>
       </form>
     </>

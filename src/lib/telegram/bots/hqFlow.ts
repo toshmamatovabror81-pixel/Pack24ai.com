@@ -21,7 +21,7 @@ import {
 } from './shCommon';
 
 /**
- * HQ admin boti oqimlari: barcha punktlar bo'yicha nazorat — masul/haydovchi yaratish, arizalarni masulga yo'naltirish,
+ * Rahbariyat (HQ) oqimlari — boshqaruv botining rahbariyat roli: barcha punktlar bo'yicha nazorat — masul/haydovchi yaratish, arizalarni masulga yo'naltirish,
  * kirish so'rovlari, yechib olish, hodisalar, shikoyatlar. Ruxsat: TelegramHqAdmin (faol) yoki HQ_ALLOWED_TELEGRAM_IDS.
  */
 
@@ -55,7 +55,7 @@ export async function showMenu(ctx: Ctx, hq: Hq, text?: string): Promise<void> {
 
 export async function showHelp(ctx: Ctx): Promise<void> {
   await ctx.reply([
-    '<b>HQ admin boti</b>',
+    '<b>Boshqaruv boti — rahbariyat</b>',
     `${MENU.today} — barcha punktlar bo'yicha bugungi ko'rsatkichlar`,
     `${MENU.requests} — masulsiz yoki 24 soat qimirlamagan arizalar: masulga yo'naltirish`,
     `${MENU.supervisors} / ${MENU.drivers} — ro'yxat, qo'shish (kod), Telegramni uzish, bloklash, bonus`,
@@ -64,10 +64,11 @@ export async function showHelp(ctx: Ctx): Promise<void> {
     `${MENU.withdrawals} — yechib olish so'rovlari`,
     `${MENU.events} (/events) — yangi hodisalar`,
     `${MENU.complaints} — shikoyatlarga javob, direktorga ko'tarish`,
+    "Punkt masuli ham bo'lsangiz: /masul — masul menyusi, /hq — shu menyu",
   ].join('\n'));
 }
 
-const DENY = "⛔ Bu bot faqat <b>Pack24 rahbariyati</b> uchun.\nKodingiz bo'lsa — 5 raqamli kodni yuboring.";
+const DENY = "⛔ Rahbariyat bo'limiga ruxsat yo'q.\nKodingiz bo'lsa — /start bosib, 5 raqamli kodni yuboring.";
 
 export async function guestStart(ctx: Ctx): Promise<void> {
   await ctx.setSession({ step: 'reg_code' });
@@ -473,7 +474,7 @@ export async function stepPick(ctx: Ctx, hq: Hq, prefix: 'sapt_' | 'hdpt_' | 'hd
       const point = v ? await prisma.recyclePoint.findUnique({ where: { id: v }, select: { cityUz: true } }) : null;
       await logEvent({ sourceBot: 'pack24admin', eventType: 'supervisor_created', severity: 'success', title: `Yangi masul: ${sup.name}`, message: `${hq.name} qo'shdi${point ? ` · ${point.cityUz}` : ''}`, supervisorId: sup.id, pointId: sup.pointId });
       await ctx.clearSession();
-      await ctx.edit(`✅ <b>Masul qo'shildi:</b> ${esc(sup.name)}${point ? ` · 🏭 ${esc(point.cityUz)}` : ''}\n🔑 Kod: <code>${sup.registrationCode}</code>\n\nMasul <b>masul botiga</b> /start bosadi → shu kodni yuboradi → raqamini ulashadi.`);
+      await ctx.edit(`✅ <b>Masul qo'shildi:</b> ${esc(sup.name)}${point ? ` · 🏭 ${esc(point.cityUz)}` : ''}\n🔑 Kod: <code>${sup.registrationCode}</code>\n\nMasul <b>shu botga</b> /start bosadi → shu kodni yuboradi → raqamini ulashadi.`);
     } catch (e) {
       if (!(e instanceof StaffError)) throw e;
       await ctx.clearSession();

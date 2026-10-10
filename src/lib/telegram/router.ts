@@ -64,6 +64,8 @@ export class Bot {
   /** Boshqa hech narsaga mos kelmagan matn (suhbat bosqichlari uchun) */
   text(h: Handler) { this.textH = h; return this; }
   onError(h: (e: unknown, ctx: Ctx) => Promise<unknown> | unknown) { this.errorH = h; return this; }
+  /** Shu callback_data uchun handler bormi (bitta botda ikki rol bo'lganda tugma qaysi rolga tegishli ekanini aniqlash uchun) */
+  handlesCallback(data: string) { return this.callbacks.some((c) => data.startsWith(c.prefix)); }
 
   async handle(update: TgUpdate): Promise<void> {
     const token = botToken(this.kind);

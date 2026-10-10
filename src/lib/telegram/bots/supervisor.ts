@@ -9,7 +9,7 @@ import { BACK, cancelPrompt, cancelReasonCallback, clearButtons, type Sess } fro
 import * as F from './supervisorFlow';
 
 /**
- * Masul boti (@pack24AUP_bot): arizalar, haydovchi tayinlash, bazada qabul, to'lovlar, jurnal, punkt, yechib olish, shikoyatlar.
+ * Masul roli — boshqaruv boti (@pack24AUP_bot): arizalar, haydovchi tayinlash, bazada qabul, to'lovlar, jurnal, punkt, yechib olish, shikoyatlar.
  * Har handler boshida masul aniqlanadi (supervisorByTelegram); yo'q bo'lsa ro'yxatdan o'tishga yo'naltiriladi.
  * Poydevor yuboradigan callback'lar: assign_<id>, cancel_<id>, pay_<collectionId>, complaint_<requestId>, wd_ok_/wd_no_<txId>.
  */

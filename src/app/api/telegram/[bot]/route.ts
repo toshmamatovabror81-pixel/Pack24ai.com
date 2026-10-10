@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ bot: string }> };
 
-/** Telegram webhook: /api/telegram/customer | driver | supervisor | hq */
+/** Telegram webhook: /api/telegram/customer | driver | supervisor (boshqaruv: masul + rahbariyat) */
 export async function POST(req: Request, { params }: Params) {
   const { bot } = await params;
   if (!isBotKind(bot)) return NextResponse.json({ ok: false }, { status: 404 });

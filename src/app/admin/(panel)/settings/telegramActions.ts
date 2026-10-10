@@ -6,7 +6,7 @@ import { requireStaff } from '@/lib/auth';
 import { botMeta } from '@/lib/telegram/bots';
 import { removeWebhooks, setupWebhooks } from '@/lib/telegram/setup';
 
-/** Sozlamalar: 4 ta bot uchun webhook o'rnatish / o'chirish. Natija ?tg=ok | ?tg=removed | ?tg=<xato matni> */
+/** Sozlamalar: 3 ta bot uchun webhook o'rnatish / o'chirish. Natija ?tg=ok | ?tg=removed | ?tg=<xato matni> */
 
 const BASE = '/admin/settings';
 const back = (tg: string) => `${BASE}?tg=${encodeURIComponent(tg)}#telegram`;
@@ -16,7 +16,7 @@ export async function setupTelegramWebhooks() {
   let to = back('ok');
   try {
     const res = await setupWebhooks();
-    if (!res.length) to = back("Hech bir bot tokeni sozlanmagan (.env: CUSTOMER_BOT_TOKEN, DRIVER_BOT_TOKEN, SUPERVISOR_BOT_TOKEN, HQ_BOT_TOKEN)");
+    if (!res.length) to = back("Hech bir bot tokeni sozlanmagan (.env: CUSTOMER_BOT_TOKEN, DRIVER_BOT_TOKEN, SUPERVISOR_BOT_TOKEN)");
     const failed = res.filter((r) => !r.ok);
     if (failed.length) to = back(failed.map((f) => `${botMeta[f.kind].title}: ${f.error ?? 'xato'}`).join(' · '));
   } catch (e) {

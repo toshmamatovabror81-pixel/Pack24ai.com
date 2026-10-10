@@ -46,7 +46,7 @@ export default async function AccessRequestsPage({ searchParams }: { searchParam
       <Notice show={str(sp.rejected) === '1'}>So'rov rad etildi, so'rovchiga xabar yuborildi.</Notice>
       <Notice show={!!error} tone="warn">{error}</Notice>
       <p className="mb-4 text-sm text-slate-500">
-        Haydovchi yoki masul botida kodi yo'q foydalanuvchi «kirish so'rovi» yuboradi. Tasdiqlansa yozuv yaratiladi va Telegram kodsiz bog'lanadi. HQ boti orqali ham tasdiqlash mumkin.
+        Haydovchi yoki boshqaruv botida kodi yo'q foydalanuvchi «kirish so'rovi» yuboradi. Tasdiqlansa yozuv yaratiladi va Telegram kodsiz bog'lanadi. Boshqaruv botida (rahbariyat menyusi) ham tasdiqlash mumkin.
       </p>
 
       {!pending.length ? (

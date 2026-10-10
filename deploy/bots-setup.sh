@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Makulatura botlari (4 ta) tokenlarini .env ga yozish, saytni qayta ishga tushirish va webhook'larni o'rnatish.
+# Makulatura botlari (3 ta) tokenlarini .env ga yozish, saytni qayta ishga tushirish va webhook'larni o'rnatish.
 # Serverda (savol-javob rejimida, shuning uchun ssh -t):
 #   ssh -t -i ~/.ssh/KALIT root@SERVER /opt/pack24/deploy/bots-setup.sh
 # Har bir savolga BotFather'dagi tokenni qo'yib Enter bosiladi; bo'sh qoldirilsa avvalgi qiymat qoladi.
@@ -38,11 +38,11 @@ ask_token() {
 }
 
 echo "== Makulatura botlari tokenlari (BotFather > /mybots > bot > API Token)"
-ask_token CUSTOMER_BOT_TOKEN   "1/4 Mijoz boti (@Pack24AI_bot)"
-ask_token DRIVER_BOT_TOKEN     "2/4 Haydovchi boti (@pack24MX_bot)"
-ask_token SUPERVISOR_BOT_TOKEN "3/4 Masul boti (@pack24AUP_bot)"
-ask_token HQ_BOT_TOKEN         "4/4 Rahbariyat (HQ) boti"
+ask_token CUSTOMER_BOT_TOKEN   "1/3 Mijoz boti (@Pack24AI_bot)"
+ask_token DRIVER_BOT_TOKEN     "2/3 Haydovchi boti (@pack24MX_bot)"
+ask_token SUPERVISOR_BOT_TOKEN "3/3 Boshqaruv boti (@pack24AUP_bot): masul va rahbariyat bitta botda"
 echo
+echo "Shu ID'lar boshqaruv botida rahbariyat menyusini ko'radi."
 echo "Rahbariyat Telegram ID'lari (vergul bilan, masalan 123456789,987654321; @userinfobot ko'rsatadi)."
 cur="$(current HQ_ALLOWED_TELEGRAM_IDS)"
 [ -n "$cur" ] && echo "Hozir: $cur"

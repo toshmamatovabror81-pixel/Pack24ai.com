@@ -53,7 +53,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
       <RecyclingNav badges={badges} />
       <Notice show={done != null}>{Number(done) || 0} ta hodisa ko'rildi deb belgilandi.</Notice>
       <p className="mb-4 text-sm text-slate-500">
-        Botlar va sayt yozgan hodisalar jurnali: arizalar, tortishlar, to'lovlar, kirish so'rovlari, xatolar. HQ botiga ham shu hodisalar boradi. Yangi: <b>{newTotal}</b>.
+        Botlar va sayt yozgan hodisalar jurnali: arizalar, tortishlar, to'lovlar, kirish so'rovlari, xatolar. Boshqaruv botidagi rahbariyatga ham shu hodisalar boradi. Yangi: <b>{newTotal}</b>.
       </p>
       <form className="card mb-4 flex flex-wrap items-end gap-2 p-3">
         <input name="q" defaultValue={f.q} placeholder="Sarlavha, matn yoki tur" className="input max-w-xs" />
