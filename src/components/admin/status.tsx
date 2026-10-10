@@ -23,7 +23,7 @@ export const leadTypeNames: Record<string, string> = {
   custom_box: 'Individual quti',
   callback: "Qo'ng'iroq",
   contact: 'Aloqa',
-  recycling: 'Makulatura',
+  recycling: 'Makulatura (arxiv)',
 };
 
 export function orderStatusBadge(s: OrderStatus) {

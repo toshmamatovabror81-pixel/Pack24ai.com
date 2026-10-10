@@ -9,7 +9,7 @@ import { siteUrl } from '@/lib/site';
 // Build vaqtida emas, so'rov kelganda bazadan yasaladi va 1 soat keshlanadi
 export const dynamic = 'force-dynamic';
 
-const STATIC = ['', '/catalog', '/wholesale', '/delivery', '/payment', '/contacts', '/faq', '/reviews', '/blog', '/recycling'];
+const STATIC = ['', '/catalog', '/wholesale', '/delivery', '/payment', '/contacts', '/faq', '/reviews', '/blog'];
 
 function entry(path: string, lastModified?: Date, priority = 0.5): MetadataRoute.Sitemap[number] {
   const languages: Record<string, string> = {};

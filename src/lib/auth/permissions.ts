@@ -12,13 +12,12 @@ export type Section =
   | 'production' // ishlab chiqarish (WorkOrder)
   | 'finance' // shartnoma, hisob-faktura
   | 'inventory' // ombor qoldig'i
-  | 'recycling' // makulatura: arizalar, punktlar, masul/haydovchi, jurnal
   | 'staff'
   | 'settings';
 
 const ACCESS: Record<Exclude<Role, 'user'>, Section[] | 'all'> = {
   admin: 'all',
-  manager: ['dashboard', 'orders', 'products', 'customers', 'leads', 'marketing', 'content', 'reports', 'production', 'finance', 'inventory', 'recycling'],
+  manager: ['dashboard', 'orders', 'products', 'customers', 'leads', 'marketing', 'content', 'reports', 'production', 'finance', 'inventory'],
   staff: ['dashboard', 'orders', 'leads', 'production'],
 };
 

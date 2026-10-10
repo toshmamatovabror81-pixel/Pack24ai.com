@@ -52,7 +52,7 @@ export default async function SiteLayout({ children, params }: { children: React
           <Header locale={locale} t={t} phone={s.phone} />
           <main className="flex-1">{children}</main>
           <Footer locale={locale} t={t} s={s} />
-          <FloatingContact bot={s.telegramBot} phone={s.phone} telegramLabel={t.common.telegramOrder} callLabel={t.common.call} />
+          <FloatingContact bot={s.telegramBot} phone={s.phone} telegramLabel={t.common.telegramBot} callLabel={t.common.call} />
         </CartProvider>
         <Analytics ymId={s.yandexMetrikaId} gaId={s.ga4Id} />
       </body>

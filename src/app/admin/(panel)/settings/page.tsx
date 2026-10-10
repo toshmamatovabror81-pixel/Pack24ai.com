@@ -14,7 +14,7 @@ import { removeTelegramWebhooks, setupTelegramWebhooks } from './telegramActions
 export const metadata = { title: 'Sozlamalar' };
 
 /**
- * Botlar holati (getMe + getWebhookInfo, 4 bot × 2 so'rov): har sahifa yuklanishida Telegram'ga bormasin —
+ * Botlar holati (getMe + getWebhookInfo, har bot uchun 2 so'rov): har sahifa yuklanishida Telegram'ga bormasin —
  * 60 s kesh, 5 s dan uzoq kutilmaydi (Telegram yetib bo'lmasa sahifa osilmaydi), «Holatni yangilash» (?tg=status) keshni chetlab o'tadi.
  */
 const STATUS_TTL_MS = 60_000;
@@ -47,7 +47,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     { name: 'Payme', ok: paymeConfigured(), env: 'PAYME_MERCHANT_ID, PAYME_SECRET_KEY' },
     { name: 'Click', ok: clickConfigured(), env: 'CLICK_SERVICE_ID, CLICK_MERCHANT_ID, CLICK_SECRET_KEY' },
     { name: 'Telegram xabarlar', ok: !!process.env.TELEGRAM_BOT_TOKEN && !!process.env.TELEGRAM_ADMIN_CHAT_ID, env: 'TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID' },
-    ...BOT_KINDS.map((k) => ({ name: `${botMeta[k].title} (makulatura)`, ok: !!botToken(k), env: botMeta[k].envKey })),
+    ...BOT_KINDS.map((k) => ({ name: botMeta[k].title, ok: !!botToken(k), env: botMeta[k].envKey })),
   ];
   // Botlar holati: faqat kamida bitta token sozlangan bo'lsa Telegram'ga so'rov yuboriladi (keshli, vaqt chegarasi bilan); xato sahifani yiqitmaydi
   const tg = sp.tg;
@@ -89,7 +89,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="Asosiy telefon"><input name="phone" defaultValue={displayPhone(s.phone)} className="input" /></Field>
           <Field label="Qo'shimcha telefon"><input name="phone2" defaultValue={s.phone2 ? displayPhone(s.phone2) : ''} className="input" /></Field>
           <Field label="Email"><input name="email" type="email" defaultValue={s.email} className="input" /></Field>
-          <Field label="Telegram bot (buyurtma)"><input name="telegramBot" defaultValue={s.telegramBot} placeholder="Pack24AI_bot" className="input" /></Field>
+          <Field label="Telegram bot (mijozlar uchun)" hint="Saytdagi Telegram tugmasi shu botga olib boradi"><input name="telegramBot" defaultValue={s.telegramBot} placeholder="Pack24AI_bot" className="input" /></Field>
           <Field label="Telegram kanal"><input name="telegramChannel" defaultValue={s.telegramChannel} className="input" /></Field>
           <Field label="Instagram"><input name="instagram" defaultValue={s.instagram} className="input" /></Field>
           <I18nFields name="address" label="Manzil" value={s.address} />
@@ -112,12 +112,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </Field>
         </section>
         <section className="card grid gap-4 p-5 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">Makulatura</h2>
-          <Field label="Bazaga olib kelishda minimal, kg" hint="Mijozga ma'lumot uchun ko'rsatiladi"><input name="recyclingMinKg" type="number" min={0} step={1} defaultValue={s.recyclingMinKg} className="input" /></Field>
-          <Field label="Olib ketish (mashina) uchun minimal, kg" hint="Shundan kam bo'lsa olib ketish arizasi qabul qilinmaydi"><input name="recyclingPickupMinKg" type="number" min={0} step={1} defaultValue={s.recyclingPickupMinKg} className="input" /></Field>
-          <I18nFields name="recyclingText" label="Makulatura sahifasi matni (Markdown)" value={s.recyclingText} textarea rows={6} />
-        </section>
-        <section className="card grid gap-4 p-5 sm:grid-cols-2">
           <h2 className="font-semibold sm:col-span-2">Sahifa matnlari (Markdown)</h2>
           <I18nFields name="deliveryText" label="Yetkazib berish" value={s.deliveryText} textarea rows={5} />
           <I18nFields name="paymentText" label="To'lov usullari" value={s.paymentText} textarea rows={5} />
@@ -129,9 +123,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </form>
 
       <section id="telegram" className="card mt-8 p-5">
-        <h2 className="mb-1 font-semibold">Telegram botlar (makulatura)</h2>
+        <h2 className="mb-1 font-semibold">Telegram botlar</h2>
         <p className="mb-3 text-sm text-slate-500">
-          Tokenlar faqat serverdagi <code className="font-mono">.env</code> faylida: <code className="font-mono">CUSTOMER_BOT_TOKEN</code>, <code className="font-mono">DRIVER_BOT_TOKEN</code>, <code className="font-mono">SUPERVISOR_BOT_TOKEN</code> (boshqaruv boti: masul va rahbariyat) va <code className="font-mono">TELEGRAM_WEBHOOK_SECRET</code> (kamida 16 belgi).
+          Tokenlar faqat serverdagi <code className="font-mono">.env</code> faylida: {BOT_KINDS.map((k) => <span key={k}><code className="font-mono">{botMeta[k].envKey}</code> ({botMeta[k].title.toLowerCase()}), </span>)}<code className="font-mono">TELEGRAM_WEBHOOK_SECRET</code> (kamida 16 belgi).
           Webhook manzili <code className="font-mono">APP_URL/api/telegram/&lt;bot&gt;</code> — faqat https. Token o'zgarganda «Webhook'larni o'rnatish»ni qayta bosing.
         </p>
         <Notice show={tg === 'ok'}>Webhook'lar va bot buyruqlari o'rnatildi.</Notice>

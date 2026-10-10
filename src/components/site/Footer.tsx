@@ -32,7 +32,6 @@ export function Footer({ locale, t, s }: { locale: Locale; t: Dict; s: SiteSetti
             <li><Link href={p('/contacts')} className="hover:text-white">{t.nav.contacts}</Link></li>
             <li><Link href={p('/reviews')} className="hover:text-white">{t.nav.reviews}</Link></li>
             <li><Link href={p('/blog')} className="hover:text-white">{t.nav.blog}</Link></li>
-            <li><Link href={p('/recycling')} className="hover:text-white">{t.nav.recycling}</Link></li>
             <li><Link href={p('/vacancies')} className="hover:text-white">{t.nav.vacancies}</Link></li>
           </ul>
         </div>

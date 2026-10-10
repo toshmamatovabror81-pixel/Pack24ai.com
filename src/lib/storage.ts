@@ -11,7 +11,7 @@ const ALLOWED: Record<string, string> = {
 };
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export type UploadFolder = 'products' | 'categories' | 'banners' | 'blog' | 'recycling' | 'drivers';
+export type UploadFolder = 'products' | 'categories' | 'banners' | 'blog';
 
 /** Rasmlar saqlanadigan papka (serverda Docker volume, lokalda ./uploads) */
 export function uploadDir(): string {

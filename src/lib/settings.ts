@@ -19,7 +19,7 @@ export type SiteSettings = {
   address: I18nText;
   workHours: I18nText;
   mapEmbedUrl: string;
-  telegramBot: string; // Pack24AI_bot
+  telegramBot: string; // mijoz boti: Pack24AI_bot
   telegramChannel: string; // pack24uz
   instagram: string;
   deliveryFee: number; // Toshkent ichida kuryer narxi, so'm
@@ -31,10 +31,6 @@ export type SiteSettings = {
   privacyText: I18nText;
   offerText: I18nText;
   vacanciesText: I18nText;
-  // v4: makulatura
-  recyclingMinKg: number; // bazaga olib kelishda minimal (ma'lumot uchun)
-  recyclingPickupMinKg: number; // olib ketish uchun minimal kg
-  recyclingText: I18nText; // /recycling sahifasidagi tushuntirish (Markdown)
 };
 
 export const defaultSettings: SiteSettings = {
@@ -72,9 +68,6 @@ export const defaultSettings: SiteSettings = {
   privacyText: {},
   offerText: {},
   vacanciesText: {},
-  recyclingMinKg: 50,
-  recyclingPickupMinKg: 200,
-  recyclingText: {},
 };
 
 const SETTINGS_KEY = 'site';

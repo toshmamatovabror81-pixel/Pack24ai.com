@@ -11,15 +11,14 @@ import { siteUrl } from './site';
 
 export type LeadState = { ok?: boolean; error?: 'phone' | 'name' | 'rate' | 'server' } | null;
 
-const TYPES = ['wholesale', 'custom_box', 'callback', 'contact', 'recycling'] as const;
+const TYPES = ['wholesale', 'custom_box', 'callback', 'contact'] as const;
 const TYPE_NAMES: Record<(typeof TYPES)[number], string> = {
   wholesale: "Ulgurji narx so'rovi",
   custom_box: 'Individual quti / logotip',
   callback: "Qayta qo'ng'iroq",
   contact: 'Aloqa formasi',
-  recycling: 'Makulatura topshirish',
 };
-const DETAIL_KEYS = ['product', 'size', 'quantity', 'logo', 'address', 'volume'] as const;
+const DETAIL_KEYS = ['product', 'size', 'quantity', 'logo'] as const;
 
 const schema = z.object({
   type: z.enum(TYPES),

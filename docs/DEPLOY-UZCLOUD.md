@@ -76,9 +76,9 @@ Agar 80/443 ni egallagan nginx konteyner ichida bo'lsa, skript faqat eslatma chi
 
 Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
-### Makulatura botlari (3 ta)
+### Telegram botlar (2 ta)
 
-Eng oson yo'li — savol-javob skripti (tokenlarni so'raydi, `.env` ga yozadi, saytni qayta ishga tushiradi va
+Eng oson yo'li — savol-javob skripti (2 ta tokenni so'raydi, `.env` ga yozadi, saytni qayta ishga tushiradi va
 webhook'larni o'rnatadi):
 
 ```bash
@@ -87,12 +87,8 @@ ssh -t -i ~/.ssh/KALIT root@<server IP> /opt/pack24/deploy/bots-setup.sh
 
 Qo'lda: BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /opt/pack24/.env`):
 
-- `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot): ariza berish, holatni kuzatish, tortishni tasdiqlash
-- `DRIVER_BOT_TOKEN` — haydovchi boti (@pack24MX_bot): topshiriqlar, tortish, hamyon, kabinet paroli
-- `SUPERVISOR_BOT_TOKEN` — boshqaruv boti (@pack24AUP_bot), masul va rahbariyat bitta botda. Masul: arizalar,
-  haydovchi tayinlash, to'lovlar, jurnal. Rahbariyat: masul/haydovchi qo'shish, tasdiqlashlar, hodisalar.
-  Bot kim yozganiga qarab menyuni o'zi tanlaydi; ikkala huquqi bor odam `/hq` va `/masul` bilan almashadi
-- `HQ_ALLOWED_TELEGRAM_IDS` — boshqaruv botida rahbariyat menyusini ko'radigan Telegram ID'lar (vergul bilan), ixtiyoriy
+- `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot)
+- `STAFF_BOT_TOKEN` — boshqaruv boti (@pack24AUP_bot), xodimlar uchun (eski nomi `SUPERVISOR_BOT_TOKEN` ham qabul qilinadi)
 - `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_OPS_SECRET` — o'rnatish skripti o'zi yaratgan, o'zgartirmang
 
 Keyin `cd /opt/pack24 && docker compose up -d` qiling va Admin > Sozlamalar > "Telegram botlar" bo'limida
@@ -100,6 +96,22 @@ Keyin `cd /opt/pack24 && docker compose up -d` qiling va Admin > Sozlamalar > "T
 holati (@username, webhook, xatolar) ko'rinadi.
 
 Eski botlarni o'chirib qo'ying (yoki tokenlarini BotFather'da yangilang) — bitta tokenga faqat bitta webhook bo'ladi.
+
+Makulatura yo'nalishi olib tashlangan: haydovchi boti (@pack24MX_bot) endi ishlatilmaydi — BotFather'da tokenini
+bekor qiling yoki botni o'chiring. Serverdagi `.env` da qolgan `DRIVER_BOT_TOKEN` va `HQ_ALLOWED_TELEGRAM_IDS`
+satrlari endi o'qilmaydi, ularni o'chirib tashlash mumkin.
+
+Agar boshqaruv boti shu versiyadan oldin ulangan bo'lsa: uning webhook manzili `/api/telegram/supervisor` dan
+`/api/telegram/staff` ga o'zgardi. Eski manzil ham qabul qilinadi, lekin bot buyruqlari menyusi yangilanishi uchun
+Admin > Sozlamalar > "Telegram botlar" bo'limida **"Webhook'larni o'rnatish"** tugmasini bir marta bosing.
+
+Mijozlar ariza bilan yuborgan makulatura rasmlari (agar bo'lgan bo'lsa) rasmlar volume'ida qoladi
+(`/data/uploads/recycling`): admin panelda ko'rinmaydi, lekin havolasi bo'yicha ochilaveradi. Kerak bo'lmasa,
+yangilanish muvaffaqiyatli o'tgach bir marta o'chiring:
+
+```bash
+cd /opt/pack24 && docker compose exec -T web rm -rf /data/uploads/recycling
+```
 
 ## 5. Yangilash
 

@@ -8,9 +8,12 @@ export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ bot: string }> };
 
-/** Telegram webhook: /api/telegram/customer | driver | supervisor (boshqaruv: masul + rahbariyat) */
+/** Telegram webhook: /api/telegram/customer | staff */
 export async function POST(req: Request, { params }: Params) {
-  const { bot } = await params;
+  const { bot: raw } = await params;
+  // Boshqaruv boti ilgari /api/telegram/supervisor manzilida ro'yxatdan o'tgan bo'lishi mumkin:
+  // webhook qayta o'rnatilmaguncha Telegram o'sha manzilga yuboradi (maxfiy kalit tekshiruvi o'zgarmaydi)
+  const bot = raw === 'supervisor' ? 'staff' : raw;
   if (!isBotKind(bot)) return NextResponse.json({ ok: false }, { status: 404 });
   if (!verifyWebhook(req)) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   if (!botToken(bot)) return NextResponse.json({ ok: false, error: 'bot not configured' }, { status: 503 });

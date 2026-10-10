@@ -41,9 +41,6 @@ export async function updateSettings(fd: FormData) {
     privacyText: i18nFrom(fd, 'privacyText'),
     offerText: i18nFrom(fd, 'offerText'),
     vacanciesText: i18nFrom(fd, 'vacanciesText'),
-    recyclingMinKg: Math.max(0, Math.floor(num(fd, 'recyclingMinKg') ?? 50)),
-    recyclingPickupMinKg: Math.max(0, Math.floor(num(fd, 'recyclingPickupMinKg') ?? 200)),
-    recyclingText: i18nFrom(fd, 'recyclingText'),
   };
   await saveSettings(patch);
   revalidateTag('settings');

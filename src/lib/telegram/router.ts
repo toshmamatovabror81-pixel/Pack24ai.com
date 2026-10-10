@@ -1,6 +1,6 @@
 import 'server-only';
 import {
-  answerCallbackQuery, editMessageText, sendLocation, sendMessage,
+  answerCallbackQuery, editMessageReplyMarkup, editMessageText, sendLocation, sendMessage,
   type InlineKeyboard, type SendOptions, type TgCallbackQuery, type TgMessage, type TgUpdate, type TgUser,
 } from './api';
 import { botToken, type BotKind } from './bots';
@@ -64,8 +64,6 @@ export class Bot {
   /** Boshqa hech narsaga mos kelmagan matn (suhbat bosqichlari uchun) */
   text(h: Handler) { this.textH = h; return this; }
   onError(h: (e: unknown, ctx: Ctx) => Promise<unknown> | unknown) { this.errorH = h; return this; }
-  /** Shu callback_data uchun handler bormi (bitta botda ikki rol bo'lganda tugma qaysi rolga tegishli ekanini aniqlash uchun) */
-  handlesCallback(data: string) { return this.callbacks.some((c) => data.startsWith(c.prefix)); }
 
   async handle(update: TgUpdate): Promise<void> {
     const token = botToken(this.kind);
@@ -93,8 +91,14 @@ export class Bot {
     try {
       if (cb) {
         const h = this.callbacks.find((c) => ctx.data.startsWith(c.prefix));
-        if (h) await h.h(ctx);
-        await ctx.answer();
+        if (h) {
+          await h.h(ctx);
+          await ctx.answer();
+          return;
+        }
+        // Eskirgan tugma (masalan olib tashlangan bo'limdan qolgan): jim qolmaymiz va tugmalarni olib tashlaymiz
+        await ctx.answer('Bu tugma endi ishlamaydi. /start bosing.\nКнопка больше не работает, нажмите /start.', true);
+        if (cb.message) await editMessageReplyMarkup(token, chatId, cb.message.message_id).catch(() => undefined);
         return;
       }
       if (!msg) return;

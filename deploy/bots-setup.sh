@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Makulatura botlari (3 ta) tokenlarini .env ga yozish, saytni qayta ishga tushirish va webhook'larni o'rnatish.
+# Telegram botlar (2 ta: mijoz va boshqaruv) tokenlarini .env ga yozish, saytni qayta ishga tushirish va webhook'larni o'rnatish.
 # Serverda (savol-javob rejimida, shuning uchun ssh -t):
 #   ssh -t -i ~/.ssh/KALIT root@SERVER /opt/pack24/deploy/bots-setup.sh
 # Har bir savolga BotFather'dagi tokenni qo'yib Enter bosiladi; bo'sh qoldirilsa avvalgi qiymat qoladi.
@@ -37,21 +37,14 @@ ask_token() {
   echo "  saqlandi"
 }
 
-echo "== Makulatura botlari tokenlari (BotFather > /mybots > bot > API Token)"
-ask_token CUSTOMER_BOT_TOKEN   "1/3 Mijoz boti (@Pack24AI_bot)"
-ask_token DRIVER_BOT_TOKEN     "2/3 Haydovchi boti (@pack24MX_bot)"
-ask_token SUPERVISOR_BOT_TOKEN "3/3 Boshqaruv boti (@pack24AUP_bot): masul va rahbariyat bitta botda"
-echo
-echo "Shu ID'lar boshqaruv botida rahbariyat menyusini ko'radi."
-echo "Rahbariyat Telegram ID'lari (vergul bilan, masalan 123456789,987654321; @userinfobot ko'rsatadi)."
-cur="$(current HQ_ALLOWED_TELEGRAM_IDS)"
-[ -n "$cur" ] && echo "Hozir: $cur"
-echo "Yangisini yozing yoki Enter:"
-read -r ids
-ids="${ids//[[:space:]]/}"
-if [ -n "$ids" ]; then
-  if [[ "$ids" =~ ^[0-9]+(,[0-9]+)*$ ]]; then set_var HQ_ALLOWED_TELEGRAM_IDS "$ids"; echo "  saqlandi"; else echo "  DIQQAT: faqat raqamlar va vergul bo'lishi kerak, o'zgartirilmadi"; fi
+# Eski nom -> yangi nom (bir marta): ilova SUPERVISOR_BOT_TOKEN ni ham o'qiydi, bu skript esa faqat STAFF_BOT_TOKEN ni ko'radi
+if [ -z "$(current STAFF_BOT_TOKEN)" ] && [ -n "$(current SUPERVISOR_BOT_TOKEN)" ]; then
+  sed -i -e '/^STAFF_BOT_TOKEN=/d' -e 's|^SUPERVISOR_BOT_TOKEN=|STAFF_BOT_TOKEN=|' .env
 fi
+
+echo "== Telegram botlar tokenlari (BotFather > /mybots > bot > API Token)"
+ask_token CUSTOMER_BOT_TOKEN "1/2 Mijoz boti (@Pack24AI_bot)"
+ask_token STAFF_BOT_TOKEN    "2/2 Boshqaruv boti (@pack24AUP_bot), xodimlar uchun"
 chmod 600 .env
 
 echo
@@ -81,5 +74,5 @@ const base = "http://127.0.0.1:3000/api/telegram/setup";
   }
   if (!j.ok) process.exit(1);
 })().catch((e) => { console.log("XATO:", e.message); process.exit(1); });
-' && echo "== TAYYOR: botlar yangi saytga ulandi. Admin > Sozlamalar > Telegram botlar bo'limida ham ko'rinadi." \
+' && echo "== TAYYOR: botlar saytga ulandi. Admin > Sozlamalar > Telegram botlar bo'limida ham ko'rinadi." \
   || echo "== Webhook o'rnatishda xato. Admin > Sozlamalar > Telegram botlar bo'limida qayta urinib ko'ring."

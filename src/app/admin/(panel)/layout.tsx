@@ -11,16 +11,14 @@ export const dynamic = 'force-dynamic';
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaff();
   const items = adminNav.filter((i) => can(user.role, i.section));
-  const [newOrders, newLeads, pendingReviews, newRecycling, pendingAccess] = await Promise.all([
+  const [newOrders, newLeads, pendingReviews] = await Promise.all([
     prisma.order.count({ where: { status: 'new_', deletedAt: null } }),
     prisma.lead.count({ where: { status: 'new_' } }),
     can(user.role, 'marketing') ? prisma.review.count({ where: { status: 'pending' } }) : 0,
-    can(user.role, 'recycling') ? prisma.recycleRequest.count({ where: { status: 'new_' } }) : 0,
-    can(user.role, 'recycling') ? prisma.botAccessRequest.count({ where: { status: 'pending' } }) : 0,
   ]);
   return (
     <div className="min-h-screen">
-      <Sidebar items={items} badges={{ '/admin/orders': newOrders, '/admin/leads': newLeads, '/admin/reviews': pendingReviews, '/admin/recycling': newRecycling + pendingAccess }} />
+      <Sidebar items={items} badges={{ '/admin/orders': newOrders, '/admin/leads': newLeads, '/admin/reviews': pendingReviews }} />
       <div className="lg:pl-60">
         <header className="flex h-14 items-center justify-end gap-4 border-b border-slate-200 bg-white px-4 text-sm">
           <Link href="/uz" target="_blank" className="text-brand-500 hover:underline">Saytni ochish ↗</Link>

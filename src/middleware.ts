@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { defaultLocale, isLocale } from './lib/i18n/config';
 import { SESSION_COOKIE, STAFF_ROLES, verifySession } from './lib/auth/session';
-import { DRIVER_COOKIE, verifyDriverSession } from './lib/auth/driverSession';
 import { UTM_COOKIE, UTM_KEYS } from './lib/utm';
 
 /** Eski saytdagi manzillar -> yangi manzillar (Google'dagi havolalar buzilmasin) */
@@ -16,8 +15,11 @@ const LEGACY: Record<string, string> = {
   '/pricing': '/wholesale',
   '/news': '/blog',
   '/my-orders': '/profile',
-  '/eco-dashboard': '/recycling',
-  '/prts': '/recycling',
+  // Makulatura yo'nalishi va haydovchi kabineti olib tashlangan: eski havolalar bosh sahifaga
+  '/eco-dashboard': '/',
+  '/prts': '/',
+  '/recycling': '/',
+  '/driver': '/',
   '/referral': '/',
   '/carbon-market': '/',
   '/marketplace': '/catalog',
@@ -51,20 +53,6 @@ async function adminGuard(req: NextRequest) {
   return NextResponse.next();
 }
 
-/** Haydovchi kabineti: login va parol tiklash sahifalaridan tashqari hammasi sessiya talab qiladi */
-async function driverGuard(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  if (pathname === '/driver/login' || pathname === '/driver/forgot') return NextResponse.next();
-  const session = await verifyDriverSession(req.cookies.get(DRIVER_COOKIE)?.value).catch(() => null);
-  if (!session) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/driver/login';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-  return NextResponse.next();
-}
-
 function withAttribution(req: NextRequest, res: NextResponse) {
   const params = req.nextUrl.searchParams;
   if (!UTM_KEYS.some((k) => params.get(k))) return res;
@@ -84,10 +72,19 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return adminGuard(req);
-  if (pathname === '/driver' || pathname.startsWith('/driver/')) return driverGuard(req);
 
   const first = pathname.split('/')[1];
-  if (isLocale(first)) return withAttribution(req, NextResponse.next());
+  if (isLocale(first)) {
+    // Olib tashlangan bo'lim: mijozlarga yuborilgan eski havolalar (/uz/recycling/<token>) 404 emas, bosh sahifaga
+    const rest = pathname.slice(first.length + 1);
+    if (rest === '/recycling' || rest.startsWith('/recycling/')) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/${first}`;
+      url.search = '';
+      return withAttribution(req, NextResponse.redirect(url, 308));
+    }
+    return withAttribution(req, NextResponse.next());
+  }
 
   // Tilsiz manzil: til prefiksini qo'shib yo'naltirish
   const url = req.nextUrl.clone();

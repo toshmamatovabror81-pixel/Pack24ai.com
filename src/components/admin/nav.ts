@@ -11,7 +11,6 @@ export const adminNav: { href: string; label: string; section: Section; icon: st
   { href: '/admin/contracts', label: 'Shartnomalar', section: 'finance', icon: 'FileSignature' },
   { href: '/admin/invoices', label: 'Hisob-fakturalar', section: 'finance', icon: 'Receipt' },
   { href: '/admin/inventory', label: 'Ombor', section: 'inventory', icon: 'Warehouse' },
-  { href: '/admin/recycling', label: 'Makulatura', section: 'recycling', icon: 'Recycle' },
   { href: '/admin/promo', label: 'Promokodlar', section: 'marketing', icon: 'BadgePercent' },
   { href: '/admin/banners', label: 'Bannerlar', section: 'marketing', icon: 'Image' },
   { href: '/admin/reviews', label: 'Sharhlar', section: 'marketing', icon: 'Star' },

@@ -1,7 +1,7 @@
 import { Phone, Send } from 'lucide-react';
 import { TrackedLink } from './TrackedLink';
 
-/** Har sahifada: Telegram orqali buyurtma + qo'ng'iroq (mobilda pastda, kompyuterda o'ng burchakda) */
+/** Har sahifada: Telegram botga havola + qo'ng'iroq (mobilda pastda, kompyuterda o'ng burchakda) */
 export function FloatingContact({ bot, phone, telegramLabel, callLabel }: { bot: string; phone: string; telegramLabel: string; callLabel: string }) {
   return (
     <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
