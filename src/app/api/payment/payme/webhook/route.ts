@@ -1,224 +1,170 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { toNumber } from '@/lib/money';
-import { logger } from '@/lib/logger';
+import { NextResponse, type NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { toNumber } from '@/lib/format';
+import { notifyAdmins } from '@/lib/telegram';
+import { PAYME_TIMEOUT_MS, PaymeError, paymeAuthorized } from '@/lib/payments/payme';
+import { recordPayment } from '@/lib/payments/record';
 
-function getPaymeKey(): string {
-    const isTest = process.env.NODE_ENV !== 'production';
-    return isTest
-        ? (process.env.PAYME_TEST_SECRET ?? '')
-        : (process.env.PAYME_SECRET_KEY ?? '');
+// Payme Merchant API (JSON-RPC). Kassa sozlamasida endpoint: https://pack24.uz/api/payment/payme/webhook
+
+type Rpc = { id?: number; method?: string; params?: Record<string, unknown> };
+
+const err = (id: number | undefined, code: number, message: string, data?: string) =>
+  NextResponse.json({ id: id ?? null, error: { code, message: { uz: message, ru: message, en: message }, data } });
+const ok = (id: number | undefined, result: Record<string, unknown>) => NextResponse.json({ id: id ?? null, result });
+
+function orderIdOf(params: Record<string, unknown>) {
+  const acc = (params.account ?? {}) as Record<string, unknown>;
+  const n = Number(acc.order_id);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
-function verifyAuth(req: NextRequest): boolean {
-    const authHeader = req.headers.get('authorization') ?? '';
-    if (!authHeader.startsWith('Basic ')) return false;
-    const decoded = Buffer.from(authHeader.slice(6), 'base64').toString();
-    const [, key] = decoded.split(':');
-    return key === getPaymeKey();
-}
+type CheckErr = [number, string, string?];
 
-interface PaymeRpcRequest {
-    id: number;
-    method: string;
-    params: Record<string, unknown>;
-}
-
-function rpcError(id: number, code: number, message: string) {
-    return NextResponse.json({ id, error: { code, message: { uz: message, ru: message, en: message } } });
-}
-
-function rpcResult(id: number, result: Record<string, unknown>) {
-    return NextResponse.json({ id, result });
-}
-
-function accountOrderId(params: Record<string, unknown>): number {
-    return parseInt(String((params.account as Record<string, unknown>)?.order_id ?? '0'), 10);
+async function checkOrder(params: Record<string, unknown>): Promise<{ error: CheckErr; order?: undefined } | { error?: undefined; order: NonNullable<Awaited<ReturnType<typeof prisma.order.findUnique>>> }> {
+  const orderId = orderIdOf(params);
+  if (!orderId) return { error: [PaymeError.orderNotFound, 'Buyurtma topilmadi', 'order_id'] };
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.deletedAt) return { error: [PaymeError.orderNotFound, 'Buyurtma topilmadi', 'order_id'] };
+  if (order.paymentStatus === 'paid' || order.status === 'cancelled') return { error: [PaymeError.orderUnavailable, "Buyurtmani to'lab bo'lmaydi", 'order_id'] };
+  const expected = Math.round(toNumber(order.totalAmount) * 100);
+  if (Number(params.amount) !== expected) return { error: [PaymeError.amount, "Summa noto'g'ri"] };
+  return { order };
 }
 
 export async function POST(req: NextRequest) {
-    if (!verifyAuth(req)) {
-        return rpcError(0, -32504, 'Auth failed');
-    }
+  let body: Rpc;
+  try {
+    body = (await req.json()) as Rpc;
+  } catch {
+    return err(undefined, PaymeError.parse, 'Parse error');
+  }
+  if (!paymeAuthorized(req.headers.get('authorization'))) return err(body.id, PaymeError.auth, 'Ruxsat yo\'q');
+  const { id, method } = body;
+  const params = body.params ?? {};
 
-    const body: PaymeRpcRequest = await req.json();
-    const { id, method, params } = body;
+  try {
+    switch (method) {
+      case 'CheckPerformTransaction': {
+        const r = await checkOrder(params);
+        if (r.error) return err(id, ...r.error);
+        return ok(id, { allow: true });
+      }
 
-    try {
-        switch (method) {
-            case 'CheckPerformTransaction': {
-                const orderId = accountOrderId(params);
-                const amount = Number(params.amount ?? 0);
-                const order = await prisma.order.findUnique({ where: { id: orderId } });
-                if (!order) return rpcError(id, -31050, 'Buyurtma topilmadi');
-                if (order.paymentStatus === 'paid') return rpcError(id, -31051, 'Allaqachon tolangan');
-                const expectedAmount = Math.round(toNumber(order.totalAmount) * 100);
-                if (Math.abs(expectedAmount - amount) > 1) return rpcError(id, -31001, 'Summa mos kelmaydi');
-                return rpcResult(id, { allow: true });
-            }
-            case 'CreateTransaction': {
-                const orderId = accountOrderId(params);
-                const paymeTransId = String(params.id ?? '');
-                const amount = Number(params.amount ?? 0);
-                const time = Number(params.time ?? Date.now());
-
-                if (!paymeTransId) return rpcError(id, -31008, 'Transaction ID kerak');
-
-                const existingTx = await prisma.paymeTransaction.findUnique({ where: { id: paymeTransId } });
-                if (existingTx) {
-                    if (existingTx.state !== 1) {
-                        return rpcError(id, -31008, 'Transaction holati noto\'g\'ri');
-                    }
-                    return rpcResult(id, {
-                        create_time: Number(existingTx.createTime),
-                        transaction: paymeTransId,
-                        state: existingTx.state,
-                    });
-                }
-
-                const order = await prisma.order.findUnique({ where: { id: orderId } });
-                if (!order) return rpcError(id, -31050, 'Buyurtma topilmadi');
-                if (order.paymentStatus === 'paid') return rpcError(id, -31051, 'Allaqachon tolangan');
-
-                const expectedAmount = Math.round(toNumber(order.totalAmount) * 100);
-                if (Math.abs(expectedAmount - amount) > 1) return rpcError(id, -31001, 'Summa mos kelmaydi');
-
-                const createTime = BigInt(time);
-                await prisma.$transaction([
-                    prisma.paymeTransaction.create({
-                        data: {
-                            id: paymeTransId,
-                            orderId,
-                            amount,
-                            state: 1,
-                            createTime,
-                        },
-                    }),
-                    prisma.order.update({
-                        where: { id: orderId },
-                        data: { paymentStatus: 'pending', paymentMethod: 'payme' },
-                    }),
-                ]);
-
-                return rpcResult(id, {
-                    create_time: time,
-                    transaction: paymeTransId,
-                    state: 1,
-                });
-            }
-            case 'PerformTransaction': {
-                const paymeTransId = String(params.id ?? '');
-                const tx = await prisma.paymeTransaction.findUnique({ where: { id: paymeTransId } });
-                if (!tx) return rpcError(id, -31003, 'Transaction topilmadi');
-
-                if (tx.state === 2) {
-                    return rpcResult(id, {
-                        transaction: paymeTransId,
-                        perform_time: Number(tx.performTime ?? tx.createTime),
-                        state: 2,
-                    });
-                }
-                if (tx.state < 0) {
-                    return rpcError(id, -31008, 'Transaction bekor qilingan');
-                }
-
-                const performTime = BigInt(Date.now());
-                await prisma.$transaction([
-                    prisma.paymeTransaction.update({
-                        where: { id: paymeTransId },
-                        data: { state: 2, performTime },
-                    }),
-                    prisma.order.update({
-                        where: { id: tx.orderId },
-                        data: { paymentStatus: 'paid', paymentMethod: 'payme' },
-                    }),
-                ]);
-
-                logger.info('Payme paid', { method: 'PerformTransaction', transId: paymeTransId, orderId: tx.orderId });
-                return rpcResult(id, {
-                    transaction: paymeTransId,
-                    perform_time: Number(performTime),
-                    state: 2,
-                });
-            }
-            case 'CancelTransaction': {
-                const paymeTransId = String(params.id ?? '');
-                const reason = Number(params.reason ?? 0);
-                const tx = await prisma.paymeTransaction.findUnique({ where: { id: paymeTransId } });
-                if (!tx) return rpcError(id, -31003, 'Transaction topilmadi');
-
-                if (tx.state === 2) {
-                    // Yetkazilgan buyurtmani bekor qilish mumkin emas yoki order topilmasa
-                    const order = await prisma.order.findUnique({ where: { id: tx.orderId } });
-                    if (!order || order.status === 'delivered') {
-                        return rpcError(id, -31007, 'Yetkazilgan buyurtma bekor qilinmaydi');
-                    }
-
-                    const cancelTime = BigInt(Date.now());
-                    await prisma.$transaction([
-                        prisma.paymeTransaction.update({
-                            where: { id: paymeTransId },
-                            data: { state: -2, cancelTime, reason },
-                        }),
-                        prisma.order.update({
-                            where: { id: tx.orderId },
-                            data: { paymentStatus: 'refunded' },
-                        }),
-                    ]);
-
-                    logger.info('Payme refund after perform', { method: 'CancelTransaction', transId: paymeTransId, reason });
-                    return rpcResult(id, {
-                        transaction: paymeTransId,
-                        cancel_time: Number(cancelTime),
-                        state: -2,
-                    });
-                }
-                if (tx.state < 0) {
-                    return rpcResult(id, {
-                        transaction: paymeTransId,
-                        cancel_time: Number(tx.cancelTime ?? tx.createTime),
-                        state: tx.state,
-                    });
-                }
-
-                const cancelTime = BigInt(Date.now());
-                await prisma.$transaction([
-                    prisma.paymeTransaction.update({
-                        where: { id: paymeTransId },
-                        data: { state: -1, cancelTime, reason },
-                    }),
-                    prisma.order.update({
-                        where: { id: tx.orderId },
-                        data: { paymentStatus: 'pending' },
-                    }),
-                ]);
-
-                logger.info('Payme cancel', { method: 'CancelTransaction', transId: paymeTransId, reason });
-                return rpcResult(id, {
-                    transaction: paymeTransId,
-                    cancel_time: Number(cancelTime),
-                    state: -1,
-                });
-            }
-            case 'CheckTransaction': {
-                const paymeTransId = String(params.id ?? '');
-                const tx = await prisma.paymeTransaction.findUnique({ where: { id: paymeTransId } });
-                if (!tx) return rpcError(id, -31003, 'Transaction topilmadi');
-
-                return rpcResult(id, {
-                    transaction: paymeTransId,
-                    create_time: Number(tx.createTime),
-                    perform_time: tx.performTime != null ? Number(tx.performTime) : 0,
-                    cancel_time: tx.cancelTime != null ? Number(tx.cancelTime) : 0,
-                    state: tx.state,
-                    reason: tx.reason,
-                });
-            }
-            default:
-                return rpcError(id, -32601, 'Method not found');
+      case 'CreateTransaction': {
+        const txId = String(params.id ?? '');
+        if (!txId) return err(id, PaymeError.cannotPerform, 'Tranzaksiya ID yo\'q');
+        const existing = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
+        if (existing) {
+          if (existing.state !== 1) return err(id, PaymeError.cannotPerform, 'Tranzaksiya holati noto\'g\'ri');
+          if (Date.now() - Number(existing.createTime) > PAYME_TIMEOUT_MS) {
+            await prisma.paymeTransaction.update({ where: { id: txId }, data: { state: -1, reason: 4, cancelTime: BigInt(Date.now()) } });
+            return err(id, PaymeError.cannotPerform, 'Tranzaksiya muddati o\'tgan');
+          }
+          return ok(id, { create_time: Number(existing.createTime), transaction: existing.id, state: 1 });
         }
-    } catch (error) {
-        logger.error('Payme webhook error', { method }, error);
-        return rpcError(id, -32400, 'Internal error');
+        const r = await checkOrder(params);
+        if (r.error) return err(id, ...r.error);
+        // Bitta buyurtmaga faqat bitta ochiq tranzaksiya
+        const pending = await prisma.paymeTransaction.findFirst({ where: { orderId: r.order.id, state: 1 } });
+        if (pending) return err(id, PaymeError.orderUnavailable, 'Buyurtma uchun boshqa tranzaksiya kutilmoqda', 'order_id');
+        const time = Number(params.time) || Date.now();
+        await prisma.paymeTransaction.create({ data: { id: txId, orderId: r.order.id, amount: Number(params.amount), state: 1, createTime: BigInt(time) } });
+        await prisma.order.update({ where: { id: r.order.id }, data: { paymentMethod: 'payme', paymentStatus: 'processing' } });
+        return ok(id, { create_time: time, transaction: txId, state: 1 });
+      }
+
+      case 'PerformTransaction': {
+        const txId = String(params.id ?? '');
+        const tx = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
+        if (!tx) return err(id, PaymeError.txNotFound, 'Tranzaksiya topilmadi');
+        if (tx.state === 2) return ok(id, { transaction: tx.id, perform_time: Number(tx.performTime), state: 2 });
+        if (tx.state !== 1) return err(id, PaymeError.cannotPerform, 'Tranzaksiya bekor qilingan');
+        if (Date.now() - Number(tx.createTime) > PAYME_TIMEOUT_MS) {
+          await prisma.paymeTransaction.update({ where: { id: txId }, data: { state: -1, reason: 4, cancelTime: BigInt(Date.now()) } });
+          return err(id, PaymeError.cannotPerform, 'Tranzaksiya muddati o\'tgan');
+        }
+        const performTime = BigInt(Date.now());
+        const before = await prisma.order.findUnique({ where: { id: tx.orderId }, select: { paymentStatus: true } });
+        // "Holat hali 1" sharti: bir vaqtda kelgan ikki Perform'dan faqat bittasi yozadi. Ikkinchisi P2025 oladi — hech narsa
+        // o'zgarmaydi (tarix va xabarnoma takrorlanmaydi) va takroriy so'rov kabi saqlangan holat bilan javob beradi.
+        const done = await prisma
+          .$transaction([
+            prisma.paymeTransaction.update({ where: { id: txId, state: 1 }, data: { state: 2, performTime } }),
+            prisma.order.update({ where: { id: tx.orderId }, data: { paymentStatus: 'paid', paymentMethod: 'payme', confirmedAt: new Date() } }),
+          ])
+          .catch((e: unknown) => {
+            if ((e as { code?: string } | null)?.code === 'P2025') return null;
+            throw e;
+          });
+        if (!done) {
+          const current = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
+          if (current?.state === 2) return ok(id, { transaction: current.id, perform_time: Number(current.performTime), state: 2 });
+          return err(id, PaymeError.cannotPerform, 'Tranzaksiya bekor qilingan');
+        }
+        const paid = done[1];
+        await notifyAdmins([`✅ Payme: buyurtma #${tx.orderId} to'landi (${tx.amount / 100} so'm)`]);
+        if (before?.paymentStatus !== 'paid') await recordPayment(paid, before?.paymentStatus ?? null, { name: 'Payme', via: 'payme' });
+        return ok(id, { transaction: txId, perform_time: Number(performTime), state: 2 });
+      }
+
+      case 'CancelTransaction': {
+        const txId = String(params.id ?? '');
+        const reason = Number(params.reason) || null;
+        const tx = await prisma.paymeTransaction.findUnique({ where: { id: txId } });
+        if (!tx) return err(id, PaymeError.txNotFound, 'Tranzaksiya topilmadi');
+        if (tx.state < 0) return ok(id, { transaction: tx.id, cancel_time: Number(tx.cancelTime), state: tx.state });
+        const before = await prisma.order.findUnique({ where: { id: tx.orderId }, select: { status: true, paymentStatus: true } });
+        if (tx.state === 2 && before?.status === 'delivered') return err(id, PaymeError.cannotCancel, 'Yetkazilgan buyurtma bekor qilinmaydi');
+        const newState = tx.state === 2 ? -2 : -1;
+        const cancelTime = BigInt(Date.now());
+        const [, cancelled] = await prisma.$transaction([
+          prisma.paymeTransaction.update({ where: { id: txId }, data: { state: newState, cancelTime, reason } }),
+          prisma.order.update({ where: { id: tx.orderId }, data: { paymentStatus: newState === -2 ? 'refunded' : 'pending' } }),
+        ]);
+        // Bekor qilish / qaytarish ham buyurtma tarixiga tushadi (xabarnoma faqat "to'langan"da ketadi)
+        if (before && before.paymentStatus !== cancelled.paymentStatus) await recordPayment(cancelled, before.paymentStatus, { name: 'Payme', via: 'payme' });
+        return ok(id, { transaction: txId, cancel_time: Number(cancelTime), state: newState });
+      }
+
+      case 'CheckTransaction': {
+        const tx = await prisma.paymeTransaction.findUnique({ where: { id: String(params.id ?? '') } });
+        if (!tx) return err(id, PaymeError.txNotFound, 'Tranzaksiya topilmadi');
+        return ok(id, {
+          create_time: Number(tx.createTime),
+          perform_time: tx.performTime ? Number(tx.performTime) : 0,
+          cancel_time: tx.cancelTime ? Number(tx.cancelTime) : 0,
+          transaction: tx.id,
+          state: tx.state,
+          reason: tx.reason,
+        });
+      }
+
+      case 'GetStatement': {
+        const from = BigInt(Number(params.from) || 0);
+        const to = BigInt(Number(params.to) || 0);
+        const txs = await prisma.paymeTransaction.findMany({ where: { createTime: { gte: from, lte: to } }, orderBy: { createTime: 'asc' } });
+        return ok(id, {
+          transactions: txs.map((tx) => ({
+            id: tx.id,
+            time: Number(tx.createTime),
+            amount: tx.amount,
+            account: { order_id: String(tx.orderId) },
+            create_time: Number(tx.createTime),
+            perform_time: tx.performTime ? Number(tx.performTime) : 0,
+            cancel_time: tx.cancelTime ? Number(tx.cancelTime) : 0,
+            transaction: tx.id,
+            state: tx.state,
+            reason: tx.reason,
+          })),
+        });
+      }
+
+      default:
+        return err(id, PaymeError.method, 'Method not found');
     }
+  } catch (e) {
+    console.error('Payme webhook', method, e);
+    return err(id, PaymeError.internal, 'Internal error');
+  }
 }

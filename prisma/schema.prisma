@@ -35,35 +35,6 @@ enum ProductStatus {
   archived
 }
 
-enum RecycleRequestStatus {
-  new_       @map("new")
-  dispatched
-  assigned
-  en_route
-  arrived
-  collecting
-  collected
-  confirmed
-  completed
-  cancelled
-  disputed
-}
-
-enum DriverStatus {
-  active
-  inactive
-  on_route
-  busy
-}
-
-enum RecyclePaymentStatus {
-  pending
-  paid_to_driver
-  paid_to_customer
-  paid_both
-  completed
-}
-
 enum WorkOrderStatus {
   planned
   in_progress
@@ -78,21 +49,10 @@ enum WorkOrderStageStatus {
   completed
 }
 
-enum RecyclePointStatus {
-  active
-  planned
-}
-
 enum CampaignStatus {
   draft
   scheduled
   sent
-}
-
-enum BotAccessStatus {
-  pending
-  approved
-  rejected
 }
 
 enum TaskStatus {
@@ -123,18 +83,6 @@ enum TaskAssigneeStatus {
   declined
 }
 
-enum ComplaintStatus {
-  open
-  in_progress
-  resolved
-  closed
-}
-
-enum ComplaintLevel {
-  supervisor
-  director
-}
-
 enum NotificationStatus {
   sent
   delivered
@@ -156,11 +104,6 @@ enum InvoiceStatus {
   partial
   overdue
   cancelled
-}
-
-enum BotEventStatus {
-  new_      @map("new")
-  processed
 }
 
 // ─── P2.4 audit: yangi enum'lar ─────────────────────────────────────────────
@@ -201,47 +144,6 @@ enum StockMovementType {
   TRANSFER
 }
 
-enum DriverTransactionType {
-  earning
-  withdrawal
-  bonus
-}
-
-enum DriverTransactionStatus {
-  pending
-  completed
-  failed
-}
-
-enum CardType {
-  uzcard
-  humo
-  visa
-  mastercard
-  other
-}
-
-enum EcoLevel {
-  seed
-  sprout
-  sapling
-  tree
-  forest
-  guardian
-  legend
-}
-
-enum PickupType {
-  base
-  pickup
-}
-
-enum VolumeSize {
-  small
-  medium
-  large
-}
-
 enum AssignmentType {
   individual
   group
@@ -259,22 +161,6 @@ enum NotificationChannel {
   telegram
   sms
   call
-}
-
-enum BotEventSource {
-  customer
-  driver
-  supervisor
-  pack24admin
-  platform
-  system
-}
-
-enum EventSeverity {
-  info
-  success
-  warning
-  error
 }
 
 enum PushPlatform {
@@ -296,14 +182,6 @@ enum ProductionStage {
   qc
 }
 
-enum CorrectionEntityType {
-  manual_intake
-  press_log
-  expense_log
-  daily_cash
-  sales_log
-}
-
 enum DeliveryMethod {
   courier
   pickup
@@ -316,53 +194,9 @@ enum PaymentMethod {
   bank_transfer
 }
 
-enum BadgeKey {
-  first_step
-  kg_10_club     @map("10kg_club")
-  kg_50_hero     @map("50kg_hero")
-  kg_100_warrior @map("100kg_warrior")
-  streak_7
-  streak_30
-  multi_material
-  referral_first
-  tree_saver
-  co2_warrior
-  early_bird
-  eco_legend
-}
-
-enum PickupLocationMode {
-  gps
-  map
-  text
-}
-
-enum CustomerLang {
-  uz
-  ru
-  en
-}
-
-enum MaterialType {
-  qogoz
-  karton
-  gazeta
-  jurnal
-  ofis
-  kitob
-  aralash
-  sellofan
-  plastik
-}
-
 enum MediaType {
   image
   video
-}
-
-enum BotAccessRole {
-  driver
-  supervisor
 }
 
 enum PerformanceKind {
@@ -391,7 +225,7 @@ model User {
 
   // ─── Telegram orqali ro'yxatdan o'tish ───
   telegramId         String?   @unique // Telegram user ID
-  telegramCode       String? // Doimiy kirish kodi (kabinetga kirish uchun)
+  telegramCode       String? // Xodimni boshqaruv botiga ulash uchun bir martalik kod (muddati otpExpiry da)
   telegramVerifiedAt DateTime? // Telegram orqali tasdiqlangan vaqt
 
   // ─── OTP (Bir martalik kod — saytga kirish uchun) ─
@@ -406,16 +240,6 @@ model User {
   address       String?
   notes         String?
 
-  // Eco & Gamification
-  ecoPoints           Int              @default(0)
-  totalRecycledWeight Float            @default(0)
-  ecoLevel            EcoLevel         @default(seed)
-  ecoStreak           Int              @default(0) // Ketma-ket faol kunlar
-  lastEcoActivity     DateTime? // Oxirgi faollik sanasi
-  totalCO2Saved       Float            @default(0) // Tejangan CO₂ (kg)
-  treesEquivalent     Int              @default(0) // Ekvivalent daraxt soni
-  achievements        EcoAchievement[]
-
   // Referral System
   referralCode String? @unique
   referredById Int?
@@ -425,7 +249,6 @@ model User {
   orders            Order[]
   contracts         Contract[]
   pushSubscriptions PushSubscription[]
-  recycleRequests   RecycleRequest[]
 
   // Ichki vazifalar (jamoaviy topshiriqlar)
   tasksCreated         Task[]                 @relation("TaskCreatedBy")
@@ -492,91 +315,6 @@ model TelegramConfig {
   updatedAt      DateTime @updatedAt
 }
 
-model TelegramHqAdmin {
-  id               Int       @id @default(autoincrement())
-  name             String
-  phone            String    @unique
-  telegramId       String?   @unique
-  telegramName     String?
-  registrationCode String?   @unique
-  isActive         Boolean   @default(true)
-  registeredAt     DateTime?
-  lastSeenAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  approvedAccessRequests     BotAccessRequest[]         @relation("HqAdminApprovedAccessRequests")
-  reviewedJournalCorrections JournalCorrectionRequest[]
-}
-
-model BotAccessRequest {
-  id                     Int              @id @default(autoincrement())
-  role                   BotAccessRole
-  status                 BotAccessStatus  @default(pending)
-  name                   String
-  phone                  String
-  telegramId             String?
-  telegramName           String?
-  vehicleInfo            String?
-  requestedPointId       Int?
-  requestedPoint         RecyclePoint?    @relation(fields: [requestedPointId], references: [id], onDelete: SetNull)
-  requestedSupervisorId  Int?
-  requestedSupervisor    Supervisor?      @relation("RequestedSupervisorAccessRequests", fields: [requestedSupervisorId], references: [id], onDelete: SetNull)
-  approvedByHqAdminId    Int?
-  approvedByHqAdmin      TelegramHqAdmin? @relation("HqAdminApprovedAccessRequests", fields: [approvedByHqAdminId], references: [id], onDelete: SetNull)
-  approvedBySupervisorId Int?
-  approvedBySupervisor   Supervisor?      @relation("SupervisorApprovedAccessRequests", fields: [approvedBySupervisorId], references: [id], onDelete: SetNull)
-  approvedAt             DateTime?
-  rejectedAt             DateTime?
-  rejectReason           String?
-  createdSupervisorId    Int?
-  createdSupervisor      Supervisor?      @relation("CreatedSupervisorAccessRequests", fields: [createdSupervisorId], references: [id], onDelete: SetNull)
-  createdDriverId        Int?
-  createdDriver          Driver?          @relation("CreatedDriverAccessRequests", fields: [createdDriverId], references: [id], onDelete: SetNull)
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
-
-  @@index([role, status, createdAt])
-  @@index([phone, role])
-  @@index([telegramId, role])
-  @@index([requestedSupervisorId, status])
-  @@index([requestedPointId, status])
-  @@index([approvedByHqAdminId, createdAt])
-  @@index([approvedBySupervisorId, createdAt])
-}
-
-model BotEvent {
-  id           Int            @id @default(autoincrement())
-  sourceBot    BotEventSource
-  eventType    String
-  entityType   String?
-  entityId     Int?
-  severity     EventSeverity  @default(info)
-  title        String
-  message      String
-  status       BotEventStatus @default(new_)
-  dedupeKey    String?        @unique
-  payload      Json?
-  requestId    Int?
-  collectionId Int?
-  supervisorId Int?
-  driverId     Int?
-  pointId      Int?
-  userId       Int?
-  processedAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  @@index([sourceBot, createdAt])
-  @@index([severity, createdAt])
-  @@index([status, createdAt])
-  @@index([eventType, createdAt])
-  @@index([requestId, createdAt])
-  @@index([collectionId, createdAt])
-  @@index([supervisorId, createdAt])
-  @@index([driverId, createdAt])
-}
-
 model Product {
   id              Int           @id @default(autoincrement())
   name            String
@@ -601,6 +339,8 @@ model Product {
   status          ProductStatus @default(active)
   isFeatured      Boolean       @default(false) // Kategoriya namuna mahsuloti
   sourceUrl       String?
+  // v2: ulgurji narx pog'onalari [{"minQty":100,"price":"1200"}]
+  priceTiers      Json          @default("[]")
   items           OrderItem[]
 
   inventory      Inventory[]
@@ -615,23 +355,28 @@ model Product {
 }
 
 model Category {
-  id        Int        @id @default(autoincrement())
-  name      String
-  slug      String     @unique
-  image     String?
-  parentId  Int?
-  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Category[] @relation("CategoryTree")
-  products  Product[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id              Int        @id @default(autoincrement())
+  name            String
+  slug            String     @unique
+  image           String?
+  parentId        Int?
+  parent          Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Category[] @relation("CategoryTree")
+  products        Product[]
+  // v2: tarjimalar va SEO matni (kategoriya sahifasi uchun)
+  nameI18n        Json       @default("{}") // {"uz":"...","ru":"...","en":"..."}
+  descriptionI18n Json       @default("{}") // Kategoriya sahifasidagi SEO matn
+  sortOrder       Int        @default(0)
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   @@index([parentId])
 }
 
 model Order {
   id             Int     @id @default(autoincrement())
-  telegramUserId String? // ID from Telegram
+  telegramUserId String? // Mijoz botida shu buyurtma havolasi (/start <token>) orqali ulangan Telegram ID
   customerName   String?
   contactPhone   String?
 
@@ -656,11 +401,32 @@ model Order {
   deliveredAt DateTime? // Yetkazilgan
   cancelledAt DateTime? // Bekor qilingan
 
+  // v2: narx tarkibi, promokod, kuzatuv havolasi
+  subtotal       Decimal? @db.Decimal(18, 2)
+  discountAmount Decimal  @default(0) @db.Decimal(18, 2)
+  deliveryFee    Decimal  @default(0) @db.Decimal(18, 2)
+  promoCode      String?
+  accessToken    String?  @unique // Mehmon buyurtmani ko'rishi uchun maxfiy kalit
+  // v2: marketing manbasi (UTM)
+  source         String? // web, telegram, admin
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+  referrer       String?
+  landingPage    String?
+  // v3 (B2B): yuridik shaxs rekvizitlari, hisob-faktura uchun
+  companyName    String?
+  companyInn     String?
+
   items             OrderItem[]
   corporateInvoices CorporateInvoice[]
   paymeTransactions PaymeTransaction[]
+  workOrders        WorkOrder[]
 
   staffTasks Task[]
+  events     OrderEvent[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -669,6 +435,23 @@ model Order {
   @@index([userId])
   @@index([status, createdAt])
   @@index([paymentStatus])
+  @@index([contactPhone])
+  @@index([telegramUserId])
+}
+
+// Buyurtma tarixi: holat va to'lov o'zgarishlari (kim, qayerdan). Admin sahifasi, botlar va tekshiruvlar uchun
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind      String // status | payment
+  fromValue String?
+  toValue   String
+  actor     String? // xodim ismi yoki tizim nomi
+  via       String // admin | staff_bot | payme | click | invoice | system
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 model OrderItem {
@@ -770,24 +553,36 @@ model WorkOrder {
 
   // ─── Gofrokarton / Qadoq xususiyatlari ───
   size         String? // Mahsulot o'lchami ("Размер")
-  sheetLength  Float?  // List uzunligi
-  sheetWidth   Float?  // List kengligi
-  areaPerPiece Float?  // 1 dona uchun maydon (m2)
-  totalArea    Float?  // Umumiy maydon (m2)
-  
-  layerCount   Int?    // Qatlamlar soni (Слой)
-  layer1       String? // 1-qatlam
-  layer2       String? // 2-qatlam
-  layer3       String? // 3-qatlam
-  layer4       String? // 4-qatlam
-  layer5       String? // 5-qatlam
-  
-  printType    String? // Pechat turi (п/б)
+  sheetLength  Float? // List uzunligi
+  sheetWidth   Float? // List kengligi
+  areaPerPiece Float? // 1 dona uchun maydon (m2)
+  totalArea    Float? // Umumiy maydon (m2)
+
+  layerCount Int? // Qatlamlar soni (Слой)
+  layer1     String? // 1-qatlam
+  layer2     String? // 2-qatlam
+  layer3     String? // 3-qatlam
+  layer4     String? // 4-qatlam
+  layer5     String? // 5-qatlam
+
+  printType String? // Pechat turi (п/б)
+
+  // v3 (B2B): qaysi buyurtma yoki ariza uchun
+  orderId       Int?
+  order         Order?  @relation(fields: [orderId], references: [id])
+  leadId        Int?
+  lead          Lead?   @relation(fields: [leadId], references: [id])
+  customerPhone String?
+  notes         String?
 
   stages WorkOrderStage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([leadId])
+  @@index([status, deadline])
 }
 
 model WorkOrderStage {
@@ -823,433 +618,34 @@ model News {
   updatedAt   DateTime @updatedAt
 }
 
-// ─── Qayta ishlash bo'limi (Makulatura) ──────────────────────────────────────
+// ─── Telegram botlar ─────────────────────────────────────────────────────────
 
-// Yig'ish bazasi
-model RecyclePoint {
-  id              Int                @id @default(autoincrement())
-  regionUz        String
-  regionRu        String
-  cityUz          String
-  cityRu          String
-  phone           String
-  address         String? // Baza manzili
-  lat             Float? // Kenglik (koordinata)
-  lng             Float? // Uzunlik (koordinata)
-  pricePerKg      Decimal            @default(800) @db.Decimal(18, 2) // Default narx (so'm/kg) — masul+admin belgilaydi
-  driverRatePerKg Decimal            @default(100) @db.Decimal(18, 2) // Haydovchiga 1 kg uchun to'lov (so'm/kg)
-  status          RecyclePointStatus @default(active)
-  color           String             @default("bg-emerald-500")
-  workingHours    String             @default("08:00-18:00") // Ish tartibi
-  isAccepting     Boolean            @default(true) // Hozir qabul qilayaptimi (masul boshqaradi)
+// Telegram bot suhbat holati (webhook'lar orasida saqlanadi; server qayta ishga tushsa ham yo'qolmaydi)
+model BotSession {
+  id         Int      @id @default(autoincrement())
+  bot        String // customer | staff | staff_code (boshqaruv botida noto'g'ri ulash kodlari hisobi — telegram/session.ts SessionScope)
+  telegramId String
+  data       Json
+  updatedAt  DateTime @updatedAt
 
-  requests                  RecycleRequest[]
-  supervisors               Supervisor[]
-  drivers                   Driver[]
-  invitedDrivers            Driver[]                   @relation("DriverInvitedByPoint")
-  botAccessRequests         BotAccessRequest[]
-  intakeLogs                RecycleManualIntake[]
-  pressLogs                 RecyclePressLog[]
-  expenseLogs               RecycleExpenseLog[]
-  cashLogs                  RecycleDailyCash[]
-  salesLogs                 RecycleSalesLog[]
-  journalCorrectionRequests JournalCorrectionRequest[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@unique([bot, telegramId])
+  @@index([updatedAt])
 }
 
-// Masul shaxs (Supervisor) — hududga biriktrilgan
-model Supervisor {
-  id           Int           @id @default(autoincrement())
-  name         String
-  phone        String        @unique
-  telegramId   String?       @unique // Telegram user ID
-  telegramName String?
-  pointId      Int? // Biriktrilgan baza
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-  isActive     Boolean       @default(true)
-
-  registrationCode String?   @unique // 5 raqamli kod (botda ro'yxatdan o'tish uchun)
-  registeredAt     DateTime? // Botda ro'yxatdan o'tgan vaqti
-
-  drivers                 Driver[]
-  invitedDrivers          Driver[]              @relation("DriverInvitedBy")
-  requestedAccessRequests BotAccessRequest[]    @relation("RequestedSupervisorAccessRequests")
-  approvedAccessRequests  BotAccessRequest[]    @relation("SupervisorApprovedAccessRequests")
-  createdAccessRequests   BotAccessRequest[]    @relation("CreatedSupervisorAccessRequests")
-  requests                RecycleRequest[] // Yo'naltirilgan arizalar
-  intakeLogs              RecycleManualIntake[]
-  pressLogs               RecyclePressLog[]
-  expenseLogs             RecycleExpenseLog[]
-  cashLogs                RecycleDailyCash[]
-  salesLogs               RecycleSalesLog[]
-
-  journalCorrectionRequests JournalCorrectionRequest[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([pointId])
-}
-
-// Mas'ul jurnal yozuvlarini tahrirlash — HQ admin tasdig'i bilan
-model JournalCorrectionRequest {
-  id           Int                  @id @default(autoincrement())
-  status       BotAccessStatus      @default(pending)
-  entityType   CorrectionEntityType
-  entityId     Int
-  supervisorId Int
-  supervisor   Supervisor           @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
-  pointId      Int?
-  point        RecyclePoint?        @relation(fields: [pointId], references: [id], onDelete: SetNull)
-
-  previousPayload Json
-  proposedPayload Json
-  summaryLine     String
-
-  reviewedByHqAdminId Int?
-  reviewedByHqAdmin   TelegramHqAdmin? @relation(fields: [reviewedByHqAdminId], references: [id], onDelete: SetNull)
-  reviewedAt          DateTime?
-  rejectReason        String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status, createdAt])
-  @@index([supervisorId, status])
-}
-
-// Haydovchi
-model Driver {
-  id           Int           @id @default(autoincrement())
-  name         String
-  phone        String        @unique
-  email        String?       @unique // Email pochta (ixtiyoriy)
-  passwordHash String? // Parol (hashed)
-  telegramId   String?       @unique
-  telegramName String?
-  supervisorId Int? // Qaysi masul ostida
-  supervisor   Supervisor?   @relation(fields: [supervisorId], references: [id])
-  pointId      Int? // Qaysi baza hududida
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-  status       DriverStatus  @default(active)
-  isOnline     Boolean       @default(false)
-  vehicleInfo  String? // Mashina ma'lumoti
-  lastSeenAt   DateTime?
-  lastLat      Float? // Oxirgi GPS kenglik
-  lastLng      Float? // Oxirgi GPS uzunlik
-
-  // Yandex Pro uslubidagi tariflar - haydovchi qabul qiladigan material turlari
-  // Mumkin qiymatlar: maklatura, sellofan, bakalashka, aluminiy, shisha, qurilish
-  acceptedMaterials String[] @default([])
-
-  registrationCode String?   @unique // 5 raqamli kod (botda ro'yxatdan o'tish uchun)
-  registeredAt     DateTime? // Botda ro'yxatdan o'tgan vaqti
-
-  // Bot orqali ro'yxatdan o'tganda kim va qaysi punkt taqdim etganligini audit qilish
-  invitedBySupervisorId Int? // Tasdiqlash kodi/parolni bergan masul
-  invitedBySupervisor   Supervisor?   @relation("DriverInvitedBy", fields: [invitedBySupervisorId], references: [id])
-  invitedByPointId      Int? // Qaysi baza/punkt orqali kirgani
-  invitedByPoint        RecyclePoint? @relation("DriverInvitedByPoint", fields: [invitedByPointId], references: [id])
-  invitedAt             DateTime? // Taklif qilingan vaqt
-  passwordSetByBotAt    DateTime? // Bot tomonidan random parol o'rnatilgan vaqt
-
-  collections           RecycleCollection[]
-  assignedRequests      RecycleRequest[]
-  createdAccessRequests BotAccessRequest[]  @relation("CreatedDriverAccessRequests")
-  cards                 DriverCard[]
-  transactions          DriverTransaction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([supervisorId])
-  @@index([pointId])
-}
-
-// Haydovchi plastik kartasi
-model DriverCard {
-  id          Int      @id @default(autoincrement())
-  driverId    Int
-  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  cardNumber  String // Masklangan: **** **** **** 1234
-  cardHolder  String // Karta egasi ismi
-  expiryMonth Int // Amal qilish muddati — oy
-  expiryYear  Int // Amal qilish muddati — yil
-  cardType    CardType @default(uzcard)
-  isDefault   Boolean  @default(false) // Asosiy karta
-  isActive    Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  transactions DriverTransaction[] // Bu karta bilan bog'liq tranzaksiyalar
-
-  @@index([driverId])
-}
-
-// Haydovchi to'lov tranzaksiyalari
-model DriverTransaction {
-  id           Int                     @id @default(autoincrement())
-  driverId     Int
-  driver       Driver                  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  type         DriverTransactionType
-  amount       Decimal                 @db.Decimal(18, 2) // Summa (so'm)
-  description  String? // Tavsif
-  status       DriverTransactionStatus @default(completed)
-  cardId       Int? // Qaysi kartaga (FK)
-  card         DriverCard?             @relation(fields: [cardId], references: [id], onDelete: SetNull)
-  collectionId Int? // Qaysi yig'ish uchun
-  metadata     Json? // Qo'shimcha ma'lumot
-
-  createdAt DateTime @default(now())
-
-  @@index([driverId])
-  @@index([createdAt])
-}
-
-// Mijoz arizasi (kengaytirilgan)
-model RecycleRequest {
-  id                 Int                 @id @default(autoincrement())
-  name               String
-  phone              String
-  // P2.5 audit: tarixiy nom — DB column `regionId` saqlanadi, kod `pointId` ishlatadi
-  pointId            Int                 @map("regionId")
-  point              RecyclePoint        @relation(fields: [pointId], references: [id])
-  material           MaterialType? // qog'oz, karton, gazeta, jurnal, ofis, kitob, aralash
-  volume             Int? // Taxminiy hajm (kg)
-  volumeSize         VolumeSize?
-  photoUrl           String? // Makulatura rasmi URL
-  pickupType         PickupType          @default(base)
-  pickupLocationMode PickupLocationMode?
-  address            String? // Mijoz manzili (pickup uchun) — matn
-  pickupLat          Float? // Pickup nuqtasi kenglik
-  pickupLng          Float? // Pickup nuqtasi uzunlik
-  customerTgId       String? // Mijoz Telegram ID (ixtiyoriy)
-  customerLang       CustomerLang        @default(uz)
-
-  // Dashboard & Gamification
-  userId Int? // Sayt/B2B foydalanuvchisi
-  user   User? @relation(fields: [userId], references: [id])
-
-  // Status pipeline: new → dispatched → assigned → en_route → arrived → collecting → collected → confirmed → completed / cancelled / disputed
-  status RecycleRequestStatus @default(new_)
-
-  // Dispatch zanjiri
-  supervisorId Int?
-  supervisor   Supervisor? @relation(fields: [supervisorId], references: [id])
-  dispatchedAt DateTime? // Admin masulga yo'naltirgan vaqt
-
-  assignedDriverId Int?
-  assignedDriver   Driver?   @relation(fields: [assignedDriverId], references: [id])
-  assignedAt       DateTime? // Haydovchi tayinlangan vaqt
-
-  // Jarayon vaqtlari
-  driverEnRouteAt DateTime? // Haydovchi yo'lga chiqdi
-  driverArrivedAt DateTime? // Haydovchi yetib keldi
-  collectedAt     DateTime? // Yuk yig'ildi
-  confirmedAt     DateTime? // Mijoz tasdiqladi
-  completedAt     DateTime? // To'liq yakunlandi
-
-  completedNote String?
-
-  collections RecycleCollection[]
-  complaints  RecycleComplaint[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([supervisorId])
-  @@index([assignedDriverId])
-  @@index([status, createdAt])
-  @@index([pointId, status])
-}
-
-// Yig'ish hisob-kitobi
-model RecycleCollection {
-  id        Int            @id @default(autoincrement())
-  requestId Int
-  request   RecycleRequest @relation(fields: [requestId], references: [id])
-  driverId  Int
-  driver    Driver         @relation(fields: [driverId], references: [id], onDelete: Restrict)
-
-  // Kalkulator: effectiveWeight = actualWeight - (actualWeight * discountPercent / 100)
-  // totalAmount = effectiveWeight * pricePerKg
-  actualWeight    Float // Haqiqiy og'irlik (kg)
-  discountPercent Float   @default(0) // Chegirma foizi (sifat, namlik va h.k.)
-  effectiveWeight Float // Hisoblangan og'irlik (kg)
-  pricePerKg      Decimal @db.Decimal(18, 2) // Narx (so'm/kg)
-  totalAmount     Decimal @db.Decimal(18, 2) // Jami summa (so'm)
-
-  discountReason String? // Chegirma sababi: namlik, iflos, yirtiq...
-  materialType   MaterialType? // qog'oz, karton, gazeta, jurnal, ofis, kitob, aralash
-  notes          String?
-
-  // Mijoz tasdiqlashi
-  customerConfirmed Boolean? // null=kutilmoqda, true=tasdiqladi, false=inkor
-  customerComment   String?
-
-  // Punkt'ga topshirish
-  deliveredToPoint Boolean   @default(false)
-  deliveredAt      DateTime?
-
-  // To'lov — masul belgilaydi: haydovchiga yoki mijozga
-  paymentStatus     RecyclePaymentStatus @default(pending)
-  paymentToDriver   Decimal?             @db.Decimal(18, 2) // Haydovchiga to'langan summa
-  paymentToCustomer Decimal?             @db.Decimal(18, 2) // Mijozga to'langan summa
-  paymentNote       String?
-  paidAt            DateTime?
-  paidBy            String? // Masul ismi
-
-  collectedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([requestId])
-  @@index([driverId])
-}
-
-// Masul tomonidan qo'lda kiritiladigan qabul jurnali
-model RecycleManualIntake {
-  id           Int           @id @default(autoincrement())
-  supervisorId Int
-  supervisor   Supervisor    @relation(fields: [supervisorId], references: [id])
-  pointId      Int?
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-
-  date        DateTime
-  weightKg    Float
-  pricePerKg  Decimal  @db.Decimal(18, 2)
-  totalAmount Decimal  @db.Decimal(18, 2)
-  note        String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([supervisorId, date])
-  @@index([pointId, date])
-}
-
-// Preslangan qog'oz toylari / ishlab chiqarish jurnali
-model RecyclePressLog {
-  id           Int           @id @default(autoincrement())
-  supervisorId Int
-  supervisor   Supervisor    @relation(fields: [supervisorId], references: [id])
-  pointId      Int?
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-
-  date      DateTime
-  pressedKg Float
-  baleCount Int
-  operators String?
-  note      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([supervisorId, date])
-  @@index([pointId, date])
-}
-
-// Ish haqi, xarajat va avans jurnali
-model RecycleExpenseLog {
-  id           Int           @id @default(autoincrement())
-  supervisorId Int
-  supervisor   Supervisor    @relation(fields: [supervisorId], references: [id])
-  pointId      Int?
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-
-  date          DateTime
-  expenseAmount Decimal  @default(0) @db.Decimal(18, 2)
-  advanceAmount Decimal  @default(0) @db.Decimal(18, 2)
-  comment       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([supervisorId, date])
-  @@index([pointId, date])
-}
-
-// Har kunlik kassa ochilishi
-model RecycleDailyCash {
-  id           Int           @id @default(autoincrement())
-  supervisorId Int
-  supervisor   Supervisor    @relation(fields: [supervisorId], references: [id])
-  pointId      Int?
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-
-  date           DateTime
-  openingBalance Decimal  @db.Decimal(18, 2)
-  note           String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([supervisorId, date])
-  @@index([pointId, date])
-}
-
-// Preslangan makulatura sotuv jurnali
-model RecycleSalesLog {
-  id           Int           @id @default(autoincrement())
-  supervisorId Int
-  supervisor   Supervisor    @relation(fields: [supervisorId], references: [id])
-  pointId      Int?
-  point        RecyclePoint? @relation(fields: [pointId], references: [id])
-
-  date         DateTime
-  customerName String
-  weightKg     Float
-  baleCount    Int      @default(0)
-  pricePerKg   Decimal  @db.Decimal(18, 2)
-  totalAmount  Decimal  @db.Decimal(18, 2)
-  vehicleType  String?
-  plateNumber  String?
-  note         String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([supervisorId, date])
-  @@index([pointId, date])
-  @@index([customerName])
-}
-
-// Shikoyat tizimi (2 darajali: masul → admin/direktor)
-model RecycleComplaint {
-  id        Int            @id @default(autoincrement())
-  requestId Int
-  request   RecycleRequest @relation(fields: [requestId], references: [id])
-
-  fromPhone String // Shikoyatchi telefoni
-  fromName  String
-  level     ComplaintLevel @default(supervisor)
-  message   String // Shikoyat matni
-
-  status      ComplaintStatus @default(open)
-  response    String? // Javob matni
-  respondedBy String?
-  resolvedAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([requestId])
-}
-
-// ─── Ekologik yutuqlar (Gamification Badges) ─────────────────────────────────
-model EcoAchievement {
-  id       Int      @id @default(autoincrement())
-  userId   Int
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badgeKey BadgeKey
-  earnedAt DateTime @default(now())
-
-  @@unique([userId, badgeKey])
-  @@index([userId])
+// Mijoz botidan foydalanuvchi: til va xabarnoma sozlamasi; telefon — faqat Telegram kontakti orqali tasdiqlangan
+// bo'lsa to'ldiriladi (shundan keyin buyurtmalar va balans ko'rinadi). Saytda ro'yxatdan o'tmagan mijoz ham bo'lishi mumkin.
+model TelegramCustomer {
+  id         Int       @id @default(autoincrement())
+  telegramId String    @unique
+  phone      String? // 998XXXXXXXXX
+  name       String?
+  lang       String    @default("uz") // uz | ru
+  notify     Boolean   @default(true) // buyurtma holati o'zgarsa xabar olish
+  verifiedAt DateTime? // telefon tasdiqlangan vaqt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([phone])
 }
 
 // ─── Ichki vazifalar / jamoa topshiriqlari (admin CRM ichki modul) ────────────
@@ -1407,8 +803,8 @@ model TaskNotification {
 model Contract {
   id         Int    @id @default(autoincrement())
   contractNo String @unique // SH-2026-001
-  userId     Int
-  user       User   @relation(fields: [userId], references: [id])
+  userId     Int?
+  user       User?  @relation(fields: [userId], references: [id])
 
   companyName  String // Kompaniya nomi
   inn          String? // INN (STIR raqami)
@@ -1417,6 +813,8 @@ model Contract {
   bankName     String? // Bank nomi
   directorName String? // Direktor ismi
 
+  address         String? // Yuridik manzil
+  phone           String? // Aloqa telefoni
   creditLimit     Decimal @default(0) @db.Decimal(18, 2) // Nasiya limiti (so'm)
   paymentTermDays Int     @default(15) // To'lov muddati (kun)
 
@@ -1436,12 +834,12 @@ model Contract {
 
 // ─── Korporativ hisob-faktura ────────────────────────────────────────────────
 model CorporateInvoice {
-  id         Int      @id @default(autoincrement())
-  invoiceNo  String   @unique // INV-2026-0001
-  contractId Int
-  contract   Contract @relation(fields: [contractId], references: [id])
+  id         Int       @id @default(autoincrement())
+  invoiceNo  String    @unique // INV-2026-0001
+  contractId Int?
+  contract   Contract? @relation(fields: [contractId], references: [id])
   orderId    Int
-  order      Order    @relation(fields: [orderId], references: [id])
+  order      Order     @relation(fields: [orderId], references: [id])
 
   subtotal    Decimal @db.Decimal(18, 2) // QQS siz summa
   vatPercent  Float   @default(12) // QQS foizi
@@ -1490,4 +888,175 @@ model StoryView {
 
   @@unique([storyId, viewerId])
   @@index([viewerId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v2 (sayt qayta yozilgan, 2026-10): marketing va kontent
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum DiscountType {
+  percent
+  fixed
+}
+
+model PromoCode {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique
+  type        DiscountType @default(percent)
+  value       Decimal      @db.Decimal(18, 2)
+  minSubtotal Decimal      @default(0) @db.Decimal(18, 2)
+  maxUses     Int?
+  usedCount   Int          @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isActive    Boolean      @default(true)
+  note        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Banner {
+  id        Int      @id @default(autoincrement())
+  titleI18n Json     @default("{}")
+  textI18n  Json     @default("{}")
+  image     String?
+  href      String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+model Review {
+  id         Int          @id @default(autoincrement())
+  productId  Int?
+  authorName String
+  company    String?
+  rating     Int          @default(5)
+  text       String
+  status     ReviewStatus @default(pending)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([productId])
+}
+
+model Post {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  titleI18n   Json      @default("{}")
+  excerptI18n Json      @default("{}")
+  bodyI18n    Json      @default("{}") // Markdown matn har til uchun
+  cover       String?
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
+}
+
+model FaqItem {
+  id           Int      @id @default(autoincrement())
+  questionI18n Json     @default("{}")
+  answerI18n   Json     @default("{}")
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum LeadType {
+  wholesale // Ulgurji narx so'rash
+  custom_box // Individual quti / bepul maket
+  callback // Qayta qo'ng'iroq
+  contact // Aloqa formasi
+  recycling // Eski (makulatura yo'nalishi olib tashlangan): faqat tarixiy arizalar uchun qoldirilgan
+}
+
+enum LeadStatus {
+  new_        @map("new")
+  in_progress
+  done
+  rejected
+}
+
+model Lead {
+  id          Int        @id @default(autoincrement())
+  type        LeadType
+  status      LeadStatus @default(new_)
+  name        String
+  phone       String
+  company     String?
+  message     String?
+  details     Json       @default("{}") // o'lcham, soni, logotip, manzil va h.k.
+  productId   Int?
+  managerNote String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  landingPage String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  workOrders WorkOrder[]
+
+  @@index([type, status, createdAt])
+}
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Sun'iy intellekt (Anthropic Claude) ─────────────────────────────────────
+
+// Kunlik tekshiruv hisoboti: aniq qoidalar bo'yicha topilgan muammolar (checks) va ularning AI yozgan xulosasi (summary)
+model AuditReport {
+  id        Int      @id @default(autoincrement())
+  trigger   String // cron | manual
+  checks    Json // [{ key, severity, title, count, items, link }]
+  summary   Json? // { headline, priorities: [{ title, why, action }], note } — AI kaliti bo'lmasa null
+  model     String? // xulosani yozgan model
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// AI so'rovlari hisobi kunlar bo'yicha (Toshkent sanasi): kunlik chegara va xarajatni kuzatish uchun
+model AiUsage {
+  day          String   @id // YYYY-MM-DD
+  requests     Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Ishonchlilik ────────────────────────────────────────────────────────────
+
+// Darhol yuborib bo'lmagan bot xabarlari navbati (Telegram vaqtincha ishlamaganda): davriy signal qayta yuboradi (telegram/outbox.ts)
+model BotOutbox {
+  id        Int       @id @default(autoincrement())
+  bot       String // customer | staff
+  chatId    String
+  topic     String? // bitta narsaning holati haqidagi xabarlar (masalan order-status:15): yangisi chiqsa navbatdagi eskisi bekor bo'ladi
+  html      String
+  inline    Json? // inline tugmalar
+  attempts  Int       @default(1) // shu paytgacha urinishlar soni (birinchisi — darhol yuborishga urinish)
+  nextAt    DateTime // keyingi urinish vaqti
+  lastError String?
+  sentAt    DateTime? // yetib bordi
+  failedAt  DateTime? // urinishlar tugadi, doimiy xato yoki eskirgan — endi yuborilmaydi
+  createdAt DateTime  @default(now())
+
+  @@index([sentAt, failedAt, nextAt])
+  @@index([bot, chatId, topic])
 }

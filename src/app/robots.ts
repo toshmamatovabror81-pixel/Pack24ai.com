@@ -1,29 +1,22 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from 'next';
+import { siteUrl } from '@/lib/site';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pack24.uz';
+// Build vaqtida emas, so'rov kelganda yasaladi: SITE_ENV va APP_URL .env dan o'qiladi
+export const dynamic = 'force-dynamic';
 
 export default function robots(): MetadataRoute.Robots {
-    return {
-        rules: [
-            {
-                userAgent: '*',
-                allow: '/',
-                disallow: [
-                    '/admin/',
-                    '/api/',
-                    '/profile/',
-                    '/cart/',
-                    '/checkout/',
-                    '/_next/',
-                ],
-            },
-            {
-                userAgent: 'Googlebot',
-                allow: '/',
-                disallow: ['/admin/', '/api/'],
-            },
-        ],
-        sitemap: `${BASE_URL}/sitemap.xml`,
-        host: BASE_URL,
-    };
+  // SITE_ENV=staging bo'lsa sayt indekslanmaydi
+  const isProd = (process.env.SITE_ENV || process.env.VERCEL_ENV || 'production') === 'production';
+  if (!isProd) return { rules: [{ userAgent: '*', disallow: '/' }] };
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: ['/admin', '/api/', '/*/cart', '/*/checkout', '/*/profile', '/*/orders/', '/*/login', '/*/register', '/*?q=', '/*?sort='],
+      },
+    ],
+    sitemap: `${siteUrl()}/sitemap.xml`,
+    host: siteUrl(),
+  };
 }

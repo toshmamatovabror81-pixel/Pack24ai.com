@@ -1,0 +1,51 @@
+name: Uptime
+
+# pack24.uz ni tashqaridan tekshiradi. Server butunlay o'chib qolsa (hosting, tarmoq, disk) serverdagi kuzatuv
+# (deploy/watchdog.sh) xabar bera olmaydi — bu tekshiruv GitHub serverlaridan ishlaydi.
+# Sayt ochilmasa "pack24.uz ishlamayapti" nomli issue ochiladi (GitHub repo egasiga email yuboradi), tiklangach yopiladi.
+# Hech qanday kalit kerak emas. Diqqat: jadval bo'yicha ishga tushish faqat asosiy branch'da (main) ishlaydi,
+# GitHub uni bir necha daqiqaga kechiktirishi mumkin. Ochiq repoda 60 kun commit bo'lmasa GitHub jadvalni o'chirib qo'yadi
+# (oldindan email yuboradi) — Actions > Uptime > Enable workflow.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Saytni tashqaridan tekshirish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sayt javob beryaptimi (3 urinish)
+        id: probe
+        run: |
+          ok=0
+          for i in 1 2 3; do
+            if curl -fsS -m 20 -o /dev/null https://pack24.uz/api/health; then ok=1; break; fi
+            sleep 20
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
+      - name: Issue ochish yoki yopish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OK: ${{ steps.probe.outputs.ok }}
+          REPO: ${{ github.repository }}
+        run: |
+          open="$(gh issue list -R "$REPO" --state open --label uptime --json number --jq '.[0].number // empty')"
+          if [ "$OK" = "1" ]; then
+            if [ -n "$open" ]; then gh issue close "$open" -R "$REPO" --comment "Sayt yana ishlayapti."; fi
+          elif [ -z "$open" ]; then
+            gh label create uptime -R "$REPO" --color B60205 --description "Sayt tashqaridan ochilmayapti" 2>/dev/null || true
+            gh issue create -R "$REPO" --label uptime --title "pack24.uz ishlamayapti" \
+              --body "https://pack24.uz/api/health tashqaridan 3 urinishda ham ochilmadi. Serverni tekshiring: hosting kabineti (server yoqilganmi), keyin serverda \`docker compose ps\` va \`/var/log/pack24-update.log\`. Sayt tiklangach bu issue o'zi yopiladi."
+          fi

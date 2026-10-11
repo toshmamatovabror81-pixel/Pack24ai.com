@@ -1,155 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { toNumber } from '@/lib/money';
-import { logger } from '@/lib/logger';
-import { createHash } from 'crypto';
+import { NextResponse, type NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { toNumber } from '@/lib/format';
+import { notifyAdmins } from '@/lib/telegram';
+import { clickSignatureValid, type ClickParams } from '@/lib/payments/click';
+import { recordPayment } from '@/lib/payments/record';
 
-// ─── Click Uzbekistan to'lov integratsiyasi ─────────────────────────────────
-// Hujjatlar: https://docs.click.uz/
+// Click Shop API: PREPARE (action=0) va COMPLETE (action=1). Kabinetda ikkala URL ham shu manzil.
 
-const CLICK_SERVICE_ID       = process.env.CLICK_SERVICE_ID       ?? '';
-const CLICK_MERCHANT_ID      = process.env.CLICK_MERCHANT_ID      ?? '';
-const CLICK_SECRET_KEY       = process.env.CLICK_SECRET_KEY       ?? '';
-const _CLICK_MERCHANT_USER_ID = process.env.CLICK_MERCHANT_USER_ID ?? '';
+const reply = (p: Partial<ClickParams>, error: number, note: string, extra: Record<string, unknown> = {}) =>
+  NextResponse.json({ click_trans_id: p.click_trans_id, merchant_trans_id: p.merchant_trans_id, error, error_note: note, ...extra });
 
-/** Click MD5 imzosi */
-function clickSign(parts: string[]): string {
-    return createHash('md5').update(parts.join('')).digest('hex');
+async function handle(form: URLSearchParams) {
+  const p = Object.fromEntries(form.entries()) as unknown as ClickParams;
+  if (!clickSignatureValid(p)) return reply(p, -1, 'SIGN CHECK FAILED');
+  if (p.action !== '0' && p.action !== '1') return reply(p, -3, 'Action not found');
+
+  const orderId = Number(p.merchant_trans_id);
+  const order = Number.isSafeInteger(orderId) ? await prisma.order.findUnique({ where: { id: orderId } }) : null;
+  if (!order || order.deletedAt) return reply(p, -5, 'User does not exist');
+  if (order.status === 'cancelled') return reply(p, -9, 'Transaction cancelled');
+
+  const amountOk = Math.round(Number(p.amount) * 100) === Math.round(toNumber(order.totalAmount) * 100);
+  if (!amountOk) return reply(p, -2, 'Incorrect parameter amount');
+
+  if (p.action === '0') {
+    if (order.paymentStatus === 'paid') return reply(p, -4, 'Already paid');
+    return reply(p, 0, 'Success', { merchant_prepare_id: order.id });
+  }
+
+  // COMPLETE
+  if (p.merchant_prepare_id !== String(order.id)) return reply(p, -6, 'Transaction does not exist');
+  if (order.paymentStatus === 'paid') return reply(p, -4, 'Already paid', { merchant_confirm_id: order.id });
+  if (Number(p.error) < 0) {
+    await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: 'failed' } });
+    // Click o'sha COMPLETE'ni qayta yuborsa tarix ko'paymasin; mijozning keyingi (boshqa kungi) muvaffaqiyatsiz urinishi esa alohida
+    // yoziladi — kunlik tekshiruv "oxirgi 24 soatda o'tmagan to'lovlar"ni shu tarixdan oladi
+    const repeat = order.paymentStatus === 'failed'
+      && (await prisma.orderEvent.count({ where: { orderId: order.id, kind: 'payment', toValue: 'failed', createdAt: { gt: new Date(Date.now() - 10 * 60_000) } } })) > 0;
+    if (!repeat) await recordPayment({ ...order, paymentStatus: 'failed' }, order.paymentStatus, { name: 'Click', via: 'click' });
+    return reply(p, -9, 'Transaction cancelled');
+  }
+  // Takroriy so'rovda ikki marta "to'landi" bo'lmasligi uchun shartli yangilash
+  const updated = await prisma.order.updateMany({
+    where: { id: order.id, paymentStatus: { not: 'paid' } },
+    data: { paymentStatus: 'paid', paymentMethod: 'click', confirmedAt: new Date() },
+  });
+  if (updated.count === 1) {
+    await notifyAdmins([`✅ Click: buyurtma #${order.id} to'landi (${p.amount} so'm)`]);
+    await recordPayment({ ...order, paymentStatus: 'paid' }, order.paymentStatus, { name: 'Click', via: 'click' });
+  }
+  return reply(p, 0, 'Success', { merchant_confirm_id: order.id });
 }
 
-// ─── POST /api/payment/click — to'lov URL yaratish ───────────────────────────
 export async function POST(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Auth kerak' }, { status: 401 });
-        }
-
-        const body = await req.json();
-        const { orderId, amount, returnUrl } = body;
-
-        if (!orderId || !amount) {
-            return NextResponse.json({ error: 'orderId va amount majburiy' }, { status: 400 });
-        }
-
-        // Buyurtma egasini tekshirish
-        const order = await prisma.order.findUnique({ where: { id: parseInt(orderId) } });
-        if (!order || order.userId !== parseInt(session.user.id)) {
-            return NextResponse.json({ error: 'Buyurtma topilmadi yoki ruxsat yo\'q' }, { status: 403 });
-        }
-
-        // Summani tiyin ga o'tkazish (1 so'm = 100 tiyin)
-        const amountInTiyin = Math.round(amount * 100);
-
-        const params = new URLSearchParams({
-            service_id:        CLICK_SERVICE_ID,
-            merchant_id:       CLICK_MERCHANT_ID,
-            amount:            amountInTiyin.toString(),
-            transaction_param: orderId.toString(),
-            return_url:        returnUrl ?? `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-        });
-
-        const clickPayUrl = `https://my.click.uz/services/pay?${params.toString()}`;
-
-        return NextResponse.json({ payUrl: clickPayUrl, orderId, amount });
-    } catch (error) {
-        logger.error('[API/payment/click POST]', {}, error);
-        return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
-    }
-}
-
-// ─── GET /api/payment/click — Click PREPARE & COMPLETE webhook ───────────────
-// Click bu endpointga PREPARE (action=0) va COMPLETE (action=1) so'rovlar yuboradi
-export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-
-    const clickTransId    = searchParams.get('click_trans_id') ?? '';
-    const serviceId       = searchParams.get('service_id') ?? '';
-    const _clickPaydocId   = searchParams.get('click_paydoc_id') ?? '';
-    const merchantTransId = searchParams.get('merchant_trans_id') ?? ''; // orderId
-    const rawAmount        = searchParams.get('amount') ?? '0';
-    const amount          = parseFloat(rawAmount);
-    const action          = searchParams.get('action') ?? '0'; // '0' = PREPARE, '1' = COMPLETE
-    const error           = searchParams.get('error') ?? '0';
-    const _errorNote       = searchParams.get('error_note') ?? '';
-    const signTime        = searchParams.get('sign_time') ?? '';
-    const signString      = searchParams.get('sign_string') ?? '';
-
-    const orderId = parseInt(merchantTransId);
-
-    // ── Imzoni tekshirish ────────────────────────────────────────────────────
-    const expectedSign = clickSign([
-        clickTransId, serviceId, CLICK_SECRET_KEY, merchantTransId,
-        rawAmount, action, signTime,
-    ]);
-    if (expectedSign !== signString) {
-        return NextResponse.json({
-            error: -1,
-            error_note: 'SIGN CHECK FAILED',
-        });
-    }
-
-    // ── Orderni topish ───────────────────────────────────────────────────────
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) {
-        return NextResponse.json({ error: -5, error_note: 'ORDER NOT FOUND' });
-    }
-
-    // ── PREPARE (action=0) ───────────────────────────────────────────────────
-    if (action === '0') {
-        if (order.paymentStatus === 'paid') {
-            return NextResponse.json({ error: -4, error_note: 'ALREADY PAID' });
-        }
-        return NextResponse.json({
-            click_trans_id:    clickTransId,
-            merchant_trans_id: merchantTransId,
-            merchant_prepare_id: order.id,
-            error: 0,
-            error_note: 'Success',
-        });
-    }
-
-    // ── COMPLETE (action=1) ──────────────────────────────────────────────────
-    if (action === '1') {
-        // Summa tekshirish
-        if (Math.abs(toNumber(order.totalAmount) * 100 - amount * 100) > 1) {
-            return NextResponse.json({ error: -2, error_note: 'AMOUNT MISMATCH' });
-        }
-
-        if (parseInt(error) < 0) {
-            // To'lov bekor qilindi
-            await prisma.order.update({
-                where: { id: orderId },
-                data: { paymentStatus: 'failed' },
-            });
-            return NextResponse.json({
-                click_trans_id:    clickTransId,
-                merchant_trans_id: merchantTransId,
-                merchant_confirm_id: order.id,
-                error: 0,
-                error_note: 'Success',
-            });
-        }
-
-        // To'lov muvaffaqiyatli
-        await prisma.order.update({
-            where: { id: orderId },
-            data: {
-                paymentStatus: 'paid',
-                status: 'processing',
-            },
-        });
-
-        return NextResponse.json({
-            click_trans_id:    clickTransId,
-            merchant_trans_id: merchantTransId,
-            merchant_confirm_id: order.id,
-            error: 0,
-            error_note: 'Success',
-        });
-    }
-
-    return NextResponse.json({ error: -3, error_note: 'ACTION NOT FOUND' });
+  const form = new URLSearchParams(await req.text());
+  return handle(form);
 }

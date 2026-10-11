@@ -1,0 +1,35 @@
+name: Deploy
+
+# main'ga push bo'lganda serverga avtomatik joylash (SSH orqali deploy/deploy.sh).
+# GitHub > Settings > Secrets and variables > Actions ga qo'shiladi:
+#   DEPLOY_HOST (server IP), DEPLOY_USER (masalan root), DEPLOY_SSH_KEY (private key)
+# Secrets bo'lmasa workflow hech narsa qilmaydi.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secrets tekshiruvi
+        id: cfg
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "DEPLOY_HOST yo'q, o'tkazib yuborildi"; fi
+      - name: Serverda deploy.sh
+        if: steps.cfg.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
+          script: BRANCH=${{ github.ref_name }} /opt/pack24/deploy/deploy.sh
