@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Order, OrderStatus, ProductionStage } from '@prisma/client';
+import { can } from './auth/permissions';
 import { prisma } from './db';
 import { displayPhone, formatDate, formatPrice } from './format';
 import { getDict } from './i18n';
@@ -12,7 +13,7 @@ import { orderRecipients, type BotLang } from './telegram/customers';
 import { notifyCustomer, notifyStaff, staleInFlight } from './telegram/notify';
 import { supersedePrefix } from './telegram/outbox';
 import { staffOrder, staffOrderHtml, staffOrderKeyboard } from './telegram/staffCards';
-import { staffRecipients } from './telegram/staffLink';
+import { staffRecipients, type StaffUser } from './telegram/staffLink';
 
 /**
  * Buyurtma bo'yicha Telegram xabarnomalari: mijozga (mijoz boti) va xodimlarga (boshqaruv boti).
@@ -29,6 +30,13 @@ const T: Record<BotLang, {
   pickup: Partial<Record<OrderStatus, { label: string; note: string }>>;
   statusLabel: string;
   paid: (sum: string) => string;
+  /** Xato qo'yilgan "to'landi" belgisi olib tashlandi. `owed` — buyurtmadan to'lov kutilyaptimi (bekor qilingan buyurtmada yo'q) */
+  paymentReverted: (owed: boolean) => string;
+  /**
+   * "Qaytarilgan"dan "to'lanmagan"ga o'tgan buyurtma: belgi xato qo'yilganmi yoki pul haqiqatan qaytarilganmi — tizim ajrata olmaydi,
+   * shuning uchun "xato qo'yilgan edi" deyilmaydi (haqiqatan to'lab, pulini qaytarib olgan mijozga bu noto'g'ri bo'lardi)
+   */
+  paymentReset: (owed: boolean) => string;
   /** `due` bo'sh — to'lanadigan narsa qolmagan (buyurtma to'langan, puli qaytarilgan yoki bekor qilingan): to'lov muddati yozilmaydi */
   invoice: (no: string, sum: string, due: string | null) => string;
   production: (product: string, stage: string, pct: number) => string;
@@ -55,6 +63,9 @@ const T: Record<BotLang, {
     },
     statusLabel: 'Holati',
     paid: (sum) => `To'lov qabul qilindi: <b>${sum}</b>`,
+    // "bekor qilindi" deyilmaydi: sarlavhadagi "Buyurtma #N" bilan birga buyurtmaning o'zi bekor qilingandek o'qilardi
+    paymentReverted: (owed) => `Tuzatish: bu buyurtma bo'yicha «to'lov qabul qilindi» belgisi xato qo'yilgan edi — u olib tashlandi.${owed ? " Buyurtma hozircha <b>to'lanmagan</b> deb hisoblanadi." : ''} Noqulaylik uchun uzr so'raymiz.`,
+    paymentReset: (owed) => `Bu buyurtma bo'yicha «to'lov qabul qilindi» belgisi olib tashlandi.${owed ? " Buyurtma hozircha <b>to'lanmagan</b> deb hisoblanadi." : ''}`,
     invoice: (no, sum, due) => `Hisob-faktura <b>${no}</b> tayyor.\nSumma: <b>${sum}</b>${due ? `\nTo'lov muddati: ${due}` : ''}`,
     production: (product, stage, pct) => `Ishlab chiqarish: ${product} — <b>${stage}</b> bosqichida (${pct}%)`,
     productionDone: (product) => `Ishlab chiqarish: ${product} — <b>tayyor</b> (100%)`,
@@ -80,6 +91,8 @@ const T: Record<BotLang, {
     },
     statusLabel: 'Статус',
     paid: (sum) => `Оплата получена: <b>${sum}</b>`,
+    paymentReverted: (owed) => `Исправление: отметка «оплата получена» по этому заказу была поставлена по ошибке и снята.${owed ? ' Заказ пока считается <b>неоплаченным</b>.' : ''} Приносим извинения за неудобство.`,
+    paymentReset: (owed) => `Отметка «оплата получена» по этому заказу снята.${owed ? ' Заказ пока считается <b>неоплаченным</b>.' : ''}`,
     invoice: (no, sum, due) => `Счёт-фактура <b>${no}</b> готов.\nСумма: <b>${sum}</b>${due ? `\nСрок оплаты: ${due}` : ''}`,
     production: (product, stage, pct) => `Производство: ${product} — этап <b>${stage}</b> (${pct}%)`,
     productionDone: (product) => `Производство: ${product} — <b>готово</b> (100%)`,
@@ -152,12 +165,33 @@ export async function notifyCustomerOrderStatus(order: OrderRef & Pick<Order, 'd
   }, `order-status:${order.id}`);
 }
 
+/**
+ * To'lov xabarlarining mavzusi: "to'lov qabul qilindi" va uning tuzatishi bir-birini navbatda bekor qiladi — Telegram vaqtincha
+ * javob bermay kechikkan "qabul qilindi" tuzatishdan KEYIN yetib bormaydi (mijozda aksincha ham: belgi qayta qo'yilsa eski tuzatish ketmaydi).
+ * Xodimlarda qo'lda qayta qo'yilgan belgi e'lon qilinmaydi, shuning uchun navbatdagi tuzatish kartasi ATAYLAB bekor qilinmaydi: chatda
+ * qolgan "To'lov qabul qilindi" kartasini faqat shu tuzatadi.
+ */
+const paymentTopic = (orderId: number) => `order-payment:${orderId}`;
+
 /** To'lov qabul qilindi (Payme / Click / naqd / bank o'tkazmasi) */
 export async function notifyCustomerPaid(order: OrderRef): Promise<number> {
   return toCustomers(order, (lang) => ({
     html: `✅ <b>${T[lang].order(order.id)}</b>\n${T[lang].paid(formatPrice(order.totalAmount, T[lang].sum))}`,
     inline: customerKeyboard(lang, order),
-  }));
+  }), paymentTopic(order.id));
+}
+
+/**
+ * Xato qo'yilgan "to'landi" belgisi bekor qilindi: mijoz oldin "to'lov qabul qilindi" xabarini olgan — tuzatish yuboriladi.
+ * `viaRefund` — buyurtma "qaytarilgan" orqali "to'lanmagan"ga o'tgan: sababi aytilmaydigan matn (paymentReset).
+ */
+export async function notifyCustomerPaymentReverted(order: OrderRef, viaRefund = false): Promise<number> {
+  const phone = (await getSettings().catch(() => null))?.phone;
+  return toCustomers(order, (lang) => ({
+    // Bekor qilingan buyurtmadan to'lov kutilmaydi (boshqa xabarlardagi qoida bilan bir xil — invoiceStatus.OWED_ORDER)
+    html: [`ℹ️ <b>${T[lang].order(order.id)}</b>`, T[lang][viaRefund ? 'paymentReset' : 'paymentReverted'](order.status !== 'cancelled'), phone ? T[lang].questions(esc(displayPhone(phone))) : null].filter(Boolean).join('\n'),
+    inline: customerKeyboard(lang, order),
+  }), paymentTopic(order.id));
 }
 
 /** Buyurtmaga hisob-faktura berildi */
@@ -194,10 +228,14 @@ export async function notifyCustomerProduction(wo: { id: number; orderId: number
   return n;
 }
 
-async function toStaff(section: 'orders' | 'leads' | 'finance', html: string, inline?: (canEdit: boolean) => InlineKeyboard): Promise<number> {
+/**
+ * `inline` — tugmalar har bir oluvchining o'z ruxsatiga qarab yasaladi (masalan «To'landi» faqat moliya ruxsati bor xodimga).
+ * `topic` — faqat to'lov kartalari uchun (paymentTopic): navbatda kechikkan "To'lov qabul qilindi" tuzatishdan keyin yetib bormasin.
+ */
+async function toStaff(section: 'orders' | 'leads' | 'finance', html: string, inline?: (to: StaffUser) => InlineKeyboard, topic?: string): Promise<number> {
   try {
     // Hammaga birdaniga: Telegram javob bermasa kutish xodimlar soniga ko'paymaydi (bitta chaqiruv muddati bilan cheklanadi)
-    const results = await Promise.allSettled((await staffRecipients(section)).map(async (u) => notifyStaff(u.telegramId, html, inline?.(true))));
+    const results = await Promise.allSettled((await staffRecipients(section)).map(async (u) => notifyStaff(u.telegramId, html, inline?.(u), topic)));
     return countSent(results, 'xodim');
   } catch (e) {
     console.error('[orderNotify] xodim', e);
@@ -206,11 +244,11 @@ async function toStaff(section: 'orders' | 'leads' | 'finance', html: string, in
 }
 
 /** Buyurtma kartasi "orders" ruxsati bor xodimlarga. Kartani yasash ham try ichida: bu yerdagi xato checkout yoki to'lov webhook'ini yiqitmasin. */
-async function staffCard(orderId: number, note: string): Promise<number> {
+async function staffCard(orderId: number, note: string, topic?: string): Promise<number> {
   try {
     const o = await staffOrder(orderId);
     if (!o) return 0;
-    return await toStaff('orders', staffOrderHtml(o, note), (canEdit) => staffOrderKeyboard(o, canEdit));
+    return await toStaff('orders', staffOrderHtml(o, note), (u) => staffOrderKeyboard(o, can(u.role, 'orders'), can(u.role, 'finance')), topic);
   } catch (e) {
     console.error('[orderNotify] xodim kartasi', orderId, e);
     return 0;
@@ -224,7 +262,12 @@ export async function notifyStaffNewOrder(orderId: number): Promise<number> {
 
 /** Onlayn to'lov keldi yoki hisob-faktura to'landi */
 export async function notifyStaffPaid(orderId: number, source: string): Promise<number> {
-  return staffCard(orderId, `✅ <b>To'lov qabul qilindi</b> (${esc(source)})`);
+  return staffCard(orderId, `✅ <b>To'lov qabul qilindi</b> (${esc(source)})`, paymentTopic(orderId));
+}
+
+/** Xodimlarga e'lon qilingan to'lov ("To'lov qabul qilindi" kartasi) xato bo'lib chiqdi: belgi bekor qilingani ham shu xodimlarga boradi */
+export async function notifyStaffPaymentReverted(orderId: number, source: string): Promise<number> {
+  return staffCard(orderId, `↩️ <b>To'lov belgisi bekor qilindi</b> (${esc(source)})`, paymentTopic(orderId));
 }
 
 /** Yangi ariza (ulgurji so'rov, aloqa formasi va h.k.): "leads" ruxsati bor xodimlarga */

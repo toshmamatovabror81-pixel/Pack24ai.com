@@ -12,6 +12,8 @@ import { clip, esc, type InlineKeyboard } from './api';
  *   os_<id>_<status>  holatni o'zgartirish (ORDER_FLOW bo'yicha)
  *   oc_<id>           bekor qilishni so'rash;  ocy_<id> tasdiqlash;  or_<id> kartani yangilash (bekor qilmaslik ham shu)
  *   op_<id>           naqd / bank o'tkazmasi to'lovini "to'langan" deb belgilashni so'rash;  opy_<id> tasdiqlash
+ *   ou_<id>           xato qo'yilgan "to'langan" belgisini bekor qilishni so'rash;  ouy_<id> tasdiqlash
+ * To'lov tugmalari (op_, ou_) faqat "finance" (moliya) ruxsati bor xodimga chiqadi va bot bosilganda ham shuni tekshiradi.
  */
 
 export const STAFF_ORDER_INCLUDE = {
@@ -73,21 +75,35 @@ export function staffOrderHtml(o: StaffOrder, note?: string): string {
 export const canMarkPaid = (o: Pick<StaffOrder, 'status' | 'paymentStatus' | 'paymentMethod'>): boolean =>
   isManualPayment(o.paymentMethod) && o.paymentStatus !== 'paid' && o.paymentStatus !== 'refunded' && o.status !== 'cancelled';
 
-/** `canEdit` — xodimda "orders" bo'limi ruxsati bormi (bo'lmasa faqat havola va yangilash) */
-export function staffOrderKeyboard(o: Pick<StaffOrder, 'id' | 'status' | 'paymentStatus' | 'paymentMethod'>, canEdit: boolean): InlineKeyboard {
+/**
+ * Xato qo'yilgan "to'landi" belgisini qachon bekor qilish mumkin: qo'lda belgilanadigan usul va hozir "to'langan".
+ * Onlayn to'lov (Payme / Click) bu yerga kirmaydi — uni to'lov tizimi belgilagan.
+ */
+export const canRevertPaid = (o: Pick<StaffOrder, 'paymentStatus' | 'paymentMethod'>): boolean => isManualPayment(o.paymentMethod) && o.paymentStatus === 'paid';
+
+/**
+ * `canEdit` — xodimda "orders" bo'limi ruxsati bormi (holat tugmalari); `canPay` — "finance" (moliya) ruxsati bormi (to'lov
+ * tugmalari: «To'landi» hisob-fakturani ham yopadi, shuning uchun uni faqat moliya ruxsati bor xodim bosadi). Ikkalasi ham
+ * bo'lmasa faqat havola va yangilash.
+ */
+export function staffOrderKeyboard(o: Pick<StaffOrder, 'id' | 'status' | 'paymentStatus' | 'paymentMethod'>, canEdit: boolean, canPay = false): InlineKeyboard {
   const rows: InlineKeyboard = [];
   if (canEdit) {
     const next = ORDER_FLOW[o.status].filter((s) => s !== 'cancelled');
     if (next.length) rows.push(next.map((s) => ({ text: NEXT_LABEL[s] ?? orderStatusNames[s], callback_data: `os_${o.id}_${s}` })));
-    const second: InlineKeyboard[number] = [];
-    if (canMarkPaid(o)) second.push({ text: "💵 To'landi", callback_data: `op_${o.id}` });
-    if (ORDER_FLOW[o.status].includes('cancelled')) second.push({ text: '❌ Bekor qilish', callback_data: `oc_${o.id}` });
-    if (second.length) rows.push(second);
   }
+  const second: InlineKeyboard[number] = [];
+  if (canPay && canMarkPaid(o)) second.push({ text: "💵 To'landi", callback_data: `op_${o.id}` });
+  if (canEdit && ORDER_FLOW[o.status].includes('cancelled')) second.push({ text: '❌ Bekor qilish', callback_data: `oc_${o.id}` });
+  if (second.length) rows.push(second);
+  // Alohida qatorda: matni uzun, buyurtmani «Bekor qilish» tugmasi bilan yonma-yon turib adashtirilmasin
+  if (canPay && canRevertPaid(o)) rows.push([{ text: "↩️ To'lov belgisini bekor qilish", callback_data: `ou_${o.id}` }]);
   rows.push([{ text: '🔄 Yangilash', callback_data: `or_${o.id}` }, { text: '🌐 Admin panel', url: `${siteUrl()}/admin/orders/${o.id}` }]);
   return rows;
 }
 
 export const cancelConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: 'Ha, bekor qilinsin', callback_data: `ocy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];
-/** To'lovni tasdiqlash: bir bosishda xato qo'yilmasin — hisob-faktura ham shu bilan yopiladi va botdan ortga qaytarilmaydi */
+/** To'lovni tasdiqlash: bir bosishda xato qo'yilmasin — hisob-faktura ham shu bilan yopiladi va mijozga xabar ketadi */
 export const payConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: "Ha, to'landi", callback_data: `opy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];
+/** To'lov belgisini bekor qilishni tasdiqlash: mijozga tuzatish xabari ketadi */
+export const revertConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: 'Ha, belgi bekor qilinsin', callback_data: `ouy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];

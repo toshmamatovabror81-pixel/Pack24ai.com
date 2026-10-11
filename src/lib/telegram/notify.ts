@@ -57,4 +57,4 @@ export function staleInFlight(kind: BotKind, topicPrefix: string): void {
 }
 
 export const notifyCustomer = (tgId: string | null | undefined, html: string, inline?: InlineKeyboard, topic?: string) => notify('customer', tgId, html, inline, {}, topic);
-export const notifyStaff = (tgId: string | null | undefined, html: string, inline?: InlineKeyboard) => notify('staff', tgId, html, inline);
+export const notifyStaff = (tgId: string | null | undefined, html: string, inline?: InlineKeyboard, topic?: string) => notify('staff', tgId, html, inline, {}, topic);

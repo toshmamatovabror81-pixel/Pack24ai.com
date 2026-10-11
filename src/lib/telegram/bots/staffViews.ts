@@ -9,7 +9,7 @@ import { clip, esc, keyboard, type InlineKeyboard, type ReplyKeyboard } from '..
 
 /**
  * Boshqaruv botining matnlari, tugmalari va kichik qoidalari. Bu yerda baza ham, ctx ham yo'q — shuning uchun
- * hammasi testda tekshiriladi (bot-staff.test.ts). Karta tugmalari (os_ oc_ ocy_ or_ op_) staffCards.ts da; bu yerda:
+ * hammasi testda tekshiriladi (bot-staff.test.ts). Karta tugmalari (os_ oc_ ocy_ or_ op_ opy_ ou_ ouy_) staffCards.ts da; bu yerda:
  *   sl_<ro'yxat>_<sahifa>  ro'yxatning boshqa sahifasi (◀️ ▶️)
  *   sb_<ro'yxat>_<sahifa>  shu sahifani yangilash; kartadagi "Ro'yxatga qaytish" ham aynan shu
  *   sx_y / sx_n            /stop tasdig'i
@@ -82,7 +82,10 @@ export function helpHtml(role: Role): string {
     '',
     ...(orders
       ? [
-          "<b>Buyurtma kartasi.</b> Ro'yxatda buyurtma raqamini bosing. Tugmalar holatni tartib bilan o'zgartiradi: «Qabul qilish» → «Jo'natildi» → «Yetkazildi»; «Bekor qilish» avval tasdiq so'raydi. Har o'zgarishda mijozga avtomatik xabar boradi. «To'landi» naqd yoki bank o'tkazmasi to'lovini belgilaydi — Payme va Click to'lovi o'zi belgilanadi.",
+          "<b>Buyurtma kartasi.</b> Ro'yxatda buyurtma raqamini bosing. Tugmalar holatni tartib bilan o'zgartiradi: «Qabul qilish» → «Jo'natildi» → «Yetkazildi»; «Bekor qilish» avval tasdiq so'raydi. Har o'zgarishda mijozga avtomatik xabar boradi.",
+          can(role, 'finance')
+            ? "«To'landi» naqd yoki bank o'tkazmasi to'lovini belgilaydi (hisob-faktura ham yopiladi) — Payme va Click to'lovi o'zi belgilanadi. Xato bosilgan bo'lsa «To'lov belgisini bekor qilish» uni qaytaradi: shu belgi yopgan hisob-faktura qayta ochiladi, mijozga tuzatish xabari boradi."
+            : "To'lovni belgilash («To'landi») faqat moliya ruxsati bor xodimda — menejer yoki administratorda.",
           '',
         ]
       : []),
@@ -250,7 +253,21 @@ export const paidNote = (by: string) => `💵 <b>To'lov belgilandi</b> — ${esc
 /** "To'landi" tasdig'i: mijozga xabar ketishi va (bo'lsa) hisob-faktura yopilishi oldindan aytiladi */
 export const payAskHtml = (id: number, invoiceNo?: string | null) =>
   `❓ <b>Buyurtma #${id} uchun to'lov to'liq qabul qilindimi?</b>
-Mijozga «to'lov qabul qilindi» xabari boradi${invoiceNo ? ` va hisob-faktura ${esc(invoiceNo)} to'langan deb yopiladi` : ''}. Buni botdan ortga qaytarib bo'lmaydi.`;
+Mijozga «to'lov qabul qilindi» xabari boradi${invoiceNo ? ` va hisob-faktura ${esc(invoiceNo)} to'langan deb yopiladi` : ''}. Xato bosilsa — kartadagi «To'lov belgisini bekor qilish» tugmasi bilan qaytariladi.`;
+/**
+ * "To'lov belgisini bekor qilish" tasdig'i: nima qaytarilishi va mijozga xabar ketishi oldindan aytiladi. Hisob-faktura haqida
+ * shartli aytiladi: faqat shu belgi yopgani qayta ochiladi (oldinroq, alohida to'langan hisob-faktura o'z holida qoladi).
+ */
+export const revertAskHtml = (id: number, invoiceNo?: string | null) =>
+  `❓ <b>Buyurtma #${id} uchun «to'landi» belgisi bekor qilinsinmi?</b>
+Buyurtma «to'lanmagan»ga qaytadi${invoiceNo ? `, hisob-faktura ${esc(invoiceNo)} shu belgi bilan yopilgan bo'lsa — avvalgi holiga ochiladi` : ''} va mijozga tuzatish xabari boradi.`;
+/** `stillPaid` — belgi bekor qilingach ham "to'langan" turgan hisob-fakturalar (surati yo'q eski belgi yopgan yoki alohida to'langan — qaysi biri ekani noma'lum): xodim tekshirishi kerak */
+export const revertedNote = (by: string, reopened = 0, stillPaid: string[] = []) =>
+  `↩️ <b>To'lov belgisi bekor qilindi</b> — ${esc(by)}${reopened > 0 ? ' · hisob-faktura qayta ochildi' : ''}${
+    stillPaid.length ? `\n⚠️ Hisob-faktura ${stillPaid.slice(0, 3).map(esc).join(', ')} to'langan holida qoldi (avtomatik ochilmadi: yangilanishdan oldingi belgi yoki alohida to'lov). Admin panelda hisob-faktura sahifasida tekshiring — kerak bo'lsa u yerda «Qayta ochish» tugmasi bor.` : ''
+  }`;
+/** To'lov tugmasini moliya ruxsati yo'q xodim bosdi (eski xabardagi tugma yoki roli o'zgargan) */
+export const PAY_FORBIDDEN = "To'lovni faqat moliya ruxsati bor xodim (menejer yoki administrator) belgilaydi";
 export const cancelAskHtml = (id: number) => `❓ <b>Buyurtma #${id} bekor qilinsinmi?</b>\nMijozga bekor qilingani haqida xabar boradi.`;
 export const orderGoneHtml = (id: number) => `🤷 Buyurtma <b>#${id}</b> topilmadi (o'chirilgan bo'lishi mumkin).`;
 

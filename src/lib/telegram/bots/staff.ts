@@ -10,12 +10,13 @@ import { isManualPayment, ORDER_FLOW } from '@/lib/orderStatus';
 import { inline, removeKeyboard } from '../api';
 import { createBot, idFrom, type Ctx } from '../router';
 import { clearSession, getSession, setSession } from '../session';
-import { cancelConfirmKeyboard, canMarkPaid, payConfirmKeyboard, staffOrder, staffOrderHtml, staffOrderKeyboard, staffOrderLine, type StaffOrder } from '../staffCards';
+import { cancelConfirmKeyboard, canMarkPaid, canRevertPaid, payConfirmKeyboard, revertConfirmKeyboard, staffOrder, staffOrderHtml, staffOrderKeyboard, staffOrderLine, type StaffOrder } from '../staffCards';
 import { linkStaffByCode, linkStaffByPhone, setStaffNotify, staffByTelegram, unlinkStaff, type StaffUser } from '../staffLink';
 import {
   backRow, BTN, cancelAskHtml, classifyFind, CODE_MAX_FAILS, codeFailed, codeLockedHtml, codeLockLeft, codeWrongHtml, commandArg, debtsHtml, debtsKeyboard,
   FIND_HINT, FIND_PROMPT, guestHtml, guestKeyboard, helpHtml, isLinkCode, listHtml, listKeyboard, listPageSize, menuHint, menuKeyboard, notifyHtml,
-  notInStaffListHtml, ORDER_HINT, orderGoneHtml, OWN_CONTACT_ONLY, paidNote, payAskHtml, parseListData, parseStatusData, statusNote, STOP_ASK, stopKeyboard, todayHtml, welcomeHtml,
+  notInStaffListHtml, ORDER_HINT, orderGoneHtml, OWN_CONTACT_ONLY, PAY_FORBIDDEN, paidNote, payAskHtml, parseListData, parseStatusData, revertAskHtml, revertedNote, statusNote, STOP_ASK, stopKeyboard,
+  todayHtml, welcomeHtml,
   type CodeGuard, type ListKind,
 } from './staffViews';
 
@@ -199,7 +200,7 @@ async function showCard(ctx: Ctx, staff: StaffUser, id: number, note?: string): 
     await ctx.edit(orderGoneHtml(id), backOf(ctx));
     return;
   }
-  const rows = [...staffOrderKeyboard(o, can(staff.role, 'orders')), ...backOf(ctx)];
+  const rows = [...staffOrderKeyboard(o, can(staff.role, 'orders'), can(staff.role, 'finance')), ...backOf(ctx)];
   if (ctx.callback) await ctx.edit(staffOrderHtml(o, note), rows);
   else await ctx.reply(staffOrderHtml(o, note), { reply_markup: inline(rows) });
 }
@@ -247,9 +248,25 @@ orderAction('or_', async (ctx, staff, id) => {
   if (isRefresh(ctx)) await ctx.answer(REFRESHED);
 });
 /**
+ * To'lov tugmalari: buyurtmani "to'landi" qilish hisob-fakturani ham yopadi, shuning uchun bu amallar "orders" emas, "finance"
+ * (moliya) ruxsatini talab qiladi. Ruxsat har bosishda qayta tekshiriladi — eski xabardagi tugma chatda qolib ketadi, xodimning
+ * roli esa o'zgargan bo'lishi mumkin; ruxsatsiz bosilsa karta yangilanadi (tugma yo'qoladi).
+ */
+const payAction = (prefix: string, h: (ctx: Ctx, staff: StaffUser, id: number) => Promise<unknown>) =>
+  bot.callback(prefix, staffOnly(async (ctx, staff) => {
+    const id = idFrom(ctx.data, prefix);
+    if (id == null) return void (await ctx.answer(STALE_BUTTON, true));
+    if (!can(staff.role, 'finance')) {
+      await ctx.answer(PAY_FORBIDDEN, true);
+      return showCard(ctx, staff, id);
+    }
+    await h(ctx, staff, id);
+  }, 'orders'));
+
+/**
  * "To'landi" ikki bosqichli (op_ so'raydi, opy_ bajaradi): to'lov belgilanganda mijozga xabar ketadi va buyurtmaning
- * hisob-fakturasi ham yopiladi — buni botdan ortga qaytarib bo'lmaydi, shuning uchun bitta tasodifiy bosish yetarli bo'lmasin.
- * Ikkala bosqichda ham shart qayta tekshiriladi: eski xabardagi tugma chatda qolib ketadi.
+ * hisob-fakturasi ham yopiladi, shuning uchun bitta tasodifiy bosish yetarli bo'lmasin. Xato qo'yilgan belgi "To'lovni bekor
+ * qilish" (ou_ so'raydi, ouy_ bajaradi) bilan qaytariladi. Har bosqichda shart qayta tekshiriladi: eski xabardagi tugma chatda qolib ketadi.
  */
 async function payable(ctx: Ctx, staff: StaffUser, id: number): Promise<StaffOrder | null> {
   const o = await staffOrder(id);
@@ -261,15 +278,39 @@ async function payable(ctx: Ctx, staff: StaffUser, id: number): Promise<StaffOrd
   return null;
 }
 
-orderAction('op_', async (ctx, staff, id) => {
+payAction('op_', async (ctx, staff, id) => {
   const o = await payable(ctx, staff, id);
   if (o) await ctx.edit(`${staffOrderHtml(o)}\n\n${payAskHtml(id, o.corporateInvoices[0]?.invoiceNo)}`, [...payConfirmKeyboard(id), ...backOf(ctx)]);
 });
-orderAction('opy_', async (ctx, staff, id) => {
+payAction('opy_', async (ctx, staff, id) => {
   if (!(await payable(ctx, staff, id))) return;
   const res = await setManualPayment(id, 'paid', actorOf(staff));
   if (res.ok && res.changed) return showCard(ctx, staff, id, paidNote(staff.name));
   if (!res.ok && res.reason === 'online') await ctx.answer("Onlayn to'lovni Payme / Click o'zi avtomatik belgilaydi", true);
+  else if (res.ok || res.reason !== 'not_found') await ctx.answer("To'lov holati allaqachon o'zgargan", true);
+  await showCard(ctx, staff, id);
+});
+
+/** Belgini bekor qilish mumkinmi (qo'lda belgilangan va hozir "to'langan"); mumkin bo'lmasa sababi aytiladi va karta yangilanadi */
+async function revertable(ctx: Ctx, staff: StaffUser, id: number): Promise<StaffOrder | null> {
+  const o = await staffOrder(id);
+  if (o && !isManualPayment(o.paymentMethod)) await ctx.answer("Onlayn to'lovni Payme / Click o'zi boshqaradi — botdan bekor qilinmaydi", true);
+  else if (o && !canRevertPaid(o)) await ctx.answer("To'lov holati allaqachon o'zgargan", true);
+  else if (o) return o;
+  await showCard(ctx, staff, id);
+  return null;
+}
+
+payAction('ou_', async (ctx, staff, id) => {
+  const o = await revertable(ctx, staff, id);
+  if (o) await ctx.edit(`${staffOrderHtml(o)}\n\n${revertAskHtml(id, o.corporateInvoices[0]?.invoiceNo)}`, [...revertConfirmKeyboard(id), ...backOf(ctx)]);
+});
+payAction('ouy_', async (ctx, staff, id) => {
+  if (!(await revertable(ctx, staff, id))) return;
+  // expected: faqat "to'langan" -> "to'lanmagan" (shu orada boshqa xodim o'zgartirgan bo'lsa hech narsa yozilmaydi)
+  const res = await setManualPayment(id, 'pending', actorOf(staff), { expected: 'paid' });
+  if (res.ok && res.changed) return showCard(ctx, staff, id, revertedNote(staff.name, res.reopened, res.stillPaid));
+  if (!res.ok && res.reason === 'online') await ctx.answer("Onlayn to'lovni Payme / Click o'zi boshqaradi — botdan bekor qilinmaydi", true);
   else if (res.ok || res.reason !== 'not_found') await ctx.answer("To'lov holati allaqachon o'zgargan", true);
   await showCard(ctx, staff, id);
 });

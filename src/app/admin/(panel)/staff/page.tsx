@@ -73,7 +73,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         Bu Telegram kodi endi amal qilmaydi (ishlatilgan, muddati o&apos;tgan yoki o&apos;rniga yangisi berilgan). Kerak bo&apos;lsa xodim qatoridagi «Telegram kodi» tugmasini qayta bosing.
       </Notice>
       <p className="mb-4 text-sm text-slate-500">
-        Administrator: hammasi. Menejer: buyurtmalar, mahsulotlar, mijozlar, arizalar, marketing, kontent, hisobotlar. Xodim: buyurtmalar va arizalar.
+        Administrator: hammasi. Menejer: buyurtmalar, mahsulotlar, mijozlar, arizalar, marketing, kontent, hisobotlar, moliya (hisob-fakturalar; buyurtmani «to'landi» deb belgilash va bu belgini
+        bekor qilish). Xodim: buyurtmalar (holatini o'zgartirish) va arizalar — to'lovni belgilay olmaydi.
       </p>
       <p className="mb-4 text-sm text-slate-500">
         Telegram{!botReady && ' (bot tokeni kiritilgandan keyin)'}: xodim {bot}ni ochib /start bosadi va o&apos;z telefon raqamini ulashadi — raqam shu ro&apos;yxatdagi telefon bilan bir xil bo&apos;lsa bot darhol ulanadi.

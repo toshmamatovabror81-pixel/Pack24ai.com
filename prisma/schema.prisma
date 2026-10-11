@@ -449,6 +449,9 @@ model OrderEvent {
   toValue   String
   actor     String? // xodim ismi yoki tizim nomi
   via       String // admin | staff_bot | payme | click | invoice | system
+  // To'lov "to'langan" bo'lgan yozuvda: shu amal yopgan hisob-fakturalarning avvalgi holati ({ invoices: [...] }) —
+  // xato qo'yilgan belgi bekor qilinsa aynan shular qayta ochiladi (orderFlow.setManualPayment)
+  meta      Json?
   createdAt DateTime @default(now())
 
   @@index([orderId, createdAt])

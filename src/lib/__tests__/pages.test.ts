@@ -1,21 +1,32 @@
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { can } from '@/lib/auth/permissions';
 
 /**
  * Sahifalar botlar haqida faqat rostini aytishi: bot tokeni kiritilmagan holatda (ishchi serverda botlar ulanmaguncha shunday)
  * "Telegram'da kuzatish" tugmasi, "Telegram kodi" va "xabar boradi" degan va'dalar chiqmasligi; Xodimlar sahifasidagi kod xabari
- * faqat bazadagi amaldagi kod uchun; o'chirilgan buyurtma faqat ko'rish uchun. AI tekshiruv sahifasidagi «Server holati» kartasi ham
+ * faqat bazadagi amaldagi kod uchun; o'chirilgan buyurtma faqat ko'rish uchun; buyurtmaning to'lov holati maydoni faqat moliya
+ * ruxsati bor xodimga chiqadi (xodim saqlay olmaydigan maydonni ko'rmaydi). AI tekshiruv sahifasidagi «Server holati» kartasi ham
  * shu qoidaga bo'ysunadi: muammo bor paytda yashil "Kuzatuvda" belgisi va "xabar boradi" degan gap chiqmasligi kerak.
+ * Xato qo'yilgan "to'landi" belgisi bekor qilingach buyurtma sahifasi hisob-faktura bilan nima bo'lganini aytadi (xabar va "Tarix");
+ * hisob-faktura sahifasidagi «Qayta ochish» faqat tuzatish kerak bo'lgan holatda chiqadi.
  * Server komponentlari to'g'ridan-to'g'ri chaqiriladi va HTML'ga aylantiriladi; baza, sessiya va Telegram soxta.
  */
 // Vitest .tsx fayllarni klassik JSX (React.createElement) bilan o'giradi — sahifa modullari global React'ni kutadi
 (globalThis as { React?: unknown }).React = React;
 
 const s = vi.hoisted(() => ({
+  // Sahifani ochgan xodimning roli: buyurtma sahifasidagi to'lov maydoni "finance" ruxsatiga bog'liq (ruxsatlar jadvali haqiqiy)
+  role: 'admin' as 'admin' | 'manager' | 'staff',
+  // Sahifalar requireStaff'dan so'ragan bo'limlar (kelgan tartibda)
+  sections: [] as string[],
   order: null as Record<string, unknown> | null,
+  // Hisob-faktura sahifasi uchun: buyurtmasi va shartnomasi ichida (null — topilmadi)
+  invoice: null as Record<string, unknown> | null,
   staff: [] as Record<string, unknown>[],
-  recipients: [] as { telegramId: string; lang: string }[],
+  // Mijoz botidan xabar oladigan chatlar (null — ro'yxatni aniqlab bo'lmadi)
+  recipients: [] as { telegramId: string; lang: string }[] | null,
   settings: {} as Record<string, unknown>,
   // «Server holati» kartasi uchun: SiteSetting("ops") qiymati (null — signal hali kelmagan), boshqaruv botiga ulangan faol
   // administratorlarning Telegram ID lari (null — ro'yxatni o'qib bo'lmadi) va xabarlar navbati sanoqlari
@@ -28,11 +39,12 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children?: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }));
 vi.mock('next/image', () => ({ default: ({ src, alt }: { src: string; alt: string }) => React.createElement('img', { src, alt }) }));
 vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NOT_FOUND'); }, redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); } }));
-vi.mock('@/lib/auth', () => ({ requireStaff: async () => ({ id: 1, name: 'Admin Ali', role: 'admin' }) }));
+vi.mock('@/lib/auth', () => ({ requireStaff: async (section?: string) => { s.sections.push(String(section)); return { id: 1, name: 'Admin Ali', role: s.role }; } }));
 vi.mock('@/lib/db', () => ({
   prisma: {
     order: { findUnique: async () => s.order },
-    corporateInvoice: { findFirst: async () => null },
+    corporateInvoice: { findFirst: async () => null, findUnique: async () => s.invoice },
+    contract: { findMany: async () => [] },
     workOrder: { findMany: async () => [] },
     user: {
       // Xodimlar sahifasi hamma xodimni so'raydi; server kartasi (ops.ts alertChats) esa faqat administratorlarning Telegram ID larini
@@ -54,11 +66,24 @@ vi.mock('@/lib/settings', async () => {
   return { getSettings: async () => ({ ...actual.defaultSettings, ...s.settings }) };
 });
 vi.mock('@/lib/orders', () => ({ paymentUrl: () => null }));
-vi.mock('@/lib/telegram/customers', () => ({ orderRecipients: async () => s.recipients }));
+vi.mock('@/lib/telegram/customers', () => ({
+  orderRecipients: async () => {
+    if (!s.recipients) throw new Error('test: mijoz chatlarini aniqlab bo\'lmadi');
+    return s.recipients;
+  },
+}));
 vi.mock('@/lib/telegram/setup', () => ({ botStatuses: async () => [] }));
 const action = async () => undefined;
 vi.mock('@/app/admin/(panel)/orders/actions', () => ({ updateOrder: action }));
-vi.mock('@/app/admin/(panel)/invoices/actions', () => ({ createInvoiceForOrder: action }));
+// Hisob-faktura amallari alohida-alohida soxta funksiya: sahifadagi har bir forma aynan qaysi amalga ulangani tekshiriladi
+vi.mock('@/app/admin/(panel)/invoices/actions', () => ({
+  createInvoiceForOrder: async () => undefined,
+  markPaid: async () => undefined,
+  registerPartial: async () => undefined,
+  cancelInvoice: async () => undefined,
+  reopenInvoice: async () => undefined,
+  linkContract: async () => undefined,
+}));
 vi.mock('@/app/admin/(panel)/staff/actions', () => ({ createStaff: action, issueTelegramCode: action, unlinkTelegram: action, updateStaff: action }));
 vi.mock('@/app/admin/(panel)/settings/actions', () => ({ updateSettings: action }));
 vi.mock('@/app/admin/(panel)/settings/telegramActions', () => ({ removeTelegramWebhooks: action, setupTelegramWebhooks: action }));
@@ -66,6 +91,8 @@ vi.mock('@/app/admin/(panel)/audit/actions', () => ({ runAuditNow: action }));
 
 const { default: OrderPage } = await import('@/app/[lang]/orders/[token]/page');
 const { default: AdminOrderPage } = await import('@/app/admin/(panel)/orders/[id]/page');
+const { default: InvoicePage } = await import('@/app/admin/(panel)/invoices/[id]/page');
+const invoiceActions: Record<string, unknown> = await import('@/app/admin/(panel)/invoices/actions');
 const { default: StaffPage } = await import('@/app/admin/(panel)/staff/page');
 const { default: SettingsPage } = await import('@/app/admin/(panel)/settings/page');
 const { default: AuditPage } = await import('@/app/admin/(panel)/audit/page');
@@ -81,6 +108,14 @@ const tokens = (customer: string, staff: string, legacyStaff = '') => {
   vi.stubEnv('CUSTOMER_BOT_TOKEN', customer);
   vi.stubEnv('STAFF_BOT_TOKEN', staff);
   vi.stubEnv('SUPERVISOR_BOT_TOKEN', legacyStaff);
+};
+/** Sahifa tepasidagi xabarlar (Notice) chiqqan tartibda: turi (ok — yashil, warn — sariq) va matni */
+const notices = (html: string) => [...html.matchAll(/<p class="mb-4 rounded-lg p-3 text-sm bg-(emerald|amber)-50[^"]*">([\s\S]*?)<\/p>/g)].map((m) => ({ tone: m[1] === 'emerald' ? 'ok' : 'warn', text: toText(m[2]).trim() }));
+/** Sahifa qaytargan daraxtdagi <form> elementlari, chiqish tartibida — har birining `action`i qaysi amal ekanini ko'rish uchun (HTML'da bu ko'rinmaydi) */
+const formsOf = (node: React.ReactNode): React.ReactElement<{ action?: unknown; children?: React.ReactNode }>[] => {
+  if (Array.isArray(node)) return node.flatMap(formsOf);
+  if (!React.isValidElement<{ action?: unknown; children?: React.ReactNode }>(node)) return [];
+  return [...(node.type === 'form' ? [node] : []), ...formsOf(node.props.children)];
 };
 
 const TOKEN = 'tok_ABCDEFGHIJKLMNOPQRSTU';
@@ -100,7 +135,10 @@ const staffRow = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
+  s.role = 'admin';
+  s.sections = [];
   s.order = order();
+  s.invoice = null;
   s.staff = [staffRow()];
   s.recipients = [];
   s.settings = {};
@@ -194,6 +232,445 @@ describe('admin: buyurtma sahifasi', () => {
     expect(text).not.toContain(linked);
     expect(text).toContain("Mijoz Telegram botga ulanmagan — o'zgarishlar haqida unga xabar bormaydi.");
   });
+
+  // "To'landi" belgisi bekor qilingach updateOrder manzilga invoice=reopened / invoice=paid qo'shadi (admin-actions.test.ts): xodim
+  // hisob-faktura qayta ochilganini yoki — eng muhimi — to'langan holida QOLGANINI shu sahifaning o'zida ko'radi. Holat ziddiyatga
+  // uchragan so'rovda ham belgi bekor qilingan bo'lishi mumkin (ikkalasi alohida qo'llanadi) — xabar error=conflict bilan ham chiqadi
+  describe('belgi bekor qilingandan keyingi xabar (?saved=1&invoice=… yoki ?error=conflict&invoice=…)', () => {
+    const REOPENED = "Shu to'lov belgisi yopgan hisob-faktura qayta ochildi.";
+    // Ogohlantirish ikkala sababni ham aytadi (belgi yangilanishdan oldin qo'yilgan yoki hisob-faktura alohida to'langan) va nima qilishni
+    const STILL_PAID = "Buyurtma «to'lanmagan» deb belgilandi, lekin hisob-fakturasi to'langan holida qoldi (avtomatik ochilmadi: yangilanishdan oldingi belgi yoki alohida to'lov). Hisob-faktura sahifasida tekshiring — to'lov haqiqatan kelmagan bo'lsa u yerda «Qayta ochish» tugmasini bosing.";
+    const CONFLICT = "Siz sahifani ochganingizdan keyin buyurtmani boshqa xodim yoki bot o'zgartirgan, shuning uchun o'zgarishingiz to'liq saqlanmadi — hozirgi holatni tekshirib, kerak bo'lsa qayta saqlang.";
+    /** Bekor qilishdan keyingi holat: buyurtma "to'lanmagan", hisob-fakturasi esa "to'langan" */
+    const unpaidWithPaidInvoice = () => order({ paymentMethod: 'bank_transfer', corporateInvoices: [{ id: 3, invoiceNo: 'INV-2026-0007', status: 'paid', dueDate: new Date('2026-10-20T00:00:00Z') }] });
+    const INVOICE_LINK = /<a[^>]*href="\/admin\/invoices\/3"[^>]*>INV-2026-0007<\/a>/;
+
+    it('invoice=reopened: "Saqlandi" yonida hisob-faktura qayta ochilgani aytiladi', async () => {
+      const { html } = await page({ saved: '1', invoice: 'reopened' });
+      expect(notices(html)).toEqual([{ tone: 'ok', text: 'Saqlandi' }, { tone: 'ok', text: REOPENED }]);
+    });
+
+    it('invoice=paid: hisob-faktura to\'langan holida qolgani ogohlantirish bo\'lib chiqadi; hisob-faktura sahifasiga havola shu sahifada bor', async () => {
+      s.order = unpaidWithPaidInvoice();
+      const { html, text } = await page({ saved: '1', invoice: 'paid' });
+      expect(notices(html)).toEqual([{ tone: 'ok', text: 'Saqlandi' }, { tone: 'warn', text: STILL_PAID }]);
+      expect(html).toMatch(INVOICE_LINK);
+      expect(text).toContain("To'lov (Bank o'tkazmasi) To'lanmagan");
+    });
+
+    it('holat ziddiyatga uchragan so\'rov (?error=conflict&invoice=paid): ziddiyat ogohlantirishi ham, hisob-faktura ogohlantirishi ham chiqadi — "Saqlandi"siz', async () => {
+      s.order = unpaidWithPaidInvoice();
+      const { html, text } = await page({ error: 'conflict', invoice: 'paid' });
+      expect(notices(html)).toEqual([{ tone: 'warn', text: STILL_PAID }, { tone: 'warn', text: CONFLICT }]);
+      expect(text).not.toContain('Saqlandi');
+      expect(text).not.toContain(REOPENED);
+      // Ogohlantirish aytgan hisob-faktura sahifasiga havola shu yerda ham bor
+      expect(html).toMatch(INVOICE_LINK);
+    });
+
+    it('holat ziddiyatga uchragan so\'rov (?error=conflict&invoice=reopened): hisob-faktura qayta ochilgani ziddiyat ogohlantirishi bilan birga chiqadi', async () => {
+      const { html, text } = await page({ error: 'conflict', invoice: 'reopened' });
+      expect(notices(html)).toEqual([{ tone: 'ok', text: REOPENED }, { tone: 'warn', text: CONFLICT }]);
+      expect(text).not.toContain('Saqlandi');
+      expect(text).not.toContain("to'langan holida qoldi");
+    });
+
+    it('saved=1 ham, error=conflict ham bo\'lmasa yoki invoice qiymati boshqa bo\'lsa bu xabarlar chiqmaydi', async () => {
+      const others: Record<string, string>[] = [
+        {}, { saved: '1' }, { error: 'conflict' }, { invoice: 'reopened' }, { invoice: 'paid' }, { saved: '0', invoice: 'paid' }, { saved: '1', invoice: 'other' },
+        { error: 'conflict', invoice: 'other' }, { error: 'finance', invoice: 'reopened' }, { error: 'finance', invoice: 'paid' }, { error: 'other', invoice: 'paid' },
+      ];
+      for (const sp of others) {
+        const { text } = await page(sp);
+        expect(text, JSON.stringify(sp)).not.toContain(REOPENED);
+        expect(text, JSON.stringify(sp)).not.toContain("to'langan holida qoldi");
+      }
+      expect(notices((await page({ saved: '1' })).html)).toEqual([{ tone: 'ok', text: 'Saqlandi' }]);
+      expect(notices((await page({ error: 'conflict' })).html)).toEqual([{ tone: 'warn', text: CONFLICT }]);
+      // Yalang'och ?invoice=… (qo'lda yozilgan manzil): hisob-faktura xabari ham, ziddiyat ogohlantirishi ham yo'q
+      s.order = unpaidWithPaidInvoice();
+      expect(notices((await page({ invoice: 'paid' })).html)).toEqual([]);
+      expect(notices((await page({ invoice: 'reopened' })).html)).toEqual([]);
+    });
+  });
+
+  // To'lov yozuvi hisob-fakturani yopgan yoki qayta ochgan bo'lsa "Tarix"da shu ham ko'rinadi (OrderEvent.meta — orderFlow yozadi);
+  // "invoice" turidagi yozuv — hisob-faktura sahifasidagi «Qayta ochish» amali
+  describe('"Tarix" jadvali', () => {
+    /** Jadval satrlari, chiqish tartibida: [vaqt, o'zgarish, kim, qayerdan] */
+    const history = (html: string) => {
+      const body = /Tarix<\/h2>[\s\S]*?<tbody[^>]*>([\s\S]*?)<\/tbody>/.exec(html)?.[1] ?? '';
+      return [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((row) => [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((cell) => toText(cell[1]).trim()));
+    };
+    const event = (id: number, over: Record<string, unknown> = {}) => ({ id, orderId: 12, kind: 'payment', fromValue: 'pending', toValue: 'paid', actor: 'Admin Ali', via: 'admin', meta: null, createdAt: new Date('2026-10-10T06:00:00Z'), ...over });
+    const SNAPSHOT = { id: 3, status: 'issued', paidAmount: '0', paidAt: null };
+    const PAID = "To'lov: To'lanmagan → To'langan";
+    const UNDONE = "To'lov: To'langan → To'lanmagan";
+
+    it('hisob-fakturani yopgan to\'lov, uni qayta ochgan bekor qilish va «Qayta ochish» amali o\'z yozuvi bilan chiqadi', async () => {
+      s.order = order({
+        events: [
+          event(4, { kind: 'invoice', fromValue: 'paid', toValue: 'issued', actor: 'Menejer Sora', via: 'invoice', meta: { invoiceNo: 'INV-2026-0007' } }),
+          event(3, { fromValue: 'paid', toValue: 'pending', via: 'staff_bot', meta: { reopened: ['INV-2026-0007'] } }),
+          event(2, { via: 'invoice', meta: { invoices: [SNAPSHOT] } }),
+          event(1, { kind: 'status', fromValue: null, toValue: 'new_', actor: null, via: 'system' }),
+        ],
+      });
+      const rows = history((await page()).html);
+      expect(rows.map((row) => row.slice(1))).toEqual([
+        ['Hisob-faktura INV-2026-0007: qayta ochildi', 'Menejer Sora', 'hisob-faktura'],
+        [`${UNDONE} · hisob-faktura qayta ochildi`, 'Admin Ali', 'boshqaruv boti'],
+        [`${PAID} · hisob-faktura yopildi`, 'Admin Ali', 'hisob-faktura'],
+        ['Holat: Yangi', '—', 'tizim'],
+      ]);
+      // Vaqt Toshkent vaqti bilan (06:00 UTC)
+      expect(rows[0][0]).toMatch(/^10\.10\.2026,? 11:00$/);
+    });
+
+    it('hisob-fakturaga tegmagan to\'lov yozuvi (surat yo\'q yoki bo\'sh) oddiy ko\'rinishda', async () => {
+      s.order = order({
+        events: [
+          event(5, { fromValue: 'paid', toValue: 'pending', meta: { reopened: [] } }),
+          event(4, { fromValue: 'paid', toValue: 'pending' }),
+          event(3, { meta: { invoices: [] } }),
+          event(2, { via: 'payme', actor: 'Payme' }),
+          // Holat yozuvida meta bo'lsa ham hisob-faktura haqida hech narsa qo'shilmaydi
+          event(1, { kind: 'status', fromValue: 'new_', toValue: 'processing', meta: { invoices: [SNAPSHOT], reopened: ['INV-2026-0007'] } }),
+        ],
+      });
+      expect(history((await page()).html).map((row) => row[1])).toEqual([UNDONE, UNDONE, PAID, PAID, 'Holat: Yangi → Tayyorlanmoqda']);
+    });
+
+    it('shakli buzilgan meta (massiv, satr, son, null, kutilmagan turdagi maydon) sahifani to\'xtatmaydi — oddiy satr chiqadi', async () => {
+      const malformed: unknown[] = [[SNAPSHOT], 'invoices', 7, true, null, {}, { invoices: 'INV-2026-0007' }, { invoices: { length: 1 } }, { reopened: 'INV-2026-0007' }, { invoices: null, reopened: null }];
+      s.order = order({ events: malformed.map((meta, i) => event(i + 1, { meta })) });
+      expect(history((await page()).html).map((row) => row[1])).toEqual(malformed.map(() => PAID));
+      // «Qayta ochish» yozuvida raqam yo'q yoki satr emas: raqamsiz chiqadi
+      const noNumber: unknown[] = [null, [], ['INV-2026-0007'], 'INV-2026-0007', {}, { invoiceNo: 7 }, { invoiceNo: null }];
+      s.order = order({ events: noNumber.map((meta, i) => event(i + 1, { kind: 'invoice', fromValue: 'paid', toValue: 'issued', via: 'invoice', meta })) });
+      expect(history((await page()).html).map((row) => row[1])).toEqual(noNumber.map(() => 'Hisob-faktura: qayta ochildi'));
+    });
+  });
+
+  // To'lov holati hisob-fakturani ham yopadi/ochadi — maydon faqat "finance" (moliya) ruxsati bor xodimga chiqadi; amalning o'zi ham
+  // shuni tekshiradi (admin-actions.test.ts). Ruxsatsiz xodim holatni o'zgartira oladi, to'lovni esa faqat ko'radi
+  describe('to\'lov holati maydoni', () => {
+    const NO_FINANCE = "To'lov holatini moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi.";
+    const DENIED = "To'lov holatini faqat moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi — to'lov o'zgarishi saqlanmadi.";
+    const UNDO_HINT = "Belgi xato qo'yilgan bo'lsa «To'lanmagan»ni tanlang: shu belgi yopgan hisob-faktura qayta ochiladi va mijozga tuzatish xabari boradi.";
+    /** Mijozga xabar bormaydigan holatdagi yordam: xabar haqidagi va'dasiz */
+    const UNDO_HINT_NO_MESSAGE = "Belgi xato qo'yilgan bo'lsa «To'lanmagan»ni tanlang: shu belgi yopgan hisob-faktura qayta ochiladi.";
+    const ONLINE = "Onlayn to'lov holatini to'lov tizimi o'zi yangilaydi.";
+    /** To'lov tanlovi: variantlari va tanlangani (tanlov sahifada bo'lmasa — null) */
+    const paymentSelect = (html: string) => {
+      const select = /<select name="paymentStatus"[^>]*>(.*?)<\/select>/.exec(html);
+      if (!select) return null;
+      return { options: [...select[1].matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]), selected: [...select[1].matchAll(/<option value="([^"]+)" selected=""/g)].map((m) => m[1]) };
+    };
+
+    it.each(['admin', 'manager'] as const)('moliya ruxsati bor xodim (%s): tanlov va forma ko\'rgan to\'lov holati (prevPaymentStatus) chiqadi', async (role) => {
+      s.role = role;
+      const { html, text } = await page();
+      expect(paymentSelect(html)).toEqual({ options: ['pending', 'paid', 'refunded'], selected: ['pending'] });
+      expect(html).toContain('name="prevPaymentStatus" value="pending"');
+      expect(text).not.toContain(NO_FINANCE);
+      expect(text).not.toContain(ONLINE);
+      // Bank o'tkazmasi ham qo'lda belgilanadi
+      s.order = order({ paymentMethod: 'bank_transfer', paymentStatus: 'refunded' });
+      const bank = await page();
+      expect(paymentSelect(bank.html)).toEqual({ options: ['pending', 'paid', 'refunded'], selected: ['refunded'] });
+      expect(bank.html).toContain('name="prevPaymentStatus" value="refunded"');
+    });
+
+    it('moliya ruxsati yo\'q xodim (staff): to\'lov tanlovi ham, prevPaymentStatus ham yo\'q — o\'rnida tushuntirish; holat formasi joyida', async () => {
+      s.role = 'staff';
+      for (const paymentMethod of ['cash', 'bank_transfer']) {
+        s.order = order({ paymentMethod });
+        const { html, text } = await page();
+        expect(html, paymentMethod).not.toContain('name="paymentStatus"');
+        // Yashirin maydon ham yo'q: amal prevPaymentStatus siz kelgan to'lov o'zgarishini ruxsatsiz xodimdan qabul qilmaydi
+        expect(html, paymentMethod).not.toContain('name="prevPaymentStatus"');
+        expect(text, paymentMethod).toContain(NO_FINANCE);
+        expect(text, paymentMethod).not.toContain(ONLINE);
+        // Holatni o'zgartirish formasi to'liq, to'lovning hozirgi holati esa ko'rinib turadi
+        expect(html, paymentMethod).toContain('<select name="status"');
+        expect(html, paymentMethod).toContain('name="prevStatus" value="new_"');
+        expect(text, paymentMethod).toContain('Saqlash');
+        expect(text, paymentMethod).toContain(`To'lov (${paymentMethod === 'cash' ? 'Naqd' : "Bank o'tkazmasi"}) To'lanmagan`);
+        // Ruxsat yo'qligi xato emas: ogohlantirish faqat rad etilgan saqlashdan keyin chiqadi
+        expect(text, paymentMethod).not.toContain(DENIED);
+      }
+    });
+
+    it('rad etilgan to\'lov o\'zgarishi (?error=finance): xodimga to\'lov saqlanmagani aytiladi, "Saqlandi" chiqmaydi', async () => {
+      s.role = 'staff';
+      const { text } = await page({ error: 'finance' });
+      expect(text).toContain(DENIED);
+      expect(text).not.toContain('Saqlandi');
+      expect(text).not.toContain("o'zgarishingiz to'liq saqlanmadi");
+      // Boshqa natijalarda bu ogohlantirish yo'q
+      for (const sp of [{}, { saved: '1' }, { error: 'conflict' }] as Record<string, string>[]) expect((await page(sp)).text, JSON.stringify(sp)).not.toContain(DENIED);
+    });
+
+    it('"Belgi xato qo\'yilgan bo\'lsa…" yordami faqat to\'langan buyurtmada va faqat tanlov chiqadigan xodimga', async () => {
+      // Yordam "mijozga tuzatish xabari boradi" deydi — bu faqat mijoz boti ishlayotgan va mijoz ulangan holatda rost, shu holatda
+      // tekshiriladi (qolgan holatlar — keyingi testda)
+      tokens('111:customer', '');
+      s.recipients = [{ telegramId: '777', lang: 'uz' }];
+      for (const role of ['admin', 'manager'] as const) {
+        s.role = role;
+        for (const paymentMethod of ['cash', 'bank_transfer']) {
+          s.order = order({ paymentMethod, paymentStatus: 'paid' });
+          const { html, text } = await page();
+          expect(text, `${role} ${paymentMethod}`).toContain(UNDO_HINT);
+          // Bekor qilish — shu tanlovda «To'lanmagan»ni saqlash: forma hozirgi "to'langan" holatni kutilgan qiymat qilib yuboradi
+          expect(paymentSelect(html), `${role} ${paymentMethod}`).toEqual({ options: ['pending', 'paid', 'refunded'], selected: ['paid'] });
+          expect(html, `${role} ${paymentMethod}`).toContain('name="prevPaymentStatus" value="paid"');
+        }
+        for (const paymentStatus of ['pending', 'refunded']) {
+          s.order = order({ paymentStatus });
+          expect((await page()).text, `${role} ${paymentStatus}`).not.toContain('Belgi xato');
+        }
+      }
+      // Ruxsatsiz xodim belgini bekor qila olmaydi — unga yordam ham ko'rsatilmaydi
+      s.role = 'staff';
+      s.order = order({ paymentStatus: 'paid' });
+      const { text } = await page();
+      expect(text).not.toContain('Belgi xato');
+      expect(text).toContain(NO_FINANCE);
+      expect(text).toContain("To'lov (Naqd) To'langan");
+    });
+
+    // Tuzatish xabari faqat mijoz boti orqali boradi (orderNotify): bot tokeni kiritilmagan yoki mijoz botga ulanmagan bo'lsa yordam
+    // uni va'da qilmaydi — pastdagi "Mijoz ... ulanmagan — xabar bormaydi" yozuviga zid chiqmasin
+    it('bekor qilish yordami "mijozga tuzatish xabari boradi" deb faqat mijoz boti ishlayotgan VA mijoz unga ulangan bo\'lsa yozadi', async () => {
+      const linked = [{ telegramId: '777', lang: 'uz' }];
+      const cases: [string, string, typeof s.recipients, boolean][] = [
+        ['bot tokeni ham, ulanish ham yo\'q', '', [], false],
+        ['token yo\'q, eski tizimdan qolgan ulanish bor', '', linked, false],
+        ['token bor, mijoz ulanmagan', 'ci-dummy-customer-bot-secret', [], false],
+        ['token bor, ulanishni aniqlab bo\'lmadi', 'ci-dummy-customer-bot-secret', null, false],
+        ['token bor, mijoz ulangan', 'ci-dummy-customer-bot-secret', linked, true],
+      ];
+      for (const paymentMethod of ['cash', 'bank_transfer']) {
+        s.order = order({ paymentMethod, paymentStatus: 'paid' });
+        for (const [name, token, recipients, promised] of cases) {
+          tokens(token, '');
+          s.recipients = recipients;
+          const { text } = await page();
+          expect(text, `${paymentMethod}: ${name}`).toContain(promised ? UNDO_HINT : UNDO_HINT_NO_MESSAGE);
+          expect(text.includes('mijozga tuzatish xabari boradi'), `${paymentMethod}: ${name}`).toBe(promised);
+        }
+      }
+      // Boshqaruv boti tokeni mijoz botini "ishlaydigan" qilmaydi
+      tokens('', 'ci-dummy-staff-bot-secret');
+      s.recipients = linked;
+      const { text } = await page();
+      expect(text).toContain(UNDO_HINT_NO_MESSAGE);
+      expect(text).not.toContain('mijozga tuzatish xabari boradi');
+    });
+
+    it('onlayn to\'lov (Payme, Click): tanlov hech kimga chiqmaydi, to\'langan bo\'lsa ham bekor qilish yordami yo\'q', async () => {
+      for (const role of ['admin', 'manager', 'staff'] as const) {
+        s.role = role;
+        for (const paymentMethod of ['payme', 'click']) {
+          s.order = order({ paymentMethod, paymentStatus: 'paid' });
+          const { html, text } = await page();
+          expect(paymentSelect(html), `${role} ${paymentMethod}`).toBeNull();
+          expect(text, `${role} ${paymentMethod}`).toContain(ONLINE);
+          expect(text, `${role} ${paymentMethod}`).not.toContain('Belgi xato');
+          // Sabab ruxsatda emas — bu to'lovni to'lov tizimi yuritadi
+          expect(text, `${role} ${paymentMethod}`).not.toContain(NO_FINANCE);
+        }
+      }
+    });
+  });
+});
+
+// To'langan hisob-faktura qanday tuzatilishi buyurtmaning to'lov holatiga bog'liq: buyurtma ham "to'langan" bo'lsa belgi buyurtma
+// sahifasida bekor qilinadi (u hisob-fakturani o'zi ochadi); buyurtmadan to'lov hali kutilayotgan-u hisob-faktura "to'langan" bo'lib
+// qolgan bo'lsa (surati yo'q eski belgi bekor qilingan yoki to'lov shu sahifada xato kiritilgan) — shu yerdagi «Qayta ochish»; puli
+// qaytarilgan buyurtmaning to'langan hisob-fakturasi esa odatiy yakuniy holat — forma yo'q, faqat tushuntirish. Amalning o'zi ham aynan
+// shu shart bilan ishlaydi: buyurtma "to'langan" ham, "qaytarilgan" ham bo'lmasagina ochadi (admin-actions.test.ts)
+describe('admin: hisob-faktura sahifasi — «Qayta ochish» va belgini bekor qilish yordami', () => {
+  const DAY = 86_400_000;
+  const invoice = (over: Record<string, unknown> = {}, orderOver: Record<string, unknown> = {}) => ({
+    id: 3, invoiceNo: 'INV-2026-0007', contractId: null, contract: null, orderId: 12, subtotal: 32143, vatPercent: 12, vatAmount: 3857, totalAmount: 36000,
+    status: 'issued', dueDate: new Date(Date.now() + 10 * DAY), paidAmount: 0, paidAt: null, createdAt: new Date('2026-10-10T05:00:00Z'),
+    order: order({ paymentMethod: 'bank_transfer', ...orderOver }),
+    ...over,
+  });
+  const PAID = { status: 'paid', paidAmount: 36000, paidAt: new Date('2026-10-10T07:00:00Z') };
+  /** Sahifa: HTML, matni va formalari — har biri qaysi amalga ulangani (amal nomi) va o'z HTML'i bilan */
+  const view = async (sp: Record<string, string> = {}) => {
+    const tree = await InvoicePage({ params: Promise.resolve({ id: '3' }), searchParams: Promise.resolve(sp) });
+    const html = renderToStaticMarkup(tree);
+    const forms = formsOf(tree).map((form) => ({ action: Object.keys(invoiceActions).find((name) => invoiceActions[name] === form.props.action) ?? 'noma\'lum', html: renderToStaticMarkup(form) }));
+    return { html, text: toText(html), forms, actions: forms.map((form) => form.action) };
+  };
+  const REOPEN_BUTTON = /<button[^>]*>Qayta ochish<\/button>/;
+  const ORDER_HINT = "To'lov xato kiritilgan bo'lsa: buyurtma sahifasida to'lov holatini «To'lanmagan»ga qaytaring — shu to'lov yopgan hisob-faktura qayta ochiladi.";
+  const FULLY_PAID = "Hisob-faktura to'liq to'langan.";
+  const CANCELLED = 'Hisob-faktura bekor qilingan.';
+  /** «Qayta ochish» formasidagi tushuntirish: qayta ochish nimaga olib kelishi */
+  const REOPEN_HELP = "To'lov xato kiritilgan bo'lsa hisob-fakturani qayta oching: to'langan summa 0 ga qaytadi (oldin qisman to'lov bo'lgan bo'lsa, uni qayta kiriting).";
+  /** Avval tekshirish maslahati — faqat to'lovi qo'lda belgilanadigan (naqd / bank o'tkazmasi) buyurtmada */
+  const MARK_ORDER_PAID = "Hisob-faktura haqiqatan to'langan bo'lsa, buyurtma sahifasida to'lovni «To'langan» qilib qo'ying.";
+  /** Puli qaytarilgan buyurtmaning to'langan hisob-fakturasi: forma o'rnidagi tushuntirish va (qo'lda belgilanadigan to'lovda) tuzatish yo'li */
+  const REFUNDED = "Buyurtma puli qaytarilgan — hisob-faktura hujjat sifatida to'langan holida qoladi (qarz hisoblanmaydi).";
+  // Ikkala tuzatish ham aytiladi: to'lov haqiqatan kelgan bo'lsa «To'lanmagan» emas, «To'langan» to'g'ri (aks holda to'lagan mijozga "to'lanmagan" xabari ketardi)
+  const REFUNDED_HINT = "«Qaytarilgan» xato tanlangan bo'lsa, buyurtma sahifasida tuzating: to'lov haqiqatan kelgan bo'lsa — «To'langan», kelmagan bo'lsa — «To'lanmagan» (shunda to'lov belgisi yopgan hisob-faktura avvalgi holatiga ochiladi va mijozga xabar boradi).";
+  const ORDER_LINK = /<a[^>]*href="\/admin\/orders\/12"[^>]*>#12<\/a>/;
+  /** Formaning ko'rinadigan matni (React qo'shadigan yordamchi skriptsiz) */
+  const formText = (html: string) => toText(html.replace(/<script[\s\S]*?<\/script>/g, '')).trim();
+  /** Ochiq hisob-fakturadagi formalar (tartib bilan); yopiq hisob-fakturada faqat oxirgisi qoladi */
+  const OPEN_FORMS = ['markPaid', 'registerPartial', 'cancelInvoice', 'linkContract'];
+
+  it('sahifa moliya bo\'limi ruxsatini so\'raydi', async () => {
+    s.invoice = invoice();
+    await view();
+    expect(s.sections).toEqual(['finance']);
+  });
+
+  it('to\'langan hisob-faktura, buyurtma (naqd / bank o\'tkazmasi) "to\'lanmagan": «Qayta ochish» formasi shu hisob-faktura uchun chiqadi — avval buyurtmani tekshirish maslahati bilan', async () => {
+    for (const paymentMethod of ['bank_transfer', 'cash']) {
+      s.invoice = invoice(PAID, { paymentMethod, paymentStatus: 'pending' });
+      const { html, text, forms, actions } = await view();
+      expect(actions, paymentMethod).toEqual(['reopenInvoice', 'linkContract']);
+      // Forma aynan «Qayta ochish» amaliga ulangan va shu hisob-faktura raqamini yuboradi
+      expect(forms[0].html, paymentMethod).toContain('name="id" value="3"');
+      expect(forms[0].html, paymentMethod).toMatch(REOPEN_BUTTON);
+      expect(text, paymentMethod).toContain(FULLY_PAID);
+      // Nega bu yerda turgani (buyurtmaning hozirgi to'lov holati), avval tekshirish (hisob-faktura haqiqatan to'langan bo'lishi mumkin —
+      // unda buyurtma «To'langan» qilinadi) va qayta ochish nimaga olib kelishi aytiladi
+      expect(formText(forms[0].html), paymentMethod).toBe(`Buyurtmaning to'lov holati — «To'lanmagan». ${MARK_ORDER_PAID} ${REOPEN_HELP} Qayta ochish`);
+      // Maslahat aytgan buyurtma sahifasiga havola shu sahifada bor
+      expect(html, paymentMethod).toMatch(ORDER_LINK);
+      expect(text, paymentMethod).not.toContain(ORDER_HINT);
+      expect(text, paymentMethod).not.toContain('puli qaytarilgan');
+    }
+  });
+
+  // Onlayn to'lov holatini Payme/Click o'zi belgilaydi: buyurtma sahifasida uni «To'langan» qilib bo'lmaydi — bajarib bo'lmaydigan maslahat chiqmaydi
+  it('to\'langan hisob-faktura, onlayn to\'lovli buyurtma (Payme, Click) hali to\'lanmagan: forma chiqadi, lekin «To\'langan» qilib qo\'ying degan maslahatsiz', async () => {
+    for (const paymentMethod of ['payme', 'click']) {
+      for (const [paymentStatus, name] of [['pending', "To'lanmagan"], ['processing', 'Jarayonda'], ['failed', "O'tmadi"]]) {
+        s.invoice = invoice(PAID, { paymentMethod, paymentStatus });
+        const { text, forms, actions } = await view();
+        const label = `${paymentMethod} ${paymentStatus}`;
+        expect(actions, label).toEqual(['reopenInvoice', 'linkContract']);
+        expect(forms[0].html, label).toContain('name="id" value="3"');
+        expect(forms[0].html, label).toMatch(REOPEN_BUTTON);
+        expect(text, label).toContain(FULLY_PAID);
+        expect(formText(forms[0].html), label).toBe(`Buyurtmaning to'lov holati — «${name}». ${REOPEN_HELP} Qayta ochish`);
+        expect(text, label).not.toContain("qilib qo'ying");
+        expect(text, label).not.toContain('buyurtma sahifasida');
+        expect(text, label).not.toContain('puli qaytarilgan');
+      }
+    }
+  });
+
+  // Puli qaytarilgan buyurtmaning to'langan hisob-fakturasi — odatiy yakuniy holat (qarz sanalmaydi): reopenInvoice ham uni ochmaydi,
+  // shuning uchun bosilsa rad etiladigan tugma chiqmaydi. «Qaytarilgan» xato tanlangan bo'lsa tuzatish buyurtma sahifasida — faqat
+  // to'lovi qo'lda belgilanadigan buyurtmada (onlayn to'lovda u yerda tanlov yo'q)
+  it('to\'langan hisob-faktura, puli qaytarilgan buyurtma: «Qayta ochish» yo\'q — oddiy tushuntirish; «To\'lanmagan»ga o\'tkazing maslahati faqat naqd / bank o\'tkazmasida', async () => {
+    for (const paymentMethod of ['bank_transfer', 'cash', 'payme', 'click']) {
+      s.invoice = invoice(PAID, { paymentMethod, paymentStatus: 'refunded' });
+      const { html, text, actions } = await view();
+      const manual = paymentMethod === 'bank_transfer' || paymentMethod === 'cash';
+      expect(actions, paymentMethod).toEqual(['linkContract']);
+      expect(html, paymentMethod).not.toMatch(REOPEN_BUTTON);
+      expect(text, paymentMethod).not.toContain('Qayta ochish');
+      expect(text, paymentMethod).not.toContain('qayta oching');
+      expect(text, paymentMethod).toContain(FULLY_PAID);
+      expect(text, paymentMethod).toContain(REFUNDED);
+      expect(text.includes(REFUNDED_HINT), paymentMethod).toBe(manual);
+      if (manual) {
+        // Tushuntirishning davomi bo'lib chiqadi; aytilgan buyurtma sahifasiga havola shu sahifada bor
+        expect(text, paymentMethod).toContain(`${REFUNDED} ${REFUNDED_HINT}`);
+        expect(html, paymentMethod).toMatch(ORDER_LINK);
+      } else {
+        expect(text, paymentMethod).not.toContain("o'tkazing");
+        expect(text, paymentMethod).not.toContain('xato tanlangan');
+        expect(text, paymentMethod).not.toContain('buyurtma sahifasida');
+      }
+      // "To'langan" va "to'lanmagan" buyurtma uchun yozilgan yordamlar bu yerda chiqmaydi
+      expect(text, paymentMethod).not.toContain(ORDER_HINT);
+      expect(text, paymentMethod).not.toContain("Buyurtmaning to'lov holati —");
+      expect(text, paymentMethod).not.toContain("qilib qo'ying");
+    }
+  });
+
+  it('to\'langan hisob-faktura, buyurtma ham "to\'langan" (naqd / bank o\'tkazmasi): «Qayta ochish» yo\'q — belgi buyurtma sahifasida bekor qilinishi aytiladi', async () => {
+    for (const paymentMethod of ['bank_transfer', 'cash']) {
+      s.invoice = invoice(PAID, { paymentMethod, paymentStatus: 'paid' });
+      const { html, text, actions } = await view();
+      expect(actions, paymentMethod).toEqual(['linkContract']);
+      expect(html, paymentMethod).not.toMatch(REOPEN_BUTTON);
+      expect(text, paymentMethod).toContain(FULLY_PAID);
+      expect(text, paymentMethod).toContain(ORDER_HINT);
+      // Yordam aytgan buyurtma sahifasiga havola shu sahifada bor
+      expect(html, paymentMethod).toMatch(ORDER_LINK);
+      expect(text, paymentMethod).not.toContain('puli qaytarilgan');
+    }
+  });
+
+  it('onlayn to\'langan buyurtma (Payme, Click): belgini qo\'lda bekor qilib bo\'lmaydi — yordam ham, «Qayta ochish» ham yo\'q', async () => {
+    for (const paymentMethod of ['payme', 'click']) {
+      s.invoice = invoice(PAID, { paymentMethod, paymentStatus: 'paid' });
+      const { html, text, actions } = await view();
+      expect(actions, paymentMethod).toEqual(['linkContract']);
+      expect(html, paymentMethod).not.toMatch(REOPEN_BUTTON);
+      expect(text, paymentMethod).toContain(FULLY_PAID);
+      expect(text, paymentMethod).not.toContain('buyurtma sahifasida');
+    }
+  });
+
+  it('ochiq hisob-faktura (berilgan, qisman, muddati o\'tgan): to\'lov formalari joyida, ortiqcha hech narsa yo\'q — buyurtma to\'lovi qanday bo\'lmasin', async () => {
+    const open: [string, Record<string, unknown>][] = [
+      ['berilgan', {}],
+      ['qisman to\'langan', { status: 'partial', paidAmount: 10000 }],
+      ['muddati o\'tgan', { dueDate: new Date(Date.now() - 3 * DAY) }],
+    ];
+    for (const [name, over] of open) {
+      for (const paymentStatus of ['pending', 'paid', 'refunded']) {
+        s.invoice = invoice(over, { paymentStatus });
+        const { html, text, actions } = await view();
+        const label = `${name}, buyurtma ${paymentStatus}`;
+        expect(actions, label).toEqual(OPEN_FORMS);
+        expect(html, label).not.toMatch(REOPEN_BUTTON);
+        expect(text, label).not.toContain('Qayta ochish');
+        expect(text, label).not.toContain('qaytaring');
+        expect(text, label).not.toContain('qayta oching');
+        expect(text, label).not.toContain('puli qaytarilgan');
+        expect(text, label).not.toContain(FULLY_PAID);
+        expect(text, label).not.toContain(CANCELLED);
+      }
+    }
+  });
+
+  it('bekor qilingan hisob-faktura: faqat "bekor qilingan" yozuvi — «Qayta ochish» ham, yordam ham yo\'q', async () => {
+    for (const paymentStatus of ['pending', 'paid', 'refunded']) {
+      s.invoice = invoice({ status: 'cancelled' }, { paymentStatus });
+      const { html, text, actions } = await view();
+      expect(actions, paymentStatus).toEqual(['linkContract']);
+      expect(html, paymentStatus).not.toMatch(REOPEN_BUTTON);
+      expect(text, paymentStatus).toContain(CANCELLED);
+      expect(text, paymentStatus).not.toContain(FULLY_PAID);
+      expect(text, paymentStatus).not.toContain('qaytaring');
+      expect(text, paymentStatus).not.toContain('qayta oching');
+      expect(text, paymentStatus).not.toContain('puli qaytarilgan');
+    }
+  });
+
+  it('«Qayta ochish» natijasi: saqlangan bo\'lsa "Saqlandi", holat mos kelmagan bo\'lsa (error=state) ogohlantirish', async () => {
+    s.invoice = invoice({}, { paymentStatus: 'pending' });
+    expect(notices((await view({ saved: '1' })).html)).toEqual([{ tone: 'ok', text: 'Saqlandi' }]);
+    // Masalan: tugma ikki marta bosilgan yoki shu orada buyurtma "to'langan" qilingan — hech narsa o'zgarmagan
+    s.invoice = invoice(PAID, { paymentStatus: 'paid' });
+    expect(notices((await view({ error: 'state' })).html)).toEqual([{ tone: 'warn', text: "Bu holatdagi hisob-fakturani o'zgartirib bo'lmaydi" }]);
+    expect(notices((await view()).html)).toEqual([]);
+  });
 });
 
 describe('admin: Xodimlar sahifasi', () => {
@@ -201,6 +678,22 @@ describe('admin: Xodimlar sahifasi', () => {
   const soon = () => new Date(Date.now() + 20 * 60_000);
   const NO_BOT = 'Boshqaruv boti tokeni hali kiritilmagan';
   const CODE_BUTTON = /<button[^>]*>Telegram kodi<\/button>/;
+
+  // To'lovni belgilash va bekor qilish "finance" (moliya) ruxsatiga bog'langan: izoh buni aytadi va ruxsatlar jadvali bilan bir xil —
+  // rol tanlayotgan administrator "Xodim" to'lovni belgilay olmasligini shu yerdan biladi
+  it('rollar izohi: moliya (to\'lovni belgilash va bekor qilish) menejerda bor, "Xodim" to\'lovni belgilay olmaydi — ruxsatlar jadvalidagi kabi', async () => {
+    const { text } = await page();
+    const legend = /Administrator: (.*?)\. Menejer: (.*?)\. Xodim: (.*?)\./.exec(text);
+    expect(legend).not.toBeNull();
+    const [, admin, manager, staff] = legend!;
+    expect(admin).toBe('hammasi');
+    expect(manager).toContain("moliya (hisob-fakturalar; buyurtmani «to'landi» deb belgilash va bu belgini bekor qilish)");
+    expect(staff).toBe("buyurtmalar (holatini o'zgartirish) va arizalar — to'lovni belgilay olmaydi");
+    expect(staff).not.toContain('moliya');
+    // Izoh aytgani haqiqiy jadvalga mos
+    expect([can('admin', 'finance'), can('manager', 'finance'), can('staff', 'finance')]).toEqual([true, true, false]);
+    expect(can('staff', 'orders')).toBe(true);
+  });
 
   it('boshqaruv boti tokeni kiritilmagan: ogohlantirish chiqadi va «Telegram kodi» tugmasi yashiriladi', async () => {
     const { html, text } = await page();

@@ -98,10 +98,19 @@ Saytdagi Telegram tugmalari Admin > Sozlamalar > Aloqa > "Telegram bot (mijozlar
 boradi — u yerda mijoz botining nomi (`Pack24AI_bot`, @ belgisisiz) turishi kerak.
 
 **Boshqaruv boti** (@pack24AUP_bot) — xodimlar uchun. Yangi buyurtma va to'lov xabarlari tugmalari bilan keladi
-(qabul qilish, jo'natildi, yetkazildi, bekor qilish, naqd yoki o'tkazma to'landi), buyurtma holati botning o'zidan
-o'zgartiriladi, buyurtmalarni qidirish, bugungi raqamlar va muddati o'tgan qarzlar ko'rinadi. Botdagi amal admin
-paneldagi bilan bir xil ishlaydi: mijozga xabar ketadi, buyurtma sahifasidagi "Tarix"da esa kim, qachon va qayerdan
-(admin panel, boshqaruv boti, Payme, Click, hisob-faktura) o'zgartirgani yoziladi.
+(qabul qilish, jo'natildi, yetkazildi, bekor qilish), buyurtma holati botning o'zidan o'zgartiriladi, buyurtmalarni
+qidirish, bugungi raqamlar va muddati o'tgan qarzlar ko'rinadi. Botdagi amal admin paneldagi bilan bir xil ishlaydi:
+mijozga xabar ketadi, buyurtma sahifasidagi "Tarix"da esa kim, qachon va qayerdan (admin panel, boshqaruv boti,
+Payme, Click, hisob-faktura) o'zgartirgani yoziladi.
+
+**To'lovni belgilash — faqat "moliya" ruxsati bilan** (Menejer va Administrator; "Xodim" rolida yo'q). Naqd yoki bank
+o'tkazmasi to'lovini «To'landi» deb belgilash buyurtmaning hisob-fakturasini ham yopadi, shuning uchun bu tugma botda
+ham, admin paneldagi buyurtma sahifasida ham faqat shu rollarga chiqadi. Belgi xato qo'yilgan bo'lsa shu rollar uni
+bekor qiladi: botdagi kartada «To'lov belgisini bekor qilish» (tasdiq so'raydi) yoki buyurtma sahifasida to'lovni
+«To'lanmagan»ga qaytarish. Shunda buyurtma to'lanmaganga qaytadi, shu belgi yopgan hisob-faktura avvalgi holatiga
+ochiladi va mijozga tuzatish xabari boradi. Hisob-faktura to'langan holida qolsa (u alohida to'langan, yoki belgi shu
+imkoniyat qo'shilishidan oldin qo'yilgan va qaysi hisob-fakturani yopgani saqlanmagan) bu haqda ogohlantirish chiqadi:
+hisob-faktura sahifasida tekshiring — to'lov haqiqatan kelmagan bo'lsa u yerdagi «Qayta ochish» tugmasi bilan ochiladi.
 
 Xodim ikki yo'l bilan ulanadi (faqat Admin > Xodimlar ro'yxatidagi faol xodimlar):
 

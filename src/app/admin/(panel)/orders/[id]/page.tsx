@@ -17,13 +17,20 @@ import { createInvoiceForOrder } from '../../invoices/actions';
 /** Tarixdagi "qayerdan" (OrderEvent.via, orderFlow Actor) */
 const viaNames: Record<string, string> = { admin: 'admin panel', staff_bot: 'boshqaruv boti', payme: 'Payme', click: 'Click', invoice: 'hisob-faktura', system: 'tizim' };
 
-/** Tarix satri: "Holat: Yangi → Tayyorlanmoqda" / "To'lov: To'lanmagan → To'langan" (birinchi yozuvda oldingi qiymat yo'q) */
-function eventText(e: Pick<OrderEvent, 'kind' | 'fromValue' | 'toValue'>) {
+/**
+ * Tarix satri: "Holat: Yangi → Tayyorlanmoqda" / "To'lov: To'lanmagan → To'langan" (birinchi yozuvda oldingi qiymat yo'q).
+ * To'lov yozuvi hisob-fakturani yopgan yoki qayta ochgan bo'lsa shu ham aytiladi (meta — orderFlow.writePaymentEvent);
+ * "invoice" — hisob-faktura sahifasidagi «Qayta ochish» amali.
+ */
+function eventText(e: Pick<OrderEvent, 'kind' | 'fromValue' | 'toValue' | 'meta'>) {
+  const meta = (e.meta && typeof e.meta === 'object' && !Array.isArray(e.meta) ? e.meta : {}) as { invoices?: unknown; reopened?: unknown; invoiceNo?: unknown };
+  if (e.kind === 'invoice') return `Hisob-faktura${typeof meta.invoiceNo === 'string' ? ` ${meta.invoiceNo}` : ''}: qayta ochildi`;
   const name = (v: string) => (e.kind === 'payment' ? paymentNames[v as PaymentStatus] : orderStatusNames[v as OrderStatus]) ?? v;
-  return `${e.kind === 'payment' ? "To'lov" : 'Holat'}: ${e.fromValue ? `${name(e.fromValue)} → ` : ''}${name(e.toValue)}`;
+  const invoice = e.kind !== 'payment' ? '' : Array.isArray(meta.invoices) && meta.invoices.length ? ' · hisob-faktura yopildi' : Array.isArray(meta.reopened) && meta.reopened.length ? ' · hisob-faktura qayta ochildi' : '';
+  return `${e.kind === 'payment' ? "To'lov" : 'Holat'}: ${e.fromValue ? `${name(e.fromValue)} → ` : ''}${name(e.toValue)}${invoice}`;
 }
 
-export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
+export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; invoice?: string }> }) {
   const user = await requireStaff('orders');
   const id = Number((await params).id);
   if (!Number.isSafeInteger(id)) notFound();
@@ -34,7 +41,11 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
   if (!order) notFound();
   const sp = await searchParams;
   const saved = sp.saved === '1';
+  // Holat ziddiyatga uchragan so'rovda ham to'lov belgisi bekor qilingan bo'lishi mumkin (ikkalasi alohida qo'llanadi) — hisob-faktura xabari o'shanda ham chiqadi
+  const undone = saved || sp.error === 'conflict';
   const manualPayment = isManualPayment(order.paymentMethod);
+  // To'lov holati hisob-fakturani ham yopadi/ochadi: maydon faqat moliya ruxsati bor xodimga chiqadi (updateOrder ham shuni tekshiradi)
+  const canPay = can(user.role, 'finance');
   // O'chirilgan buyurtmani orderFlow o'zgartirmaydi (not_found) — saqlab bo'lmaydigan forma o'rniga faqat ko'rish uchun chiqadi
   const deleted = !!order.deletedAt;
   // Mijoz botidan xabar oladigan chatlar bormi (ma'lumot uchun; aniqlab bo'lmasa sahifa to'xtamaydi). Mijoz boti tokeni
@@ -49,7 +60,10 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
         <Link href="/admin/orders" className="btn-ghost px-4 py-2 text-sm">← Ro'yxat</Link>
       </PageHeader>
       <Notice show={saved}>Saqlandi</Notice>
+      <Notice show={undone && sp.invoice === 'reopened'}>Shu to'lov belgisi yopgan hisob-faktura qayta ochildi.</Notice>
+      <Notice show={undone && sp.invoice === 'paid'} tone="warn">Buyurtma «to'lanmagan» deb belgilandi, lekin hisob-fakturasi to'langan holida qoldi (avtomatik ochilmadi: yangilanishdan oldingi belgi yoki alohida to'lov). Hisob-faktura sahifasida tekshiring — to'lov haqiqatan kelmagan bo'lsa u yerda «Qayta ochish» tugmasini bosing.</Notice>
       <Notice show={deleted} tone="warn">Bu buyurtma o'chirilgan — faqat ko'rish uchun: holati va to'lovini o'zgartirib bo'lmaydi.</Notice>
+      <Notice show={sp.error === 'finance'} tone="warn">To'lov holatini faqat moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi — to'lov o'zgarishi saqlanmadi.</Notice>
       <Notice show={sp.error === 'conflict'} tone="warn">Siz sahifani ochganingizdan keyin buyurtmani boshqa xodim yoki bot o'zgartirgan, shuning uchun o'zgarishingiz to'liq saqlanmadi — hozirgi holatni tekshirib, kerak bo'lsa qayta saqlang.</Notice>
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="space-y-4">
@@ -102,18 +116,25 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
             <form action={updateOrder} className="card space-y-3 p-4">
               <input type="hidden" name="id" value={order.id} />
               <input type="hidden" name="prevStatus" value={order.status} />
-              <input type="hidden" name="prevPaymentStatus" value={order.paymentStatus} />
+              {canPay && <input type="hidden" name="prevPaymentStatus" value={order.paymentStatus} />}
               <p className="flex items-center justify-between text-sm">Holat {orderStatusBadge(order.status)}</p>
               <select name="status" defaultValue={order.status} className="input">
                 {Object.entries(orderStatusNames).filter(([k]) => k !== 'draft').map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
               <p className="flex items-center justify-between text-sm">To'lov ({order.paymentMethod ? paymentMethodNames[order.paymentMethod] : '—'}) {paymentBadge(order.paymentStatus)}</p>
-              {manualPayment ? (
-                <select name="paymentStatus" defaultValue={order.paymentStatus} className="input">
-                  {(['pending', 'paid', 'refunded'] as const).map((k) => <option key={k} value={k}>{paymentNames[k]}</option>)}
-                </select>
-              ) : (
+              {!manualPayment ? (
                 <p className="text-xs text-slate-500">Onlayn to'lov holatini to'lov tizimi o'zi yangilaydi.</p>
+              ) : canPay ? (
+                <>
+                  <select name="paymentStatus" defaultValue={order.paymentStatus} className="input">
+                    {(['pending', 'paid', 'refunded'] as const).map((k) => <option key={k} value={k}>{paymentNames[k]}</option>)}
+                  </select>
+                  {order.paymentStatus === 'paid' && (
+                    <p className="text-xs text-slate-500">Belgi xato qo'yilgan bo'lsa «{paymentNames.pending}»ni tanlang: shu belgi yopgan hisob-faktura qayta ochiladi{telegramLinked ? ' va mijozga tuzatish xabari boradi' : ''}.</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">To'lov holatini moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi.</p>
               )}
               <button className="btn-primary w-full py-2">Saqlash</button>
               <p className="text-xs text-slate-500">

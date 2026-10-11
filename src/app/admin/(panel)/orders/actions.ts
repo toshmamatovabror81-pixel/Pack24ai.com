@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { OrderStatus } from '@prisma/client';
 import { requireStaff } from '@/lib/auth';
+import { can } from '@/lib/auth/permissions';
 import { changeOrderStatus, setManualPayment, type Actor } from '@/lib/orderFlow';
 
 const PAYMENTS = ['pending', 'paid', 'refunded'] as const;
@@ -30,6 +31,9 @@ export async function updateOrder(fd: FormData) {
   };
   let conflict = false;
   let delivered = false;
+  let denied = false;
+  // "to'lanmagan"ga qaytarilganda hisob-faktura bilan nima bo'lgani ("Saqlandi" yoniga): qayta ochildi yoki to'langan holida qoldi
+  let invoice = '';
 
   if (touched('status', 'prevStatus')) {
     // Admin formasi istalgan holatni qo'ya oladi (tuzatish uchun), shuning uchun enforceFlow yo'q
@@ -42,15 +46,20 @@ export async function updateOrder(fd: FormData) {
   }
 
   // Onlayn to'lov holatini Payme/Click o'zi o'zgartiradi; qo'lda faqat naqd va bank o'tkazmasi (setManualPayment o'zi tekshiradi)
+  // To'lov holati hisob-fakturani ham yopadi/ochadi — uni faqat "finance" (moliya) ruxsati bor xodim o'zgartiradi. Ruxsatsiz
+  // xodimning formasida bu maydon yo'q; qo'lda yasalgan so'rov kelsa to'lov o'zgarishi qo'llanmaydi (holat o'zgarishi saqlanadi)
   const payment = PAYMENTS.find((p) => p === fd.get('paymentStatus'));
-  if (payment && touched('paymentStatus', 'prevPaymentStatus')) {
+  if (payment && touched('paymentStatus', 'prevPaymentStatus') && !can(user.role, 'finance')) denied = true;
+  else if (payment && touched('paymentStatus', 'prevPaymentStatus')) {
     const base = seen('prevPaymentStatus');
     const res = base ? await setManualPayment(id, payment, actor, base) : await setManualPayment(id, payment, actor);
     if (!res.ok && res.reason === 'not_found') redirect('/admin/orders');
     if (!res.ok && res.reason === 'conflict') conflict = true;
+    if (res.ok && res.changed) invoice = res.reopened ? '&invoice=reopened' : res.stillPaid?.length ? '&invoice=paid' : '';
   }
 
   if (delivered) revalidatePath('/admin/inventory');
   revalidatePath(`/admin/orders/${id}`);
-  redirect(`/admin/orders/${id}?${conflict ? 'error=conflict' : 'saved=1'}`);
+  // Holat ziddiyatga uchragan so'rovda ham to'lov belgisi bekor qilingan bo'lishi mumkin — hisob-faktura natijasi o'shanda ham sahifaga chiqadi
+  redirect(`/admin/orders/${id}?${denied ? 'error=finance' : `${conflict ? 'error=conflict' : 'saved=1'}${invoice}`}`);
 }

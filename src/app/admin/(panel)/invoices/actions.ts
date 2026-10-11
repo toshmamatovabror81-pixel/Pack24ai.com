@@ -8,8 +8,9 @@ import { requireStaff } from '@/lib/auth';
 import { num } from '@/lib/formData';
 import { toNumber } from '@/lib/format';
 import { ensureInvoiceForOrder } from '@/lib/documents';
-import { afterPaymentChange } from '@/lib/orderFlow';
+import { afterPaymentChange, writePaymentEvent, type Actor } from '@/lib/orderFlow';
 import { notifyCustomerInvoice } from '@/lib/orderNotify';
+import { clip } from '@/lib/telegram/api';
 import { getSettings } from '@/lib/settings';
 
 const refresh = (id: number, orderId: number) => {
@@ -34,14 +35,24 @@ async function loadInvoice(id: number) {
  * buyurtma allaqachon to'langan bo'lsa tarix va xabar takrorlanmaydi.
  */
 async function applyPayment(inv: Awaited<ReturnType<typeof loadInvoice>>, data: Prisma.CorporateInvoiceUpdateInput, full: boolean, staffName: string) {
+  const actor: Actor = { name: staffName, via: 'invoice' };
   const orderPaid = await prisma.$transaction(async (tx) => {
     // Qatorlar orderFlow.setManualPayment bilan bir xil tartibda qulflanadi (avval buyurtma, keyin hisob-faktura): ikki xodim
     // bir vaqtda shu buyurtmani "to'landi" qilsa, baza o'zaro qulflanish (deadlock) deb birini bekor qilmaydi
     const updated = full ? await tx.order.updateMany({ where: { id: inv.orderId, paymentMethod: 'bank_transfer', paymentStatus: { not: 'paid' } }, data: { paymentStatus: 'paid' } }) : null;
+    // Hisob-fakturaning yozishdan oldingi holati qulflangan qatordan olinadi (sahifa ochilganda o'qilgan `inv` eskirgan bo'lishi
+    // mumkin: shu orada boshqa xodim qisman to'lov kiritgan yoki belgi bekor qilingan) — tarixga aynan shu holat yoziladi
+    await tx.$queryRaw`SELECT "id" FROM "CorporateInvoice" WHERE "id" = ${inv.id} FOR UPDATE`;
+    const was = await tx.corporateInvoice.findUniqueOrThrow({ where: { id: inv.id }, select: { status: true, paidAmount: true, paidAt: true } });
     await tx.corporateInvoice.update({ where: { id: inv.id }, data });
-    return updated?.count === 1;
+    if (updated?.count !== 1) return false;
+    // Buyurtma shu amal bilan "to'langan" bo'ldi: tarixga hisob-fakturaning avvalgi holati bilan yoziladi — to'lov belgisi keyin
+    // bekor qilinsa (buyurtma sahifasi yoki bot) hisob-faktura aynan shu holatga qaytadi
+    const before = was.status === 'issued' || was.status === 'partial' || was.status === 'overdue' ? [{ id: inv.id, status: was.status, paidAmount: was.paidAmount.toString(), paidAt: was.paidAt?.toISOString() ?? null }] : [];
+    await writePaymentEvent(tx, inv.orderId, inv.order.paymentStatus, 'paid', actor, before);
+    return true;
   });
-  if (orderPaid) await afterPaymentChange({ ...inv.order, paymentStatus: 'paid' }, inv.order.paymentStatus, { name: staffName, via: 'invoice' });
+  if (orderPaid) await afterPaymentChange({ ...inv.order, paymentStatus: 'paid' }, inv.order.paymentStatus, actor, { event: false });
 }
 
 /** Buyurtma sahifasidagi "Hisob-faktura yaratish" tugmasi (mavjud bo'lsa o'shanga o'tadi) */
@@ -95,6 +106,34 @@ export async function cancelInvoice(fd: FormData) {
   const inv = await loadInvoice(id);
   if (inv.status === 'paid') redirect(`/admin/invoices/${id}?error=state`);
   await prisma.corporateInvoice.update({ where: { id }, data: { status: 'cancelled' } });
+  refresh(id, inv.orderId);
+  redirect(`/admin/invoices/${id}?saved=1`);
+}
+
+/**
+ * To'langan hisob-fakturani qayta ochish — buyurtma "to'langan" emas, hisob-faktura esa "to'langan" bo'lib qolgan holatni tuzatish:
+ * to'lov shu sahifada xato kiritilgan, yoki buyurtmadagi "to'landi" belgisi bekor qilingan-u, hisob-fakturani u yopmagan edi.
+ * Buyurtma "to'langan" yoki "qaytarilgan" turganda bu yerdan ochilmaydi (invoiceStatus.OWED_ORDER bilan bir xil qoida): avval buyurtma
+ * «To'lanmagan»ga qaytariladi — u shu belgi yopgan hisob-fakturani avvalgi holatiga o'zi ochadi (bu yerdan ochilsa summa 0 ga tushib,
+ * o'sha surat qo'llanmay qolardi); puli qaytarilgan buyurtmaning to'langan hisob-fakturasi esa odatiy yakuniy holat.
+ * Oldingi qisman to'lov summasi saqlanmagan, shuning uchun to'langan summa 0 ga qaytadi (sahifada shu aytiladi). Tarixga yoziladi.
+ */
+export async function reopenInvoice(fd: FormData) {
+  const user = await requireStaff('finance');
+  const id = Number(fd.get('id'));
+  const inv = await loadInvoice(id);
+  const reopened = await prisma.$transaction(async (tx) => {
+    // Boshqa to'lov amallari bilan bir xil tartib (avval buyurtma, keyin hisob-faktura): ayni paytda buyurtmani "to'landi" qilayotgan
+    // tranzaksiya tugashi kutiladi — busiz pastdagi shart buyurtmaning eski holatini ko'rib, to'langan buyurtmaning hisob-fakturasini
+    // ochib yuborardi. NO KEY: boshqa tranzaksiyalarning shu buyurtmaga tarix yozishi (tashqi kalit tekshiruvi) kutib qolmaydi
+    await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${inv.orderId} FOR NO KEY UPDATE`;
+    // Shartli yozuv: tugma ikki marta bosilsa yoki shu orada holat o'zgargan bo'lsa hech narsa yozilmaydi
+    const updated = await tx.corporateInvoice.updateMany({ where: { id, status: 'paid', order: { paymentStatus: { notIn: ['paid', 'refunded'] } } }, data: { status: 'issued', paidAmount: 0, paidAt: null } });
+    if (updated.count !== 1) return false;
+    await tx.orderEvent.create({ data: { orderId: inv.orderId, kind: 'invoice', fromValue: 'paid', toValue: 'issued', actor: clip(user.name, 100), via: 'invoice', meta: { invoiceNo: inv.invoiceNo } } });
+    return true;
+  });
+  if (!reopened) redirect(`/admin/invoices/${id}?error=state`);
   refresh(id, inv.orderId);
   redirect(`/admin/invoices/${id}?saved=1`);
 }

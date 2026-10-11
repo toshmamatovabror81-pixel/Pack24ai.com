@@ -4,9 +4,10 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { displayPhone, formatDate, formatPrice, toNumber } from '@/lib/format';
 import { Notice, PageHeader, Table } from '@/components/admin/ui';
-import { paymentBadge, paymentMethodNames } from '@/components/admin/status';
+import { isManualPayment } from '@/lib/orderStatus';
+import { paymentBadge, paymentMethodNames, paymentNames } from '@/components/admin/status';
 import { effectiveInvoiceStatus, invoiceStatusBadge } from '@/components/admin/finance/status';
-import { cancelInvoice, linkContract, markPaid, registerPartial } from '../actions';
+import { cancelInvoice, linkContract, markPaid, registerPartial, reopenInvoice } from '../actions';
 
 export const metadata = { title: 'Hisob-faktura' };
 const errors: Record<string, string> = {
@@ -93,7 +94,31 @@ export default async function InvoiceDetail({ params, searchParams }: { params: 
               </form>
             </>
           ) : (
-            <div className="card p-4 text-sm text-slate-500">{status === 'paid' ? "Hisob-faktura to'liq to'langan." : 'Hisob-faktura bekor qilingan.'}</div>
+            <div className="card space-y-2 p-4 text-sm text-slate-500">
+              <p>{status === 'paid' ? "Hisob-faktura to'liq to'langan." : 'Hisob-faktura bekor qilingan.'}</p>
+              {status === 'paid' && o.paymentStatus === 'paid' && isManualPayment(o.paymentMethod) && (
+                <p className="text-xs">To'lov xato kiritilgan bo'lsa: buyurtma sahifasida to'lov holatini «{paymentNames.pending}»ga qaytaring — shu to'lov yopgan hisob-faktura qayta ochiladi.</p>
+              )}
+              {status === 'paid' && o.paymentStatus === 'refunded' && (
+                <p className="text-xs">
+                  Buyurtma puli qaytarilgan — hisob-faktura hujjat sifatida to'langan holida qoladi (qarz hisoblanmaydi).
+                  {isManualPayment(o.paymentMethod) &&
+                    ` «${paymentNames.refunded}» xato tanlangan bo'lsa, buyurtma sahifasida tuzating: to'lov haqiqatan kelgan bo'lsa — «${paymentNames.paid}», kelmagan bo'lsa — «${paymentNames.pending}» (shunda to'lov belgisi yopgan hisob-faktura avvalgi holatiga ochiladi va mijozga xabar boradi).`}
+                </p>
+              )}
+              {/* Faqat buyurtmadan to'lov kutilayotganda ("to'langan" ham, "qaytarilgan" ham emas) — reopenInvoice ham shuni tekshiradi */}
+              {status === 'paid' && o.paymentStatus !== 'paid' && o.paymentStatus !== 'refunded' && (
+                <form action={reopenInvoice} className="space-y-2">
+                  <input type="hidden" name="id" value={inv.id} />
+                  <p className="text-xs text-amber-700">
+                    Buyurtmaning to'lov holati — «{paymentNames[o.paymentStatus]}».
+                    {isManualPayment(o.paymentMethod) && ` Hisob-faktura haqiqatan to'langan bo'lsa, buyurtma sahifasida to'lovni «${paymentNames.paid}» qilib qo'ying.`} To'lov xato kiritilgan bo'lsa hisob-fakturani qayta
+                    oching: to'langan summa 0 ga qaytadi (oldin qisman to'lov bo'lgan bo'lsa, uni qayta kiriting).
+                  </p>
+                  <button className="btn-ghost w-full py-2 text-sm">Qayta ochish</button>
+                </form>
+              )}
+            </div>
           )}
           <form action={linkContract} className="card space-y-2 p-4">
             <input type="hidden" name="id" value={inv.id} />

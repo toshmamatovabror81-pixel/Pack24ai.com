@@ -33,15 +33,22 @@ const scope = vi.hoisted(() => {
   return { SCHEMA, original };
 });
 
+/** Do'kon telefoni (xabardagi "Savollar bo'lsa" satri): null — helpers.ts dagi standart; '' — telefon kiritilmagan */
+const shop = vi.hoisted(() => ({ phone: null as string | null }));
+
 vi.mock('server-only', () => ({}));
-// Haqiqiy getSettings next/cache ga tayanadi; orderNotify undan faqat "bekor qilindi" xabaridagi telefon uchun foydalanadi
-vi.mock('@/lib/settings', async () => (await import('./helpers')).settingsMock());
+// Haqiqiy getSettings next/cache ga tayanadi; orderNotify undan faqat "bekor qilindi" va to'lov tuzatishi xabaridagi telefon uchun foydalanadi
+vi.mock('@/lib/settings', async () => {
+  const { TEST_SETTINGS } = await import('./helpers');
+  return { getSettings: async () => ({ ...TEST_SETTINGS, phone: shop.phone ?? TEST_SETTINGS.phone }) };
+});
 
 const { flushOutbox, outboxStats, supersede, supersedePrefix, OUTBOX_MAX_ATTEMPTS } = await import('@/lib/telegram/outbox');
 const { notify, notifyCustomer, notifyStaff } = await import('@/lib/telegram/notify');
 const { unlinkCustomer } = await import('@/lib/telegram/customers');
 const { unlinkStaff } = await import('@/lib/telegram/staffLink');
-const { notifyCustomerOrderStatus, notifyCustomerPaid, notifyCustomerProduction } = await import('@/lib/orderNotify');
+const { notifyCustomerOrderStatus, notifyCustomerPaid, notifyCustomerPaymentReverted, notifyCustomerProduction, notifyStaffLead, notifyStaffNewOrder, notifyStaffPaid, notifyStaffPaymentReverted, sendDailyDigest } =
+  await import('@/lib/orderNotify');
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -173,11 +180,14 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
   });
   beforeEach(async () => {
     await prisma.botOutbox.deleteMany();
+    // Hisob-faktura buyurtmaga bog'langan (kunlik eslatma testi yaratadi): buyurtmadan oldin o'chiriladi
+    await prisma.corporateInvoice.deleteMany();
     await prisma.order.deleteMany();
     await prisma.telegramCustomer.deleteMany();
     await prisma.user.deleteMany();
     Object.assign(net, { delayMs: 0, reply: OK, during: null });
     net.sent.length = 0;
+    shop.phone = null;
     vi.stubEnv('TELEGRAM_API_BASE', '');
     vi.stubEnv('CUSTOMER_BOT_TOKEN', CUSTOMER);
     vi.stubEnv('STAFF_BOT_TOKEN', STAFF);
@@ -929,7 +939,8 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
         `customer 777 order-status:${o.id} kutyapti`,
         // Mavzu — buyurtma va ish topshirig'i raqami (mahsulot nomi mavzuda yo'q)
         `customer 777 order-production:${o.id}:7 kutyapti`,
-        'customer 777 - kutyapti',
+        // To'lov xabari o'z mavzusida ("to'lov qabul qilindi" va uning tuzatishi uchun bitta)
+        `customer 777 order-payment:${o.id} kutyapti`,
       ]);
 
       // Telegram tiklandi: "Yetkazildi" to'g'ridan-to'g'ri yetib boradi va navbatdagi "Yo'lda"ni bekor qiladi
@@ -941,7 +952,7 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
       expect(await states()).toEqual([
         `customer 777 order-status:${o.id} ${SUPERSEDED}`,
         `customer 777 order-production:${o.id}:7 kutyapti`,
-        'customer 777 - kutyapti',
+        `customer 777 order-payment:${o.id} kutyapti`,
       ]);
 
       const due = new Date(Math.max(...(await all()).map((r) => r.nextAt.getTime())));
@@ -953,7 +964,7 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
 
     type WorkOrder = Parameters<typeof notifyCustomerProduction>[0];
     const wo = (id: number, orderId: number, over: Partial<WorkOrder> = {}): WorkOrder => ({ id, orderId, productName: 'Quti 30x20', currentStage: 'gofra', progress: 25, status: 'in_progress', ...over });
-    /** Chat va xabarning birinchi satri (belgisi va buyurtma raqami): 🏭 — ishlab chiqarish, 📦 — holat, ✅ — to'lov */
+    /** Chat va xabarning birinchi satri (belgisi va buyurtma raqami): 🏭 — ishlab chiqarish, 📦 — holat, ✅ — to'lov, ℹ️ — to'lov tuzatishi */
     const heads = () => net.sent.map((m) => `${m.chat} ${m.text.split('\n')[0]}`).sort();
 
     // Ilgari mavzu mahsulot nomidan yasalardi: bitta buyurtmada bir xil mahsulotning ikki topshirig'i bir-birining xabarini bekor qilardi
@@ -1008,7 +1019,7 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
       expect(await notifyCustomerOrderStatus(cancelled)).toBe(2);
       expect(heads()).toEqual([`777 📦 <b>Buyurtma #${o.id}</b>`, `778 📦 <b>Заказ #${o.id}</b>`]);
       expect((await states()).sort()).toEqual(['777', '778'].flatMap((chat) => [
-        `customer ${chat} - kutyapti`,
+        `customer ${chat} order-payment:${o.id} kutyapti`, // to'lov xabari o'z mavzusida — bekor qilish unga tegmaydi
         `customer ${chat} order-production:${similar.id}:70 kutyapti`,
         `customer ${chat} order-production:${o.id}:7 ${SUPERSEDED}`,
         `customer ${chat} order-production:${o.id}:8 ${SUPERSEDED}`,
@@ -1047,6 +1058,676 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
       expect(await prisma.botOutbox.count({ where: { sentAt: null, failedAt: null } })).toBe(0);
     });
 
+    /** Navbatdagi hamma kutayotgan xabarning vaqti kelgan payt (qatorlar haqiqiy "hozir" bilan yozilgan) */
+    const dueAll = async () => new Date(Math.max(...(await all()).map((r) => r.nextAt.getTime())));
+
+    // Xodim «To'landi»ni xato bosdi va bekor qildi (orderFlow.afterPaymentChange). Telegram ishlamay navbatda qolgan "to'lov qabul
+    // qilindi" tuzatishdan KEYIN yetib borsa, mijoz buyurtmani to'langan deb o'ylab qolardi — ikkala xabar bitta mavzuda
+    it('"to\'lov qabul qilindi" Telegram ishlamay navbatda qolgan, keyin belgi bekor qilingan: tiklangach mijoz faqat tuzatishni oladi (har kim o\'z tilida)', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      const phone = '998901112233';
+      // Buyurtma sahifasining havola kaliti: soxta qiymat sir skaneri (gitleaks) ruxsat bergan ko'rinishda
+      const token = 'ci-dummy-order-link-secret';
+      await customer('777', { phone, verifiedAt: at(-DAY) });
+      await customer('778', { lang: 'ru' });
+      const o = await order({ contactPhone: phone, telegramUserId: '778', paymentStatus: 'paid', accessToken: token });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyCustomerPaid(o)).toBe(0);
+      const paid = await all();
+      expect(paid.map((r) => `${r.bot} ${r.chatId} ${r.topic} ${r.html.split('\n')[0]}`).sort()).toEqual([`customer 777 ${topic} ✅ <b>Buyurtma #${o.id}</b>`, `customer 778 ${topic} ✅ <b>Заказ #${o.id}</b>`]);
+      expect(paid.every((r) => !r.sentAt && !r.failedAt)).toBe(true);
+
+      // Belgi bekor qilindi; Telegram hali ham ishlamayapti — tuzatish ham navbatga tushadi va "qabul qilindi"ning o'rnini bosadi
+      const started = Date.now();
+      const unpaid = await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyCustomerPaymentReverted(unpaid)).toBe(0);
+      const rows = await all();
+      expect(rows).toHaveLength(4);
+      for (const was of paid) {
+        const r = rows.find((x) => x.id === was.id)!;
+        // Faqat "eskirgan" belgisi qo'yilgan — boshqa hech bir ustuni o'zgarmagan
+        expect(r).toEqual({ ...was, failedAt: r.failedAt, lastError: SUPERSEDED });
+        expect(r.failedAt!.getTime()).toBeGreaterThanOrEqual(started);
+        expect(r.failedAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      }
+      const corrections = rows.filter((r) => !paid.some((p) => p.id === r.id));
+      expect(corrections.map((r) => `${r.bot} ${r.chatId} ${r.topic} ${r.html.split('\n')[0]}`).sort()).toEqual([`customer 777 ${topic} ℹ️ <b>Buyurtma #${o.id}</b>`, `customer 778 ${topic} ℹ️ <b>Заказ #${o.id}</b>`]);
+      expect(corrections.every((r) => r.attempts === 1 && !r.sentAt && !r.failedAt)).toBe(true);
+      // Bekor bo'lgan "qabul qilindi" — Telegram xatosi emas: "yuborilmadi" sanog'iga kirmaydi
+      expect(await outboxStats()).toEqual({ pending: 2, stuck: 0, failed24h: 0 });
+
+      // Telegram tiklandi
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 2, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(heads()).toEqual([`777 ℹ️ <b>Buyurtma #${o.id}</b>`, `778 ℹ️ <b>Заказ #${o.id}</b>`]);
+
+      // Navbat orqali o'tgan tuzatish — to'liq: matn, HTML rejimi, do'kon telefoni va tugmalar
+      const uz = net.sent.find((m) => m.chat === '777')!;
+      const ru = net.sent.find((m) => m.chat === '778')!;
+      for (const m of [uz, ru]) expect(m).toMatchObject({ token: CUSTOMER, mode: 'HTML' });
+      expect(uz.text.split('\n')).toEqual([
+        `ℹ️ <b>Buyurtma #${o.id}</b>`,
+        expect.stringMatching(/«to'lov qabul qilindi» belgisi xato qo'yilgan edi — u olib tashlandi\. .*<b>to'lanmagan<\/b>.* Noqulaylik uchun uzr so'raymiz\.$/),
+        'Savollar bo\'lsa: +998 88 055 78 88',
+      ]);
+      expect(ru.text.split('\n')).toEqual([
+        `ℹ️ <b>Заказ #${o.id}</b>`,
+        expect.stringMatching(/отметка «оплата получена» по этому заказу была поставлена по ошибке и снята\. .*<b>неоплаченным<\/b>.* Приносим извинения за неудобство\.$/),
+        'Если есть вопросы: +998 88 055 78 88',
+      ]);
+      // "Buyurtma #N" sarlavhasi ostida "bekor qilindi" (ruschada «отменён») buyurtmaning o'zi bekor qilingandek o'qilardi
+      expect(uz.text).not.toMatch(/bekor qilindi/i);
+      expect(ru.text).not.toMatch(/отмен/iu);
+      expect(uz.inline).toEqual([[{ text: '📦 Batafsil', callback_data: `o_${o.id}` }, { text: '🌐 Saytda ochish', url: `https://pack24.uz/uz/orders/${token}` }]]);
+      expect(ru.inline).toEqual([[{ text: '📦 Подробнее', callback_data: `o_${o.id}` }, { text: '🌐 Открыть на сайте', url: `https://pack24.uz/ru/orders/${token}` }]]);
+    });
+
+    it('tuzatish to\'g\'ridan-to\'g\'ri yetib borsa ham navbatdagi "to\'lov qabul qilindi" bekor bo\'ladi; do\'konda telefon kiritilmagan bo\'lsa xabarda telefon satri yo\'q', async () => {
+      const phone = '998901112233';
+      await customer('777', { phone, verifiedAt: at(-DAY) });
+      const o = await order({ contactPhone: phone, paymentStatus: 'paid' });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyCustomerPaid(o)).toBe(0);
+      expect(await states()).toEqual([`customer 777 ${topic} kutyapti`]);
+
+      net.reply = OK;
+      net.sent.length = 0;
+      shop.phone = '';
+      expect(await notifyCustomerPaymentReverted(o)).toBe(1);
+      expect(await states()).toEqual([`customer 777 ${topic} ${SUPERSEDED}`]);
+      expect(net.sent).toHaveLength(1);
+      expect(net.sent[0]).toMatchObject({ token: CUSTOMER, chat: '777', mode: 'HTML', inline: [[{ text: '📦 Batafsil', callback_data: `o_${o.id}` }]] });
+      expect(net.sent[0].text.split('\n')).toEqual([`ℹ️ <b>Buyurtma #${o.id}</b>`, expect.stringContaining('<b>to\'lanmagan</b>')]);
+
+      // Kechikkan "qabul qilindi" endi hech qachon ketmaydi
+      expect(await flushOutbox(await dueAll())).toEqual(NONE);
+      expect(await flushOutbox(new Date(Date.now() + DAY))).toEqual(NONE);
+      expect(net.sent).toHaveLength(1);
+      expect(await outboxStats()).toEqual({ pending: 0, stuck: 0, failed24h: 0 });
+    });
+
+    // Bekor qilingan buyurtmadagi xato belgi ham olib tashlanadi, lekin undan to'lov kutilmaydi: "hozircha to'lanmagan" gapi mijozni
+    // to'lashga undagandek o'qilardi. Matn navbatga shu ko'rinishda yoziladi va tiklangach o'zgarishsiz yetib boradi
+    it('bekor qilingan buyurtmaning tuzatishi navbat orqali: "hozircha to\'lanmagan" gapi yo\'q (uz va ru) — sarlavha, birinchi gap, uzr, telefon va tugmalar joyida; navbatdagi "to\'lov qabul qilindi"ning o\'rnini bosadi', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      const phone = '998901112233';
+      // Buyurtma sahifasining havola kaliti: soxta qiymat sir skaneri (gitleaks) ruxsat bergan ko'rinishda
+      const token = 'ci-dummy-order-link-secret';
+      await customer('777', { phone, verifiedAt: at(-DAY) });
+      await customer('778', { lang: 'ru' });
+      const o = await order({ contactPhone: phone, telegramUserId: '778', status: 'cancelled', paymentStatus: 'paid', accessToken: token });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyCustomerPaid(o)).toBe(0);
+      const unpaid = await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyCustomerPaymentReverted(unpaid)).toBe(0);
+      expect((await states()).sort()).toEqual(['777', '778'].flatMap((chat) => [`customer ${chat} ${topic} ${SUPERSEDED}`, `customer ${chat} ${topic} kutyapti`]));
+      const waiting = (await all()).filter((r) => !r.failedAt);
+      const uzText = [
+        `ℹ️ <b>Buyurtma #${o.id}</b>`,
+        'Tuzatish: bu buyurtma bo\'yicha «to\'lov qabul qilindi» belgisi xato qo\'yilgan edi — u olib tashlandi. Noqulaylik uchun uzr so\'raymiz.',
+        'Savollar bo\'lsa: +998 88 055 78 88',
+      ].join('\n');
+      const ruText = [
+        `ℹ️ <b>Заказ #${o.id}</b>`,
+        'Исправление: отметка «оплата получена» по этому заказу была поставлена по ошибке и снята. Приносим извинения за неудобство.',
+        'Если есть вопросы: +998 88 055 78 88',
+      ].join('\n');
+      expect(waiting.find((r) => r.chatId === '777')?.html).toBe(uzText);
+      expect(waiting.find((r) => r.chatId === '778')?.html).toBe(ruText);
+
+      // Telegram tiklandi: faqat tuzatish yetib boradi — jadvalga yozilgan matn va tugmalar bilan
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 2, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(net.sent).toHaveLength(2);
+      expect(net.sent.find((m) => m.chat === '777')).toEqual({ token: CUSTOMER, chat: '777', mode: 'HTML', text: uzText, inline: [[{ text: '📦 Batafsil', callback_data: `o_${o.id}` }, { text: '🌐 Saytda ochish', url: `https://pack24.uz/uz/orders/${token}` }]] });
+      expect(net.sent.find((m) => m.chat === '778')).toEqual({ token: CUSTOMER, chat: '778', mode: 'HTML', text: ruText, inline: [[{ text: '📦 Подробнее', callback_data: `o_${o.id}` }, { text: '🌐 Открыть на сайте', url: `https://pack24.uz/ru/orders/${token}` }]] });
+      for (const m of net.sent) expect(m.text).not.toMatch(/to'lanmagan|неоплаченн|bekor qilindi|отмен/iu);
+
+      // Shu buyurtma bekor qilinmagan bo'lganida gap bo'lardi (farq faqat shu gapda)
+      net.sent.length = 0;
+      const active = await prisma.order.update({ where: { id: o.id }, data: { status: 'processing' } });
+      expect(await notifyCustomerPaymentReverted(active)).toBe(2);
+      expect(net.sent.find((m) => m.chat === '777')?.text).toBe(uzText.replace(' Noqulaylik', ' Buyurtma hozircha <b>to\'lanmagan</b> deb hisoblanadi. Noqulaylik'));
+      expect(net.sent.find((m) => m.chat === '778')?.text).toBe(ruText.replace(' Приносим', ' Заказ пока считается <b>неоплаченным</b>. Приносим'));
+    });
+
+    // Teskari holat: tuzatish navbatda turganda belgi qayta qo'yildi (to'lov haqiqatan kelgan ekan) — endi eskirgan narsa tuzatishning o'zi
+    it('teskarisi: navbatda qolgan tuzatish belgi qayta qo\'yilgach bekor bo\'ladi — tiklangach mijoz faqat "to\'lov qabul qilindi"ni oladi', async () => {
+      const phone = '998901112233';
+      await customer('777', { phone, verifiedAt: at(-DAY) });
+      const o = await order({ contactPhone: phone });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyCustomerPaymentReverted(o)).toBe(0);
+      expect(await states()).toEqual([`customer 777 ${topic} kutyapti`]);
+      const [correction] = await all();
+      expect(correction.html.split('\n')[0]).toBe(`ℹ️ <b>Buyurtma #${o.id}</b>`);
+      // Belgi qayta qo'yildi; Telegram hali ham ishlamayapti
+      const again = await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'paid' } });
+      expect(await notifyCustomerPaid(again)).toBe(0);
+      expect(await states()).toEqual([`customer 777 ${topic} ${SUPERSEDED}`, `customer 777 ${topic} kutyapti`]);
+      expect(await one(correction.id)).toEqual({ ...correction, failedAt: expect.any(Date), lastError: SUPERSEDED });
+
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 1, retry: 0, failed: 0 });
+      expect(heads()).toEqual([`777 ✅ <b>Buyurtma #${o.id}</b>`]);
+      expect(net.sent[0].text).toMatch(/To'lov qabul qilindi: <b>250\s000 so'm<\/b>$/);
+      expect(await states()).toEqual([`customer 777 ${topic} ${SUPERSEDED}`, `customer 777 ${topic} yetkazildi`]);
+
+      // To'g'ridan-to'g'ri yetib borgan "qabul qilindi" ham navbatdagi tuzatishni bekor qiladi
+      net.reply = offline;
+      expect(await notifyCustomerPaymentReverted(o)).toBe(0);
+      net.reply = OK;
+      net.sent.length = 0;
+      expect(await notifyCustomerPaid(again)).toBe(1);
+      expect((await states()).slice(2)).toEqual([`customer 777 ${topic} ${SUPERSEDED}`]);
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(heads()).toEqual([`777 ✅ <b>Buyurtma #${o.id}</b>`]);
+    });
+
+    // Mavzu aniq tenglik bilan solishtiriladi: 7-buyurtmaning tuzatishi 75- va 750-buyurtmaning navbatdagi xabarini bekor qilmasin
+    it('boshqa buyurtmaning to\'lov xabariga (raqami shu bilan boshlanadigan buyurtmalarnikiga ham), holat va ishlab chiqarish xabarlariga tegilmaydi', async () => {
+      const phone = '998901112233';
+      await customer('777', { phone, verifiedAt: at(-DAY) });
+      // Raqamlari bir-birining boshi (1, 15 va 150 kabi)
+      const a = await order({ contactPhone: phone });
+      const b = await order({ id: Number(`${a.id}5`), contactPhone: phone });
+      const c = await order({ id: Number(`${a.id}50`), contactPhone: phone });
+
+      net.reply = offline;
+      for (const o of [a, b, c]) expect(await notifyCustomerPaid(o)).toBe(0);
+      expect(await notifyCustomerOrderStatus(b)).toBe(0);
+      expect(await notifyCustomerProduction(wo(7, b.id))).toBe(0);
+      const before = await all();
+      const untouched = async (...skip: number[]) => {
+        for (const was of before.filter((r) => !skip.includes(r.id))) expect(await one(was.id)).toEqual(was);
+      };
+      const idOf = (topic: string) => before.find((r) => r.topic === topic)!.id;
+
+      // O'rtadagi buyurtmaning (b) tuzatishi yetib bordi: faqat uning "qabul qilindi"si bekor bo'ladi
+      net.reply = OK;
+      expect(await notifyCustomerPaymentReverted(b)).toBe(1);
+      expect(await states()).toEqual([
+        `customer 777 order-payment:${a.id} kutyapti`,
+        `customer 777 order-payment:${b.id} ${SUPERSEDED}`,
+        `customer 777 order-payment:${c.id} kutyapti`,
+        `customer 777 order-status:${b.id} kutyapti`,
+        `customer 777 order-production:${b.id}:7 kutyapti`,
+      ]);
+      await untouched(idOf(`order-payment:${b.id}`));
+
+      // Eng qisqa raqamli buyurtmaning (a) tuzatishi: b va c nikiga tegmaydi
+      expect(await notifyCustomerPaymentReverted(a)).toBe(1);
+      expect((await states()).filter((s) => s.endsWith('kutyapti'))).toEqual([
+        `customer 777 order-payment:${c.id} kutyapti`,
+        `customer 777 order-status:${b.id} kutyapti`,
+        `customer 777 order-production:${b.id}:7 kutyapti`,
+      ]);
+      await untouched(idOf(`order-payment:${a.id}`), idOf(`order-payment:${b.id}`));
+
+      // Yangi holat ham navbatdagi to'lov xabariga tegmaydi (va aksincha — yuqorida)
+      const shipped = await prisma.order.update({ where: { id: b.id }, data: { status: 'shipping' } });
+      expect(await notifyCustomerOrderStatus(shipped)).toBe(1);
+      expect((await states()).filter((s) => s.endsWith('kutyapti'))).toEqual([`customer 777 order-payment:${c.id} kutyapti`, `customer 777 order-production:${b.id}:7 kutyapti`]);
+
+      net.sent.length = 0;
+      expect(await flushOutbox(await dueAll())).toEqual({ sent: 2, retry: 0, failed: 0 });
+      expect(heads()).toEqual([`777 ✅ <b>Buyurtma #${c.id}</b>`, `777 🏭 <b>Buyurtma #${b.id}</b>`]);
+    });
+
+    it('xodim kartasi navbat orqali ham o\'z egasiga o\'z tugmalari bilan yetib boradi: «To\'landi» va «To\'lov belgisini bekor qilish» faqat moliya ruxsati bor xodimda', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      await staff('900', { role: 'staff' });
+      await staff('901', { role: 'manager' });
+      await staff('902', { role: 'admin' });
+      await staff('903', { role: 'admin', telegramNotify: false });
+      const o = await order({ status: 'new_', paymentMethod: 'cash' });
+      const tail = [{ text: '🔄 Yangilash', callback_data: `or_${o.id}` }, { text: '🌐 Admin panel', url: `https://pack24.uz/admin/orders/${o.id}` }];
+      const cancel = { text: '❌ Bekor qilish', callback_data: `oc_${o.id}` };
+      const pay = { text: '💵 To\'landi', callback_data: `op_${o.id}` };
+      const undo = { text: '↩️ To\'lov belgisini bekor qilish', callback_data: `ou_${o.id}` };
+      const accept = [{ text: '✅ Qabul qilish', callback_data: `os_${o.id}_processing` }];
+      const ship = [{ text: '🚚 Jo\'natildi', callback_data: `os_${o.id}_shipping` }];
+      const got = (chat: string) => net.sent.find((m) => m.chat === chat);
+
+      // Telegram ishlamayapti: har bir xodimning kartasi o'z tugmalari bilan navbatga tushadi (mavzusiz — kartalar bir-birini bekor qilmaydi)
+      net.reply = offline;
+      expect(await notifyStaffNewOrder(o.id)).toBe(0);
+      const rows = await all();
+      expect(rows.map((r) => `${r.bot} ${r.chatId} ${r.topic ?? '-'}`).sort()).toEqual(['staff 900 -', 'staff 901 -', 'staff 902 -']);
+      const queued = (chat: string) => rows.find((r) => r.chatId === chat)?.inline;
+      expect(queued('900')).toEqual([accept, [cancel], tail]);
+      expect(queued('901')).toEqual([accept, [pay, cancel], tail]);
+      expect(queued('902')).toEqual([accept, [pay, cancel], tail]);
+      // Matn hammaga bir xil — faqat tugmalar farq qiladi
+      expect(new Set(rows.map((r) => r.html)).size).toBe(1);
+      expect(rows[0].html).toContain(`Buyurtma #${o.id}`);
+
+      net.reply = OK;
+      net.sent.length = 0;
+      expect(await flushOutbox(await dueAll())).toEqual({ sent: 3, retry: 0, failed: 0 });
+      expect(net.sent.map((m) => `${m.token} ${m.chat}`).sort()).toEqual([`${STAFF} 900`, `${STAFF} 901`, `${STAFF} 902`]);
+      expect(got('900')?.inline).toEqual([accept, [cancel], tail]);
+      expect(got('901')?.inline).toEqual([accept, [pay, cancel], tail]);
+      expect(got('902')?.inline).toEqual([accept, [pay, cancel], tail]);
+
+      // To'langan naqd buyurtma: belgini bekor qilish tugmasi ham faqat moliya ruxsati bor xodimga; oddiy xodimda holat tugmalari qoladi
+      await prisma.order.update({ where: { id: o.id }, data: { status: 'processing', paymentStatus: 'paid' } });
+      net.sent.length = 0;
+      expect(await notifyStaffPaid(o.id, 'Kassa <1>')).toBe(3);
+      expect(net.sent.map((m) => m.chat).sort()).toEqual(['900', '901', '902']);
+      expect(got('900')?.inline).toEqual([ship, [cancel], tail]);
+      expect(got('901')?.inline).toEqual([ship, [cancel], [undo], tail]);
+      expect(got('902')?.inline).toEqual([ship, [cancel], [undo], tail]);
+      expect(got('900')?.text).toContain('✅ <b>To\'lov qabul qilindi</b> (Kassa &lt;1&gt;)');
+      // Xabarnomani o'chirgan administratorga hech narsa ketmagan va navbatga ham tushmagan
+      expect(await prisma.botOutbox.count({ where: { chatId: '903' } })).toBe(0);
+    });
+
+    // Xodimlarga e'lon qilingan to'lov xato bo'lib chiqdi (orderFlow.afterPaymentChange -> notifyStaffPaymentReverted): chatida
+    // "To'lov qabul qilindi" kartasi qolgan xodim to'lanmagan buyurtmani jo'natib yubormasin — tuzatish Telegram uzilishida ham yo'qolmaydi.
+    // Ikkala karta bitta mavzuda (order-payment:<buyurtma>): navbatda qolgan "qabul qilindi" tuzatishdan KEYIN yetib bormaydi
+    it('belgi bekor qilingani haqidagi xodim kartasi navbat orqali ham yetib boradi: izoh, to\'lanmagan holat va o\'z tugmalari bilan («To\'landi» yana faqat moliya ruxsati borlarda); navbatdagi "To\'lov qabul qilindi" kartasining o\'rnini bosadi — har bir xodimga faqat tuzatish keladi', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      await staff('900', { role: 'staff' });
+      await staff('901', { role: 'manager' });
+      await staff('902', { role: 'admin' });
+      await staff('903', { role: 'admin', telegramNotify: false });
+      const o = await order({ status: 'processing', paymentMethod: 'bank_transfer', paymentStatus: 'paid', customerName: 'Olim & Co' });
+      const tail = [{ text: '🔄 Yangilash', callback_data: `or_${o.id}` }, { text: '🌐 Admin panel', url: `https://pack24.uz/admin/orders/${o.id}` }];
+      const cancel = { text: '❌ Bekor qilish', callback_data: `oc_${o.id}` };
+      const pay = { text: '💵 To\'landi', callback_data: `op_${o.id}` };
+      const ship = [{ text: '🚚 Jo\'natildi', callback_data: `os_${o.id}_shipping` }];
+      const note = '↩️ <b>To\'lov belgisi bekor qilindi</b> (Ali &lt;admin&gt; &amp; Co)';
+      const topic = `order-payment:${o.id}`;
+      // Buyurtma yana to'lanmagan: «To'landi» moliya ruxsati borlarga qaytadi, belgini bekor qilish tugmasi hech kimda yo'q
+      const expected = { 900: [ship, [cancel], tail], 901: [ship, [pay, cancel], tail], 902: [ship, [pay, cancel], tail] };
+
+      // Telegram ishlamayapti: avval "To'lov qabul qilindi" kartasi navbatga tushadi, keyin (belgi bekor qilingach) tuzatish kartasi
+      net.reply = offline;
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      const accepted = await all();
+      expect(accepted.map((r) => `${r.bot} ${r.chatId} ${r.topic ?? '-'} ${r.html.split('\n')[0]}`).sort()).toEqual(['900', '901', '902'].map((chat) => `staff ${chat} ${topic} ✅ <b>To'lov qabul qilindi</b> (Hisob-faktura)`));
+      const started = Date.now();
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Ali <admin> & Co')).toBe(0);
+      const rows = await all();
+      expect(rows).toHaveLength(6);
+      const corrections = rows.filter((r) => r.html.startsWith('↩️'));
+      // To'lov mavzusida, har kimga bittadan; birinchi urinish sanalgan
+      expect(corrections.map((r) => `${r.bot} ${r.chatId} ${r.topic ?? '-'} ${r.attempts}`).sort()).toEqual([`staff 900 ${topic} 1`, `staff 901 ${topic} 1`, `staff 902 ${topic} 1`]);
+      expect(corrections.every((r) => !r.sentAt && !r.failedAt && r.lastError === 'fetch failed')).toBe(true);
+      // Navbatdagi "qabul qilindi" kartalari shu paytda eskirgan deb belgilangan — boshqa hech bir ustuni o'zgarmagan
+      for (const was of accepted) {
+        const r = rows.find((x) => x.id === was.id)!;
+        expect(r).toEqual({ ...was, failedAt: r.failedAt, lastError: SUPERSEDED });
+        expect(r.failedAt!.getTime()).toBeGreaterThanOrEqual(started);
+        expect(r.failedAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      }
+      // Bu Telegram xatosi emas: "yuborilmadi" sanog'iga kirmaydi
+      expect(await outboxStats()).toEqual({ pending: 3, stuck: 0, failed24h: 0 });
+      for (const [chat, inline] of Object.entries(expected)) expect(corrections.find((r) => r.chatId === chat)?.inline, chat).toEqual(inline);
+      // Matn hammaga bir xil: izoh (kim bekor qilgani HTML uchun qochirilgan), bo'sh satr va buyurtma kartasi — hozirgi (to'lanmagan) holati bilan
+      expect(new Set(corrections.map((r) => r.html)).size).toBe(1);
+      expect(corrections[0].html.split('\n').slice(0, 2)).toEqual([note, '']);
+      expect(corrections[0].html).toContain(`<b>Buyurtma #${o.id}</b> · Tayyorlanmoqda`);
+      expect(corrections[0].html).toContain('👤 Olim &amp; Co');
+      expect(corrections[0].html).toMatch(/💰 <b>250\s000 so'm<\/b> · Bank o'tkazmasi · To'lanmagan/);
+
+      // Telegram tiklandi: navbatdan faqat tuzatishlar ketadi — "To'lov qabul qilindi" kartasi hech kimga yuborilmaydi
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 3, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(net.sent.map((m) => `${m.token} ${m.chat}`).sort()).toEqual([`${STAFF} 900`, `${STAFF} 901`, `${STAFF} 902`]);
+      expect(net.sent.some((m) => m.text.includes('To\'lov qabul qilindi'))).toBe(false);
+      for (const [chat, inline] of Object.entries(expected)) {
+        // Xodim chatidagi yagona karta — tuzatish: jadvalga yozilgan matn va o'z tugmalari bilan
+        const [only, ...rest] = net.sent.filter((m) => m.chat === chat);
+        expect(rest, chat).toEqual([]);
+        expect(only, chat).toEqual({ token: STAFF, chat, mode: 'HTML', text: corrections[0].html, inline });
+      }
+      expect((await states()).sort()).toEqual(['900', '901', '902'].flatMap((chat) => [`staff ${chat} ${topic} ${SUPERSEDED}`, `staff ${chat} ${topic} yetkazildi`]));
+      expect(await prisma.botOutbox.count({ where: { sentAt: null, failedAt: null } })).toBe(0);
+      // Xabarnomani o'chirgan administratorga hech narsa ketmagan va navbatga ham tushmagan
+      expect(net.sent.some((m) => m.chat === '903')).toBe(false);
+      expect(await prisma.botOutbox.count({ where: { chatId: '903' } })).toBe(0);
+
+      // To'g'ridan-to'g'ri (Telegram ishlayotganda) ham shu karta; yo'q buyurtmada 0 qaytadi va navbatga hech narsa tushmaydi
+      net.sent.length = 0;
+      const rowsBefore = await prisma.botOutbox.count();
+      expect(await notifyStaffPaymentReverted(o.id, 'Ali <admin> & Co')).toBe(3);
+      for (const [chat, inline] of Object.entries(expected)) expect(net.sent.find((m) => m.chat === chat), chat).toEqual({ token: STAFF, chat, mode: 'HTML', text: corrections[0].html, inline });
+      net.reply = offline;
+      net.sent.length = 0;
+      await expect(notifyStaffPaymentReverted(o.id + 1000, 'Kassa')).resolves.toBe(0);
+      expect(net.sent).toEqual([]);
+      expect(await prisma.botOutbox.count()).toBe(rowsBefore);
+    });
+
+    // ─── Xodim to'lov kartalarining mavzusi: boshqaruv botida ham order-payment:<buyurtma> ───
+    const STAFF_CHATS = ['900', '901', '902'];
+    /** "orders" bo'limidagi uch xodim: oddiy xodim, menejer va administrator (moliya ruxsati oxirgi ikkitasida) */
+    const team = async () => {
+      await staff('900', { role: 'staff' });
+      await staff('901', { role: 'manager' });
+      await staff('902', { role: 'admin' });
+    };
+    const ACCEPTED = '✅ <b>To\'lov qabul qilindi</b> (Hisob-faktura)';
+    const UNDONE = '↩️ <b>To\'lov belgisi bekor qilindi</b> (Kassa)';
+    /** Xabarning belgisi: ✅ — to'lov qabul qilindi, ↩️ — belgi bekor qilindi, 🛒 — yangi buyurtma, 📩 — ariza, ⏰ va ⏳ — kunlik eslatma */
+    const mark = (text: string) => text.split(' ')[0];
+    /** Shu chatga yuborilgan xabarlarning birinchi satri, yuborilgan tartibda (`net.sent` — urinishlar: o'tmaganlari bilan birga) */
+    const cardsOf = (chat: string) => net.sent.filter((m) => m.chat === chat).map((m) => m.text.split('\n')[0]);
+
+    // Hisob-faktura sahifasida to'lov qabul qilindi — Telegram ishlamay, xodimlarga "To'lov qabul qilindi" kartasi navbatda qoldi. Telegram
+    // tiklangach (navbatning vaqti kelmasidan) belgi xato ekani aniqlanib bekor qilindi: tuzatish to'g'ridan-to'g'ri yetib boradi. Navbatdagi
+    // karta undan KEYIN yetib borsa, xodim chatidagi oxirgi karta "to'langan" bo'lib qolardi va to'lanmagan buyurtma jo'natib yuborilardi
+    it('"To\'lov qabul qilindi" xodim kartasi Telegram ishlamay navbatda qolgan, tiklangach belgi bekor qilingan: har bir xodim chatidagi oxirgi (va yagona) karta — tuzatish; eskirgan karta hech qachon yuborilmaydi', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      await team();
+      await staff('903', { role: 'admin', telegramNotify: false });
+      const o = await order({ status: 'processing', paymentMethod: 'bank_transfer', paymentStatus: 'paid' });
+      const topic = `order-payment:${o.id}`;
+      const tail = [{ text: '🔄 Yangilash', callback_data: `or_${o.id}` }, { text: '🌐 Admin panel', url: `https://pack24.uz/admin/orders/${o.id}` }];
+      const cancel = { text: '❌ Bekor qilish', callback_data: `oc_${o.id}` };
+      const pay = { text: '💵 To\'landi', callback_data: `op_${o.id}` };
+      const undo = { text: '↩️ To\'lov belgisini bekor qilish', callback_data: `ou_${o.id}` };
+      const ship = [{ text: '🚚 Jo\'natildi', callback_data: `os_${o.id}_shipping` }];
+
+      net.reply = offline;
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      const queued = await all();
+      expect(queued.map((r) => `${r.bot} ${r.chatId} ${r.topic ?? '-'} ${r.html.split('\n')[0]}`).sort()).toEqual(STAFF_CHATS.map((chat) => `staff ${chat} ${topic} ${ACCEPTED}`));
+      expect(queued.every((r) => r.attempts === 1 && !r.sentAt && !r.failedAt && r.lastError === 'fetch failed')).toBe(true);
+      // Navbatdagi karta — to'langan holat bilan: moliya ruxsati bor xodimda «belgini bekor qilish» tugmasi
+      expect(queued.find((r) => r.chatId === '900')?.inline).toEqual([ship, [cancel], tail]);
+      expect(queued.find((r) => r.chatId === '901')?.inline).toEqual([ship, [cancel], [undo], tail]);
+      expect(queued[0].html).toMatch(/💰 <b>250\s000 so'm<\/b> · Bank o'tkazmasi · To'langan/);
+      expect(await outboxStats()).toEqual({ pending: 3, stuck: 0, failed24h: 0 });
+
+      // Telegram tiklandi (navbatning vaqti hali kelmagan — keyingi urinish 5 daqiqadan keyin); belgi bekor qilindi
+      net.reply = OK;
+      net.sent.length = 0;
+      const started = Date.now();
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(3);
+      // Tuzatishning o'zi navbatga tushmagan; navbatdagi kartalarga faqat "eskirgan" belgisi qo'yilgan (urinish ham sarflanmagan)
+      const rows = await all();
+      expect(rows).toHaveLength(3);
+      for (const was of queued) {
+        const r = rows.find((x) => x.id === was.id)!;
+        expect(r).toEqual({ ...was, failedAt: r.failedAt, lastError: SUPERSEDED });
+        expect(r.failedAt!.getTime()).toBeGreaterThanOrEqual(started);
+        expect(r.failedAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      }
+      // Bu Telegram xatosi emas: "yuborilmadi" deb ham, "kutyapti" deb ham sanalmaydi
+      expect(await outboxStats()).toEqual({ pending: 0, stuck: 0, failed24h: 0 });
+
+      // Navbatning vaqti kelganda ham, bir kundan keyin ham eskirgan karta ketmaydi
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual(NONE);
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(await all()).toEqual(rows);
+      expect(net.sent).toHaveLength(3);
+      // Buyurtma yana to'lanmagan: «To'landi» moliya ruxsati borlarga qaytgan, belgini bekor qilish tugmasi hech kimda yo'q
+      const expected = { 900: [ship, [cancel], tail], 901: [ship, [pay, cancel], tail], 902: [ship, [pay, cancel], tail] };
+      for (const [chat, inline] of Object.entries(expected)) {
+        const [only, ...rest] = net.sent.filter((m) => m.chat === chat);
+        expect(rest, chat).toEqual([]);
+        expect(only, chat).toMatchObject({ token: STAFF, mode: 'HTML', inline });
+        expect(only.text.split('\n')[0], chat).toBe(UNDONE);
+        expect(only.text, chat).toMatch(/💰 <b>250\s000 so'm<\/b> · Bank o'tkazmasi · To'lanmagan/);
+      }
+      // Xabarnomani o'chirgan administratorga hech narsa ketmagan va navbatga ham tushmagan
+      expect(await prisma.botOutbox.count({ where: { chatId: '903' } })).toBe(0);
+    });
+
+    // Teskari holat: tuzatish kartasi navbatda turganda to'lov qayta qabul qilindi (hisob-faktura sahifasida) — endi eskirgan narsa tuzatishning o'zi
+    it('teskarisi: navbatda qolgan tuzatish kartasi to\'lov qayta qabul qilingach bekor bo\'ladi — xodimlar faqat "To\'lov qabul qilindi" kartasini oladi (u navbatga tushsa ham, to\'g\'ridan-to\'g\'ri yetib borsa ham)', async () => {
+      await team();
+      const o = await order({ status: 'processing', paymentStatus: 'pending' });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(0);
+      expect((await states()).sort()).toEqual(STAFF_CHATS.map((chat) => `staff ${chat} ${topic} kutyapti`));
+      const corrections = await all();
+      expect(corrections.every((r) => r.html.split('\n')[0] === UNDONE)).toBe(true);
+
+      // To'lov qayta qabul qilindi; Telegram hali ham ishlamayapti — yangi karta navbatdagi tuzatishning o'rnini bosadi
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'paid' } });
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      expect((await states()).sort()).toEqual(STAFF_CHATS.flatMap((chat) => [`staff ${chat} ${topic} ${SUPERSEDED}`, `staff ${chat} ${topic} kutyapti`]));
+      for (const was of corrections) expect(await one(was.id)).toEqual({ ...was, failedAt: expect.any(Date), lastError: SUPERSEDED });
+      expect((await all()).filter((r) => !r.failedAt).every((r) => r.html.split('\n')[0] === ACCEPTED)).toBe(true);
+
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 3, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      for (const chat of STAFF_CHATS) expect(cardsOf(chat), chat).toEqual([ACCEPTED]);
+      expect(net.sent.every((m) => m.token === STAFF && /· Naqd · To'langan/.test(m.text))).toBe(true);
+
+      // To'g'ridan-to'g'ri yetib borgan "qabul qilindi" ham navbatdagi tuzatishni bekor qiladi
+      net.reply = offline;
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(0);
+      expect(await prisma.botOutbox.count({ where: { sentAt: null, failedAt: null } })).toBe(3);
+      net.reply = OK;
+      net.sent.length = 0;
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(3);
+      expect(await prisma.botOutbox.count({ where: { sentAt: null, failedAt: null } })).toBe(0);
+      expect(await flushOutbox(new Date((await dueAll()).getTime() + DAY))).toEqual(NONE);
+      for (const chat of STAFF_CHATS) expect(cardsOf(chat), chat).toEqual([ACCEPTED]);
+      expect(await outboxStats()).toEqual({ pending: 0, stuck: 0, failed24h: 0 });
+    });
+
+    // Bitta Telegram hisobi ham xodim (boshqaruv boti), ham shu buyurtmaning mijozi (mijoz boti) bo'lishi mumkin: chat raqami ham, mavzu
+    // satri ham bir xil. Navbat jadvali bitta — bunday qatorlarni faqat `bot` ustuni ajratadi
+    it('mavzu har bir bot uchun alohida: chat raqami va mavzusi bir xil bo\'lsa ham xodim kartasi mijoz botidagi navbat yozuvini, mijoz xabari esa boshqaruv botidagisini bekor qilmaydi', async () => {
+      await staff('900', { role: 'staff' });
+      await staff('901', { role: 'manager' });
+      await customer('901');
+      const o = await order({ telegramUserId: '901', paymentStatus: 'paid' });
+      const topic = `order-payment:${o.id}`;
+
+      net.reply = offline;
+      expect(await notifyCustomerPaid(o)).toBe(0);
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      expect((await states()).sort()).toEqual([`customer 901 ${topic} kutyapti`, `staff 900 ${topic} kutyapti`, `staff 901 ${topic} kutyapti`]);
+      const toCustomer = (await all()).find((r) => r.bot === 'customer')!;
+
+      // Faqat boshqaruv boti tiklandi: tuzatish kartasi xodimlarga yetib boradi — mijoz botidagi yozuvga tegilmaydi
+      net.reply = (m) => (m.token === STAFF ? OK() : offline());
+      const unpaid = await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(2);
+      expect((await states()).sort()).toEqual([`customer 901 ${topic} kutyapti`, `staff 900 ${topic} ${SUPERSEDED}`, `staff 901 ${topic} ${SUPERSEDED}`]);
+      expect(await one(toCustomer.id)).toEqual(toCustomer);
+
+      // Aksincha: xodimlarga tuzatish navbatga tushadi, mijozga tuzatish esa yetib boradi — boshqaruv botidagi yozuvlarga tegilmaydi
+      net.reply = offline;
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(0);
+      const toStaff = (await all()).filter((r) => r.bot === 'staff' && !r.failedAt);
+      expect(toStaff.map((r) => r.chatId).sort()).toEqual(['900', '901']);
+      net.reply = (m) => (m.token === CUSTOMER ? OK() : offline());
+      net.sent.length = 0;
+      expect(await notifyCustomerPaymentReverted(unpaid)).toBe(1);
+      expect(net.sent.map((m) => `${m.token} ${m.chat} ${mark(m.text)}`)).toEqual([`${CUSTOMER} 901 ℹ️`]);
+      expect(await one(toCustomer.id)).toEqual({ ...toCustomer, failedAt: expect.any(Date), lastError: SUPERSEDED });
+      for (const was of toStaff) expect(await one(was.id)).toEqual(was);
+
+      // Tiklangach xodim kartalari boshqaruv boti orqali yetib boradi; mijoz botining navbatidan hech narsa ketmaydi
+      net.reply = OK;
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 2, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(via().sort()).toEqual([`${STAFF} 900`, `${STAFF} 901`]);
+      expect(net.sent.every((m) => m.text.split('\n')[0] === UNDONE)).toBe(true);
+    });
+
+    // Mavzu aniq tenglik bilan solishtiriladi: 7-buyurtmaning tuzatishi 75- va 750-buyurtmaning navbatdagi kartasini bekor qilmasin
+    it('boshqa buyurtmaning xodim kartasiga tegilmaydi: raqami shu bilan boshlanadigan buyurtmalarning (1, 15 va 150 kabi) navbatdagi kartalari o\'z joyida qoladi va yetib boradi', async () => {
+      await team();
+      // Raqamlari bir-birining boshi
+      const a = await order({ paymentStatus: 'paid' });
+      const b = await order({ id: Number(`${a.id}5`), paymentStatus: 'paid' });
+      const c = await order({ id: Number(`${a.id}50`), paymentStatus: 'paid' });
+      /** Har bir xodimda shu qatorlar (tartibsiz solishtirish uchun saralangan) */
+      const each = (...rows: string[]) => STAFF_CHATS.flatMap((chat) => rows.map((r) => `staff ${chat} ${r}`)).sort();
+
+      net.reply = offline;
+      for (const o of [a, b, c]) expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      const before = await all();
+      expect((await states()).sort()).toEqual(each(`order-payment:${a.id} kutyapti`, `order-payment:${b.id} kutyapti`, `order-payment:${c.id} kutyapti`));
+
+      // O'rtadagi buyurtmaning (b) tuzatishi yetib bordi: faqat uning kartalari bekor bo'ladi
+      net.reply = OK;
+      await prisma.order.update({ where: { id: b.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(b.id, 'Kassa')).toBe(3);
+      expect((await states()).sort()).toEqual(each(`order-payment:${a.id} kutyapti`, `order-payment:${b.id} ${SUPERSEDED}`, `order-payment:${c.id} kutyapti`));
+      for (const was of before.filter((r) => r.topic !== `order-payment:${b.id}`)) expect(await one(was.id)).toEqual(was);
+
+      // Eng qisqa raqamli buyurtmaning (a) tuzatishi navbatga tushdi: b va c nikiga tegilmaydi
+      net.reply = offline;
+      await prisma.order.update({ where: { id: a.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(a.id, 'Kassa')).toBe(0);
+      expect((await states()).sort()).toEqual(each(`order-payment:${a.id} ${SUPERSEDED}`, `order-payment:${a.id} kutyapti`, `order-payment:${b.id} ${SUPERSEDED}`, `order-payment:${c.id} kutyapti`));
+      for (const was of before.filter((r) => r.topic === `order-payment:${c.id}`)) expect(await one(was.id)).toEqual(was);
+
+      net.reply = OK;
+      net.sent.length = 0;
+      expect(await flushOutbox(await dueAll())).toEqual({ sent: 6, retry: 0, failed: 0 });
+      const seen = (chat: string) => net.sent.filter((m) => m.chat === chat).map((m) => `${mark(m.text)} #${/Buyurtma #(\d+)/.exec(m.text)?.[1]}`).sort();
+      for (const chat of STAFF_CHATS) expect(seen(chat), chat).toEqual([`↩️ #${a.id}`, `✅ #${c.id}`].sort());
+    });
+
+    // Hodisa xabarlari (yangi buyurtma, ariza, kunlik eslatma) mavzusiz — jadvalda `topic` NULL: har biri alohida voqea, to'lov kartalari
+    // esa (mavzu aniq tenglik bilan izlangani uchun) ularga tegmaydi
+    it('yangi buyurtma kartasi, ariza xabari va kunlik eslatma jadvalga mavzusiz (NULL) yoziladi: to\'lov kartalari navbatga tushib ham, to\'g\'ridan-to\'g\'ri yetib borib ham ularning o\'rnini bosmaydi — hammasi yetib boradi', async () => {
+      vi.stubEnv('APP_URL', 'https://pack24.uz');
+      await team();
+      const o = await order({ status: 'processing', paymentStatus: 'pending' });
+      // Kunlik eslatma uchun (jadvallar faqat shu faylniki): 24 soatdan beri "Yangi" turgan buyurtma va muddati o'tgan hisob-faktura
+      const stale = await order({ status: 'new_', createdAt: new Date(Date.now() - 2 * DAY) });
+      const debtor = await order({ status: 'delivered', paymentMethod: 'bank_transfer', customerName: 'Qarzdor MChJ' });
+      await prisma.corporateInvoice.create({ data: { invoiceNo: 'INV-TEST-1', orderId: debtor.id, subtotal: 446428.57, vatAmount: 53571.43, totalAmount: 500000, dueDate: new Date(Date.now() - 3 * DAY) } });
+      // Moliya eslatmasi (⏰) faqat moliya ruxsati bor xodimlarga; qolgani "orders" / "leads" bo'limidagi hammaga
+      const EVENTS: Record<string, string[]> = { 900: ['🛒', '📩', '⏳'], 901: ['🛒', '📩', '⏰', '⏳'], 902: ['🛒', '📩', '⏰', '⏳'] };
+
+      net.reply = offline;
+      expect(await notifyStaffNewOrder(o.id)).toBe(0);
+      expect(await notifyStaffLead(['📩 Yangi ariza', 'Ali <Valiyev>'])).toBe(0);
+      expect(await sendDailyDigest()).toEqual({ finance: 0, orders: 0 });
+      const events = await all();
+      expect(events).toHaveLength(11);
+      expect(events.every((r) => r.bot === 'staff' && r.topic === null && r.attempts === 1 && !r.sentAt && !r.failedAt)).toBe(true);
+      for (const chat of STAFF_CHATS) expect(events.filter((r) => r.chatId === chat).map((r) => mark(r.html)), chat).toEqual(EVENTS[chat]);
+      expect(events.find((r) => r.html.startsWith('⏰'))?.html).toContain('<b>INV-TEST-1</b>');
+      expect(events.find((r) => r.html.startsWith('⏳'))?.html).toContain(`<b>#${stale.id}</b>`);
+
+      // To'lov kartalari: navbatga tushadi, o'z mavzusidagisining o'rnini bosadi, oxirgisi to'g'ridan-to'g'ri yetib boradi
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'paid' } });
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(0);
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(0);
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'paid' } });
+      net.reply = OK;
+      net.sent.length = 0;
+      expect(await notifyStaffPaid(o.id, 'Hisob-faktura')).toBe(3);
+      // Hodisa xabarlarining birorta ustuni ham o'zgarmagan; to'lov kartalarining navbatdagi oltitasi ham eskirgan
+      for (const was of events) expect(await one(was.id)).toEqual(was);
+      expect(await prisma.botOutbox.count({ where: { topic: `order-payment:${o.id}`, sentAt: null, lastError: SUPERSEDED } })).toBe(6);
+      expect(await outboxStats()).toEqual({ pending: 11, stuck: 0, failed24h: 0 });
+
+      // Navbat yuborilganda har bir hodisa xabari bir martadan yetib boradi; to'lov kartalaridan navbatdan hech narsa ketmaydi
+      net.sent.length = 0;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 11, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      for (const chat of STAFF_CHATS) expect(net.sent.filter((m) => m.chat === chat).map((m) => mark(m.text)), chat).toEqual(EVENTS[chat]);
+      expect(net.sent.every((m) => m.token === STAFF)).toBe(true);
+    });
+
+    // Karta Telegram javobini kutib turgan paytda (so'rov osilib qolgan) belgi bekor qilindi: kechikib yiqilgan "qabul qilindi" navbatga
+    // tushsa, keyingi tick uni tuzatishdan KEYIN yetkazardi. Navbatga kim tegishini xabar CHIQARILGAN tartib hal qiladi (notify.ts)
+    it('"To\'lov qabul qilindi" xodim kartasi Telegram javobini kutib turgan paytda tuzatish chiqsa: kechikib yiqilgan karta navbatga tushmaydi; tuzatish ham o\'tmagan bo\'lsa navbatda faqat u turadi va faqat u yetib boradi', async () => {
+      await team();
+      const o = await order({ status: 'processing', paymentStatus: 'paid' });
+      const topic = `order-payment:${o.id}`;
+      /** Chat haqiqatan OLGAN kartalar, yetib borgan tartibda */
+      const got: string[] = [];
+      const deliver = (m: Sent) => {
+        got.push(`${m.chat} ${mark(m.text)}`);
+        return OK();
+      };
+      /** "Qabul qilindi" kartalarining so'rovi Telegram'da "osilib" turadi (oxiri o'tmaydi); qaytgan funksiya ularni qo'yib yuboradi */
+      const hang = () => {
+        let release = (): void => undefined;
+        const wait = new Promise<void>((resolve) => { release = resolve; });
+        net.during = async (m) => {
+          if (m.text.startsWith('✅')) await wait;
+        };
+        return release;
+      };
+      /** Kartalarni chiqaradi va uchala so'rov ham Telegram'ga yetib borguncha kutadi — javoblari hali yo'q (natijasi `done` da) */
+      const startAccepted = async () => {
+        net.sent.length = 0;
+        const done = notifyStaffPaid(o.id, 'Hisob-faktura');
+        await vi.waitFor(() => expect(net.sent).toHaveLength(3));
+        return { done };
+      };
+
+      // 1) Tuzatish to'g'ridan-to'g'ri yetib bordi: jadval bo'sh qoladi
+      let release = hang();
+      net.reply = (m) => (m.text.startsWith('✅') ? offline() : deliver(m));
+      let slow = await startAccepted();
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(3);
+      release();
+      expect(await slow.done).toBe(0);
+      expect(await all()).toEqual([]);
+      expect(got.sort()).toEqual(['900 ↩️', '901 ↩️', '902 ↩️']);
+
+      // 2) Tuzatish ham o'tmadi (navbatga tushdi): kechikib yiqilgan "qabul qilindi" uning o'rnini bosmaydi va o'zi ham navbatga tushmaydi
+      got.length = 0;
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'paid' } });
+      release = hang();
+      net.reply = offline;
+      slow = await startAccepted();
+      await prisma.order.update({ where: { id: o.id }, data: { paymentStatus: 'pending' } });
+      expect(await notifyStaffPaymentReverted(o.id, 'Kassa')).toBe(0);
+      release();
+      expect(await slow.done).toBe(0);
+      const rows = await all();
+      expect(rows.map((r) => `${r.bot} ${r.chatId} ${r.topic ?? '-'} ${r.html.split('\n')[0]} ${r.failedAt ? r.lastError : 'kutyapti'}`).sort()).toEqual(STAFF_CHATS.map((chat) => `staff ${chat} ${topic} ${UNDONE} kutyapti`));
+
+      net.during = null;
+      net.reply = deliver;
+      const due = await dueAll();
+      expect(await flushOutbox(due)).toEqual({ sent: 3, retry: 0, failed: 0 });
+      expect(await flushOutbox(new Date(due.getTime() + DAY))).toEqual(NONE);
+      expect(got.sort()).toEqual(['900 ↩️', '901 ↩️', '902 ↩️']);
+      expect(await outboxStats(new Date(due.getTime() + HOUR))).toEqual({ pending: 0, stuck: 0, failed24h: 0 });
+    });
+
     it('supersedePrefix: faqat shu botning, mavzusi shu bilan boshlanadigan KUTAYOTGAN xabarlari; mavzusiz, yetib borgan va haqiqiy xatoli yozuvlar o\'zgarmaydi', async () => {
       const prefix = 'order-production:15:';
       const target = [
@@ -1061,6 +1742,8 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
         await add({ chatId: '777', topic: STATUS }),
         await add({ chatId: '777', topic: `eski-${prefix}7` }), // qidirilgan matn boshida emas
         await add({ chatId: '777' }), // mavzusiz (NULL)
+        await add({ chatId: '777', topic: 'order-payment:15' }), // shu buyurtmaning to'lov xabari (yoki tuzatishi) — boshqa mavzu
+        await add({ chatId: '778', topic: 'order-payment:15', attempts: 3 }),
         await add({ chatId: '777', bot: 'staff', topic: `${prefix}7` }),
         await add({ chatId: '777', topic: `${prefix}7`, sentAt: at(-HOUR), lastError: null }),
         await add({ chatId: '777', topic: `${prefix}7`, failedAt: at(-HOUR), attempts: 2, lastError: 'Telegram sendMessage: 403 Forbidden: bot was blocked by the user' }),
@@ -1069,11 +1752,11 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
       await supersedePrefix('customer', prefix, at(-1000));
       for (const r of target) expect(await one(r.id)).toEqual({ ...r, failedAt: at(-1000), lastError: SUPERSEDED });
       for (const r of untouched) expect(await one(r.id)).toEqual(r);
-      expect(await outboxStats(T0)).toEqual({ pending: 7, stuck: 0, failed24h: 1 });
+      expect(await outboxStats(T0)).toEqual({ pending: 9, stuck: 0, failed24h: 1 });
 
-      expect(await flushOutbox(at(3 * HOUR))).toEqual({ sent: 7, retry: 0, failed: 0 });
-      expect(via()).toEqual([...Array<string>(6).fill(`${CUSTOMER} 777`), `${STAFF} 777`]);
-      expect(perChat()).toEqual({ 777: 7 });
+      expect(await flushOutbox(at(3 * HOUR))).toEqual({ sent: 9, retry: 0, failed: 0 });
+      expect(via()).toEqual([...Array<string>(7).fill(`${CUSTOMER} 777`), `${CUSTOMER} 778`, `${STAFF} 777`]);
+      expect(perChat()).toEqual({ 777: 8, 778: 1 });
     });
   });
 
