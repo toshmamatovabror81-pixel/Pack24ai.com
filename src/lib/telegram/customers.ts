@@ -63,6 +63,8 @@ export async function unlinkCustomer(telegramId: number | string): Promise<void>
   await prisma.$transaction([
     prisma.order.updateMany({ where: { telegramUserId: id }, data: { telegramUserId: null } }),
     prisma.telegramCustomer.deleteMany({ where: { telegramId: id } }),
+    // Navbatda turgan (hali yuborilmagan) xabarlarida buyurtma ma'lumoti bor — ular ham uziladi
+    prisma.botOutbox.deleteMany({ where: { bot: 'customer', chatId: id, sentAt: null, failedAt: null } }),
   ]);
 }
 

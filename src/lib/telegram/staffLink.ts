@@ -68,7 +68,10 @@ export async function issueStaffCode(userId: number): Promise<{ code: string; ex
 }
 
 export async function unlinkStaff(userId: number): Promise<void> {
+  const before = await prisma.user.findUnique({ where: { id: userId }, select: { telegramId: true } });
   await prisma.user.update({ where: { id: userId }, data: { telegramId: null, telegramVerifiedAt: null, telegramCode: null, otpExpiry: null } });
+  // Navbatda turgan xabarlar (mijoz ma'lumotli buyurtma kartalari) uzilgan xodimga keyinroq yetib bormasin
+  if (before?.telegramId) await prisma.botOutbox.deleteMany({ where: { bot: 'staff', chatId: before.telegramId, sentAt: null, failedAt: null } }).catch((e) => console.error('[staffLink] navbatni tozalash', e));
 }
 
 export async function setStaffNotify(userId: number, on: boolean): Promise<void> {

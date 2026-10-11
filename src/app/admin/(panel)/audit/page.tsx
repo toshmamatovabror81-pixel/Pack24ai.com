@@ -4,8 +4,11 @@ import { aiConfigured, aiDailyLimit, aiModel } from '@/lib/ai/client';
 import { requireStaff } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { formatDate } from '@/lib/format';
+import { alertChats, readOps } from '@/lib/ops';
 import { str } from '@/lib/params';
 import { tashkentClock } from '@/lib/tashkent';
+import { botToken } from '@/lib/telegram/bots';
+import { outboxStats } from '@/lib/telegram/outbox';
 import { Badge, Notice, PageHeader, Table } from '@/components/admin/ui';
 import { runAuditNow } from './actions';
 
@@ -24,16 +27,34 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const n = Number(str(sp.id));
   const id = Number.isSafeInteger(n) && n > 0 && n < 2 ** 31 ? n : null;
   const { day } = tashkentClock(new Date());
-  const [chosen, history, today, month] = await Promise.all([
+  const [chosen, history, today, month, ops, queue, recipients] = await Promise.all([
     id ? prisma.auditReport.findUnique({ where: { id } }) : null,
     prisma.auditReport.findMany({ orderBy: { id: 'desc' }, take: 20 }),
     prisma.aiUsage.findUnique({ where: { day } }),
     prisma.aiUsage.aggregate({ where: { day: { startsWith: day.slice(0, 7) } }, _sum: { requests: true, inputTokens: true, outputTokens: true } }),
+    readOps().catch(() => null),
+    outboxStats().catch(() => null),
+    alertChats().catch(() => null),
   ]);
   const report = chosen ?? history[0] ?? null;
   const checks = report ? reportChecks(report.checks) : [];
   const summary = report ? reportSummary(report.summary) : null;
   const configured = aiConfigured();
+  const staffBot = !!botToken('staff');
+  // Belgi faqat signal kelayotganini emas, faktlarning o'zini ham ko'rsatadi (chegaralar deploy/watchdog.sh xabar beradiganlari bilan bir xil)
+  const f = ops?.state;
+  const bad = {
+    disk: !!f && f.disk >= 90,
+    backup: !!f && (f.backupAgeH < 0 || f.backupAgeH >= 30),
+    restore: f?.restoreOk === 0,
+    offsite: f?.offsiteOk === 0,
+    cert: !!f && f.certDays >= 0 && f.certDays < 14,
+    site: f?.siteOk === 0,
+    tick: f?.tickOk === 0,
+  };
+  const anyBad = Object.values(bad).some(Boolean);
+  // Eskirgan holatda satrlar ajratilmaydi: ular hozirgi holat emas
+  const mark = (on: boolean) => (on && !ops?.stale ? 'font-medium text-red-700' : undefined);
   return (
     <>
       <PageHeader title="AI tekshiruv">
@@ -63,6 +84,47 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           Har kuni soat 08:00 dan keyin avtomatik bajariladi va natija boshqaruv botiga yuboriladi. AI&apos;ga faqat sonlar hamda buyurtma va hisob-faktura
           raqamlari yuboriladi — mijoz ismi, telefoni va manzili yuborilmaydi.
         </p>
+      </section>
+
+      <section className="card mb-6 p-5 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          {!ops ? <Badge tone="slate">Ma&apos;lumot yo&apos;q</Badge> : ops.stale ? <Badge tone="amber">Signal kelmayapti</Badge> : anyBad ? <Badge tone="red">Muammo bor</Badge> : <Badge tone="green">Kuzatuvda</Badge>}
+          <h2 className="font-semibold">Server holati</h2>
+          {ops && <span className="text-slate-500">oxirgi signal: {formatDate(ops.state.at, 'uz', true)}</span>}
+        </div>
+        {ops?.stale && <p className="mt-2 text-xs text-slate-500">Quyidagilar — oxirgi ma&apos;lum holat, hozirgi holat emas.</p>}
+        {ops ? (
+          <ul className={`mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 ${ops.stale ? 'text-slate-400' : 'text-slate-600'}`}>
+            <li className={mark(bad.disk)}>Disk: {ops.state.disk >= 0 ? `${ops.state.disk}% band` : 'aniqlanmadi'}</li>
+            <li className={mark(bad.backup)}>Oxirgi zaxira nusxa: {ops.state.backupAgeH >= 0 ? `${ops.state.backupAgeH} soat oldin` : 'topilmadi'}</li>
+            <li className={mark(bad.restore)}>Zaxirani tiklash sinovi: {ops.state.restoreOk === 1 ? "o'tdi" : ops.state.restoreOk === 0 ? "o'tmadi" : "hali o'tkazilmagan"}</li>
+            <li className={mark(bad.offsite)}>Serverdan tashqaridagi nusxa: {ops.state.offsiteOk === 1 ? 'yuborilmoqda' : ops.state.offsiteOk === 0 ? 'yuborilmadi' : 'yoqilmagan (deploy/offsite-setup.sh)'}</li>
+            <li className={mark(bad.cert)}>HTTPS sertifikat: {ops.state.certDays === 0 ? 'muddati tugagan yoki bugun tugaydi' : ops.state.certDays > 0 ? `${ops.state.certDays} kun qoldi` : 'aniqlanmadi'}</li>
+            <li className={mark(bad.site)}>Sayt internetdan: {ops.state.siteOk === 1 ? 'ochilyapti' : 'ochilmayapti'}</li>
+            <li className={mark(bad.tick)}>Davriy ishlar signali: {ops.state.tickOk === 1 ? "o'tyapti" : "o'tmayapti"}</li>
+          </ul>
+        ) : (
+          <p className="mt-2 text-slate-600">Server kuzatuvi (deploy/watchdog.sh) hali signal yubormagan. U avtomatik yangilanish bilan birga har 5 daqiqada ishlaydi.</p>
+        )}
+        {queue && (
+          <p className="mt-2 text-slate-600">
+            Bot xabarlari navbati: {num(queue.pending)} ta kutmoqda{queue.stuck > 0 ? ` (${num(queue.stuck)} tasi bir soatdan ortiq)` : ''}, oxirgi 24 soatda {num(queue.failed24h)} ta yetkazilmadi.
+          </p>
+        )}
+        {!staffBot ? (
+          <p className="mt-2 text-xs text-amber-700">
+            Boshqaruv boti hali ulanmagan — muammo chiqsa Telegram xabari yuborilmaydi, u faqat server logiga yoziladi. Botni serverda deploy/bots-setup.sh bilan ulang.
+          </p>
+        ) : recipients && recipients.length === 0 ? (
+          <p className="mt-2 text-xs text-amber-700">
+            Hozircha xabar oladigan administrator yo&apos;q — muammo chiqsa Telegram xabari hech kimga bormaydi.{' '}
+            <Link href="/admin/staff" className="underline">Xodimlar</Link> bo&apos;limida administrator hisobini boshqaruv botiga ulang.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">
+            Sayt, disk, zaxira yoki sertifikatda muammo chiqsa boshqaruv botiga ulangan administratorlarga{recipients ? ` (${recipients.length} kishi)` : ''} Telegram orqali darhol xabar boradi.
+          </p>
+        )}
       </section>
 
       {!report && <p className="card p-6 text-center text-slate-500">Hali tekshiruv o&apos;tkazilmagan. «Hozir tekshirish» tugmasini bosing.</p>}

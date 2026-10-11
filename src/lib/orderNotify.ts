@@ -9,7 +9,8 @@ import { getSettings } from './settings';
 import { siteUrl } from './site';
 import { clip, esc, type InlineKeyboard } from './telegram/api';
 import { orderRecipients, type BotLang } from './telegram/customers';
-import { notifyCustomer, notifyStaff } from './telegram/notify';
+import { notifyCustomer, notifyStaff, staleInFlight } from './telegram/notify';
+import { supersedePrefix } from './telegram/outbox';
 import { staffOrder, staffOrderHtml, staffOrderKeyboard } from './telegram/staffCards';
 import { staffRecipients } from './telegram/staffLink';
 
@@ -109,12 +110,13 @@ function countSent(results: PromiseSettledResult<boolean>[], who: string): numbe
   return sent;
 }
 
-async function toCustomers(order: OrderRef, build: (lang: BotLang) => { html: string; inline?: InlineKeyboard } | null): Promise<number> {
+/** `topic` — holat xabarlari uchun: kechikib qayta yuborilayotgan eski holat yangisidan keyin yetib bormasin (telegram/outbox.ts) */
+async function toCustomers(order: OrderRef, build: (lang: BotLang) => { html: string; inline?: InlineKeyboard } | null, topic?: string): Promise<number> {
   try {
     // Hammaga birdaniga: Telegram javob bermasa kutish oluvchilar soniga ko'paymaydi (bitta chaqiruv muddati bilan cheklanadi)
     const results = await Promise.allSettled((await orderRecipients(order)).map(async (r) => {
       const m = build(r.lang);
-      return m ? notifyCustomer(r.telegramId, m.html, m.inline) : false;
+      return m ? notifyCustomer(r.telegramId, m.html, m.inline, topic) : false;
     }));
     return countSent(results, `mijoz ${order.id}`);
   } catch (e) {
@@ -126,6 +128,13 @@ async function toCustomers(order: OrderRef, build: (lang: BotLang) => { html: st
 /** Buyurtma holati o'zgardi */
 export async function notifyCustomerOrderStatus(order: OrderRef & Pick<Order, 'deliveryMethod'>): Promise<number> {
   if (order.status === 'draft') return 0;
+  // Bekor qilingan buyurtmaning navbatda turgan ishlab chiqarish xabarlari endi yetib bormasin: yangi ishlab chiqarish xabari
+  // chiqmaydi, ya'ni ularni boshqa hech narsa bekor qilmaydi (hamma oluvchilar uchun, xabar yuborilishidan oldin)
+  if (order.status === 'cancelled') {
+    // Ayni paytda yuborilayotgani ham (Telegram javobini kutmoqda): o'tmasa navbatga tushmasin
+    staleInFlight('customer', `order-production:${order.id}:`);
+    await supersedePrefix('customer', `order-production:${order.id}:`).catch((e) => console.error('[orderNotify] navbat', order.id, e));
+  }
   const phone = order.status === 'cancelled' ? (await getSettings().catch(() => null))?.phone : null;
   return toCustomers(order, (lang) => {
     const t = T[lang];
@@ -140,7 +149,7 @@ export async function notifyCustomerOrderStatus(order: OrderRef & Pick<Order, 'd
       ].filter(Boolean).join('\n'),
       inline: customerKeyboard(lang, order),
     };
-  });
+  }, `order-status:${order.id}`);
 }
 
 /** To'lov qabul qilindi (Payme / Click / naqd / bank o'tkazmasi) */
@@ -165,7 +174,7 @@ export async function notifyCustomerInvoice(orderId: number, invoice: { invoiceN
 }
 
 /** Ishlab chiqarish bosqichi o'zgardi (buyurtmaga bog'langan ish topshirig'i) */
-export async function notifyCustomerProduction(wo: { orderId: number | null; productName: string; currentStage: ProductionStage; progress: number; status: string }): Promise<number> {
+export async function notifyCustomerProduction(wo: { id: number; orderId: number | null; productName: string; currentStage: ProductionStage; progress: number; status: string }): Promise<number> {
   if (!wo.orderId) return 0;
   const order = await prisma.order.findUnique({ where: { id: wo.orderId } }).catch(() => null);
   if (!order || order.deletedAt || order.status === 'cancelled') return 0;
@@ -175,7 +184,8 @@ export async function notifyCustomerProduction(wo: { orderId: number | null; pro
       ? t.productionDone(esc(wo.productName))
       : t.production(esc(wo.productName), esc(getDict(lang).order.stages[wo.currentStage]), Math.min(100, Math.max(0, Math.round(wo.progress))));
     return { html: `🏭 <b>${t.order(order.id)}</b>\n${line}`, inline: customerKeyboard(lang, order) };
-  });
+    // Ish topshirig'i bo'yicha alohida: bitta buyurtmaning ikki topshirig'i (nomi bir xil bo'lsa ham) bir-birining xabarini bekor qilmaydi
+  }, `order-production:${order.id}:${wo.id}`);
 }
 
 async function toStaff(section: 'orders' | 'leads' | 'finance', html: string, inline?: (canEdit: boolean) => InlineKeyboard): Promise<number> {

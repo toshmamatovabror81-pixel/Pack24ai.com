@@ -33,7 +33,8 @@ export type TgCallbackQuery = { id: string; from: TgUser; message?: TgMessage; d
 export type TgUpdate = { update_id: number; message?: TgMessage; edited_message?: TgMessage; callback_query?: TgCallbackQuery };
 
 export class TelegramError extends Error {
-  constructor(public method: string, public code: number, description: string) {
+  /** retryAfter — 429 javobidagi "necha soniyadan keyin qayta urinish mumkin" (bo'lsa) */
+  constructor(public method: string, public code: number, description: string, public retryAfter?: number) {
     super(`Telegram ${method}: ${code} ${description}`);
   }
 }
@@ -63,8 +64,8 @@ export async function call<T = unknown>(token: string, method: string, params: R
     body: JSON.stringify(params),
     signal: AbortSignal.timeout(10_000),
   });
-  const json = (await res.json().catch(() => ({ ok: false, description: 'invalid json' }))) as { ok: boolean; result?: T; error_code?: number; description?: string };
-  if (!json.ok) throw new TelegramError(method, json.error_code ?? res.status, json.description ?? 'unknown error');
+  const json = (await res.json().catch(() => ({ ok: false, description: 'invalid json' }))) as { ok: boolean; result?: T; error_code?: number; description?: string; parameters?: { retry_after?: number } };
+  if (!json.ok) throw new TelegramError(method, json.error_code ?? res.status, json.description ?? 'unknown error', Number(json.parameters?.retry_after) || undefined);
   return json.result as T;
 }
 

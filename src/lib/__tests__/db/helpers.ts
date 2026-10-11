@@ -61,6 +61,8 @@ export function notifyMock() {
     notify: (kind: 'customer' | 'staff', to: number | string | null | undefined, html: string, inline?: InlineKeyboard) => send(outbox[kind])(to, html, inline),
     notifyCustomer: send(outbox.customer),
     notifyStaff: send(outbox.staff),
+    // Yo'lda turgan xabarlar hisobi haqiqiy modulda — soxtasida hech narsa yo'lda turmaydi
+    staleInFlight: () => undefined,
   };
 }
 

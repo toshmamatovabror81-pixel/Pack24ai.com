@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Sahifalar botlar haqida faqat rostini aytishi: bot tokeni kiritilmagan holatda (ishchi serverda botlar ulanmaguncha shunday)
  * "Telegram'da kuzatish" tugmasi, "Telegram kodi" va "xabar boradi" degan va'dalar chiqmasligi; Xodimlar sahifasidagi kod xabari
- * faqat bazadagi amaldagi kod uchun; o'chirilgan buyurtma faqat ko'rish uchun. Server komponentlari to'g'ridan-to'g'ri chaqiriladi
- * va HTML'ga aylantiriladi; baza, sessiya va Telegram soxta.
+ * faqat bazadagi amaldagi kod uchun; o'chirilgan buyurtma faqat ko'rish uchun. AI tekshiruv sahifasidagi «Server holati» kartasi ham
+ * shu qoidaga bo'ysunadi: muammo bor paytda yashil "Kuzatuvda" belgisi va "xabar boradi" degan gap chiqmasligi kerak.
+ * Server komponentlari to'g'ridan-to'g'ri chaqiriladi va HTML'ga aylantiriladi; baza, sessiya va Telegram soxta.
  */
 // Vitest .tsx fayllarni klassik JSX (React.createElement) bilan o'giradi — sahifa modullari global React'ni kutadi
 (globalThis as { React?: unknown }).React = React;
@@ -16,6 +17,11 @@ const s = vi.hoisted(() => ({
   staff: [] as Record<string, unknown>[],
   recipients: [] as { telegramId: string; lang: string }[],
   settings: {} as Record<string, unknown>,
+  // «Server holati» kartasi uchun: SiteSetting("ops") qiymati (null — signal hali kelmagan), boshqaruv botiga ulangan faol
+  // administratorlarning Telegram ID lari (null — ro'yxatni o'qib bo'lmadi) va xabarlar navbati sanoqlari
+  ops: null as Record<string, unknown> | null,
+  admins: [] as string[] | null,
+  queue: { pending: 0, stuck: 0, failed24h: 0 },
 }));
 
 vi.mock('server-only', () => ({}));
@@ -28,7 +34,19 @@ vi.mock('@/lib/db', () => ({
     order: { findUnique: async () => s.order },
     corporateInvoice: { findFirst: async () => null },
     workOrder: { findMany: async () => [] },
-    user: { findMany: async () => s.staff },
+    user: {
+      // Xodimlar sahifasi hamma xodimni so'raydi; server kartasi (ops.ts alertChats) esa faqat administratorlarning Telegram ID larini
+      findMany: async (args?: { where?: { role?: unknown } }) => {
+        if (args?.where?.role !== 'admin') return s.staff;
+        if (!s.admins) throw new Error('test: administratorlar ro\'yxatini o\'qib bo\'lmadi');
+        return s.admins.map((telegramId) => ({ telegramId }));
+      },
+    },
+    // AI tekshiruv sahifasi: hisobotlar va AI sarfi bo'sh; server holati va navbat — `s` dan
+    auditReport: { findUnique: async () => null, findMany: async () => [] },
+    aiUsage: { findUnique: async () => null, aggregate: async () => ({ _sum: { requests: null, inputTokens: null, outputTokens: null } }) },
+    siteSetting: { findUnique: async ({ where }: { where: { key: string } }) => (where.key === 'ops' && s.ops ? { key: 'ops', value: s.ops } : null) },
+    botOutbox: { count: async ({ where }: { where: { failedAt?: unknown; createdAt?: unknown } }) => (where.failedAt ? s.queue.failed24h : where.createdAt ? s.queue.stuck : s.queue.pending) },
   },
 }));
 vi.mock('@/lib/settings', async () => {
@@ -44,17 +62,20 @@ vi.mock('@/app/admin/(panel)/invoices/actions', () => ({ createInvoiceForOrder: 
 vi.mock('@/app/admin/(panel)/staff/actions', () => ({ createStaff: action, issueTelegramCode: action, unlinkTelegram: action, updateStaff: action }));
 vi.mock('@/app/admin/(panel)/settings/actions', () => ({ updateSettings: action }));
 vi.mock('@/app/admin/(panel)/settings/telegramActions', () => ({ removeTelegramWebhooks: action, setupTelegramWebhooks: action }));
+vi.mock('@/app/admin/(panel)/audit/actions', () => ({ runAuditNow: action }));
 
 const { default: OrderPage } = await import('@/app/[lang]/orders/[token]/page');
 const { default: AdminOrderPage } = await import('@/app/admin/(panel)/orders/[id]/page');
 const { default: StaffPage } = await import('@/app/admin/(panel)/staff/page');
 const { default: SettingsPage } = await import('@/app/admin/(panel)/settings/page');
+const { default: AuditPage } = await import('@/app/admin/(panel)/audit/page');
 
-/** HTML va undan ajratilgan oddiy matn (teglarsiz, belgilar qaytarilgan) */
+/** HTML'dan oddiy matn: teglarsiz, belgilar qaytarilgan */
+const toText = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+/** HTML va undan ajratilgan oddiy matn */
 const render = async (page: Promise<React.ReactElement>) => {
   const html = renderToStaticMarkup(await page);
-  const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
-  return { html, text };
+  return { html, text: toText(html) };
 };
 const tokens = (customer: string, staff: string, legacyStaff = '') => {
   vi.stubEnv('CUSTOMER_BOT_TOKEN', customer);
@@ -83,8 +104,11 @@ beforeEach(() => {
   s.staff = [staffRow()];
   s.recipients = [];
   s.settings = {};
+  s.ops = null;
+  s.admins = [];
+  s.queue = { pending: 0, stuck: 0, failed24h: 0 };
   tokens('', '');
-  for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID', 'TELEGRAM_WEBHOOK_SECRET']) vi.stubEnv(key, '');
+  for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID', 'TELEGRAM_WEBHOOK_SECRET', 'ANTHROPIC_API_KEY']) vi.stubEnv(key, '');
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -272,5 +296,181 @@ describe('admin: Sozlamalar sahifasi — botlar haqidagi yordam matni', () => {
     expect(text).toContain(CUSTOMER_ON);
     expect(text).toContain(STAFF_ON);
     expect(text).not.toContain('hali ishlamaydi');
+  });
+});
+
+describe('admin: AI tekshiruv sahifasi — «Server holati» kartasi', () => {
+  /** Sog'lom server yuboradigan faktlar (deploy/watchdog.sh -> /api/ops/heartbeat -> SiteSetting "ops") */
+  const HEALTHY = { disk: 41, backupAgeH: 5, restoreOk: 1, offsiteOk: 1, certDays: 60, siteOk: 1, tickOk: 1 };
+  /** Server `minutesAgo` daqiqa oldin shu faktlarni yuborgan */
+  const heartbeat = (patch: Partial<typeof HEALTHY> = {}, minutesAgo = 2) => {
+    s.ops = { ...HEALTHY, ...patch, at: new Date(Date.now() - minutesAgo * 60_000).toISOString() };
+  };
+  /** Kartaning o'zi: belgisi (sarlavha yonidagi rangli yorliq), qizil bilan ajratilgan satrlar va butun matni */
+  const card = async () => {
+    const { html } = await render(AuditPage({ searchParams: Promise.resolve({}) }));
+    const section = html.split('<section').find((part) => part.includes('>Server holati</h2>')) ?? '';
+    const badge = /<span class="inline-block[^"]*">(.*?)<\/span>/.exec(section);
+    const marked = [...section.matchAll(/<li class="font-medium text-red-700">(.*?)<\/li>/g)].map((m) => toText(m[1]).trim());
+    return { html: section, text: toText(section), badge: toText(badge?.[1] ?? '').trim(), red: /bg-red-100/.test(badge?.[0] ?? ''), marked };
+  };
+  const BADGES = ["Ma'lumot yo'q", 'Signal kelmayapti', 'Muammo bor', 'Kuzatuvda'];
+
+  it('signal hali kelmagan (eski server skripti): "Ma\'lumot yo\'q" va tushuntirish — faktlar ro\'yxati yo\'q', async () => {
+    const c = await card();
+    expect(c.badge).toBe("Ma'lumot yo'q");
+    expect(c.text).toContain('Server kuzatuvi (deploy/watchdog.sh) hali signal yubormagan');
+    expect(c.text).not.toContain('Disk:');
+    expect(c.text).not.toContain('oxirgi signal:');
+  });
+
+  it('sog\'lom server: yashil "Kuzatuvda", hech bir satr ajratilmagan; faktlar tushunarli ko\'rinishda', async () => {
+    heartbeat();
+    const c = await card();
+    expect(c.badge).toBe('Kuzatuvda');
+    expect(c.red).toBe(false);
+    expect(c.marked).toEqual([]);
+    for (const line of ['Disk: 41% band', 'Oxirgi zaxira nusxa: 5 soat oldin', "Zaxirani tiklash sinovi: o'tdi", 'Serverdan tashqaridagi nusxa: yuborilmoqda', 'HTTPS sertifikat: 60 kun qoldi', 'Sayt internetdan: ochilyapti', "Davriy ishlar signali: o'tyapti"]) {
+      expect(c.text).toContain(line);
+    }
+    expect(c.text).toContain('oxirgi signal:');
+    // Sahifada bitta holat belgisi: qolgan uchtasi yo'q
+    for (const other of BADGES.filter((b) => b !== 'Kuzatuvda')) expect(c.text, other).not.toContain(other);
+  });
+
+  // Belgi faqat "signal kelyapti"ni emas, faktlarning o'zini ham aks ettiradi: zaxira nusxa yaroqsiz bo'lib turganda yashil "Kuzatuvda" chiqmasin.
+  // Chegaralar deploy/watchdog.sh Telegram'da xabar beradiganlari bilan bir xil (disk 90%, zaxira 30 soat, sertifikat 14 kundan kam)
+  const bad: [string, Partial<typeof HEALTHY>, string][] = [
+    ['zaxirani tiklash sinovi o\'tmagan', { restoreOk: 0 }, "Zaxirani tiklash sinovi: o'tmadi"],
+    ['disk 90% band', { disk: 90 }, 'Disk: 90% band'],
+    ['zaxira 30 soatdan beri olinmagan', { backupAgeH: 30 }, 'Oxirgi zaxira nusxa: 30 soat oldin'],
+    ['zaxira nusxa topilmadi', { backupAgeH: -1 }, 'Oxirgi zaxira nusxa: topilmadi'],
+    ['tashqi nusxa yuborilmagan', { offsiteOk: 0 }, 'Serverdan tashqaridagi nusxa: yuborilmadi'],
+    ['sertifikatga 13 kun qolgan', { certDays: 13 }, 'HTTPS sertifikat: 13 kun qoldi'],
+    ['sertifikatga 1 kun qolgan', { certDays: 1 }, 'HTTPS sertifikat: 1 kun qoldi'],
+    // Skript muddati O'TGAN sertifikatni ham 0 qilib yuboradi: "0 kun qoldi" degan yozuv 5 kun oldin tugagan sertifikat uchun noto'g'ri bo'lardi
+    ['sertifikat muddati tugagan (0 kun)', { certDays: 0 }, 'HTTPS sertifikat: muddati tugagan yoki bugun tugaydi'],
+    ['sayt internetdan ochilmayapti', { siteOk: 0 }, 'Sayt internetdan: ochilmayapti'],
+    ['davriy ishlar signali o\'tmayapti', { tickOk: 0 }, "Davriy ishlar signali: o'tmayapti"],
+  ];
+  it.each(bad)('muammo — %s: qizil "Muammo bor" ("Kuzatuvda" emas) va faqat o\'sha satr ajratilgan', async (_name, patch, line) => {
+    heartbeat(patch);
+    const c = await card();
+    expect(c.badge).toBe('Muammo bor');
+    expect(c.red).toBe(true);
+    expect(c.text).not.toContain('Kuzatuvda');
+    expect(c.marked).toEqual([line]);
+  });
+
+  it('bir nechta muammo birga: belgi bitta, har bir yomon satr ajratilgan, yaxshilari — yo\'q', async () => {
+    heartbeat({ disk: 97, restoreOk: 0, siteOk: 0 });
+    const c = await card();
+    expect(c.badge).toBe('Muammo bor');
+    expect(c.marked).toEqual(['Disk: 97% band', "Zaxirani tiklash sinovi: o'tmadi", 'Sayt internetdan: ochilmayapti']);
+  });
+
+  it('chegaradan bu yog\'i va "aniqlanmadi" (-1) muammo emas: disk 89%, zaxira 29 soat, sertifikat 14 kun, sinov hali o\'tkazilmagan, tashqi nusxa yoqilmagan', async () => {
+    const fine: Partial<typeof HEALTHY>[] = [{ disk: 89 }, { backupAgeH: 29 }, { certDays: 14 }, { disk: -1 }, { certDays: -1 }, { restoreOk: -1 }, { offsiteOk: -1 }, { backupAgeH: 0 }];
+    for (const patch of fine) {
+      heartbeat(patch);
+      const c = await card();
+      expect(c.badge, JSON.stringify(patch)).toBe('Kuzatuvda');
+      expect(c.marked, JSON.stringify(patch)).toEqual([]);
+    }
+    heartbeat({ disk: -1, certDays: -1, restoreOk: -1, offsiteOk: -1 });
+    const { text } = await card();
+    for (const line of ['Disk: aniqlanmadi', 'HTTPS sertifikat: aniqlanmadi', "Zaxirani tiklash sinovi: hali o'tkazilmagan", 'Serverdan tashqaridagi nusxa: yoqilmagan (deploy/offsite-setup.sh)']) expect(text).toContain(line);
+  });
+
+  // 30 daqiqadan eski signal: faktlar hozirgi holat emas — ularga qarab "muammo bor" ham, "kuzatuvda" ham deyilmaydi
+  it('signal eskirgan: "Signal kelmayapti"; oxirgi ma\'lum faktlar ko\'rsatiladi, lekin ajratilmaydi va "hozirgi holat emas" deb yoziladi', async () => {
+    heartbeat({ restoreOk: 0, siteOk: 0 }, 31);
+    const c = await card();
+    expect(c.badge).toBe('Signal kelmayapti');
+    expect(c.red).toBe(false);
+    expect(c.marked).toEqual([]);
+    expect(c.text).toContain("oxirgi ma'lum holat, hozirgi holat emas");
+    expect(c.text).toContain("Zaxirani tiklash sinovi: o'tmadi");
+    for (const other of ['Muammo bor', 'Kuzatuvda']) expect(c.text, other).not.toContain(other);
+
+    // 29 daqiqalik signal hali yangi: o'sha faktlar bilan "Muammo bor"
+    heartbeat({ restoreOk: 0, siteOk: 0 }, 29);
+    const fresh = await card();
+    expect(fresh.badge).toBe('Muammo bor');
+    expect(fresh.text).not.toContain('hozirgi holat emas');
+  });
+
+  it('xabarlar navbati: kutayotganlar, bir soatdan ortiq turganlar va oxirgi 24 soatda yetkazilmaganlar soni', async () => {
+    heartbeat();
+    expect((await card()).text).toContain('Bot xabarlari navbati: 0 ta kutmoqda, oxirgi 24 soatda 0 ta yetkazilmadi.');
+    s.queue = { pending: 3, stuck: 2, failed24h: 1 };
+    expect((await card()).text).toContain('Bot xabarlari navbati: 3 ta kutmoqda (2 tasi bir soatdan ortiq), oxirgi 24 soatda 1 ta yetkazilmadi.');
+  });
+
+  // Server nosozligi xabarlari (watchdog.sh) faqat boshqaruv botiga ulangan faol administratorlarga boradi: sahifa "xabar boradi" deb
+  // faqat shunday odam bor bo'lganda yozadi
+  describe('nosozlik xabari kimga borishi haqidagi izoh', () => {
+    const PROMISE = 'Telegram orqali darhol xabar boradi';
+    const NO_BOT = 'Boshqaruv boti hali ulanmagan — muammo chiqsa Telegram xabari yuborilmaydi, u faqat server logiga yoziladi';
+    const NO_ADMIN = "Hozircha xabar oladigan administrator yo'q — muammo chiqsa Telegram xabari hech kimga bormaydi";
+
+    it('boshqaruv boti tokeni kiritilmagan: xabar yuborilmasligi va botni qanday ulash aytiladi — administrator ulangan bo\'lsa ham', async () => {
+      heartbeat();
+      s.admins = ['7000001'];
+      const { text } = await card();
+      expect(text).toContain(NO_BOT);
+      expect(text).toContain('deploy/bots-setup.sh');
+      expect(text).not.toContain(PROMISE);
+      expect(text).not.toContain(NO_ADMIN);
+      // Mijoz botining tokeni boshqaruv botini "ulangan" qilmaydi
+      tokens('111:customer', '');
+      expect((await card()).text).toContain(NO_BOT);
+    });
+
+    it('bot ulangan, lekin hech bir administrator ulanmagan: xabar hech kimga bormasligi aytiladi va Xodimlar sahifasiga havola beriladi', async () => {
+      heartbeat();
+      tokens('', '222:staff');
+      s.admins = [];
+      const c = await card();
+      expect(c.text).toContain(NO_ADMIN);
+      expect(c.text).toContain("bo'limida administrator hisobini boshqaruv botiga ulang");
+      expect(c.html).toMatch(/<a[^>]*href="\/admin\/staff"[^>]*>Xodimlar<\/a>/);
+      expect(c.text).not.toContain(PROMISE);
+      expect(c.text).not.toContain(NO_BOT);
+    });
+
+    it('bot va administrator ulangan: "xabar boradi" va nechta kishiga borishi; Telegram ID lar sahifaga chiqmaydi', async () => {
+      heartbeat();
+      s.admins = ['7000001', '7000002'];
+      for (const [staff, legacy] of [['222:staff', ''], ['', '333:legacy']]) {
+        tokens('', staff, legacy);
+        const c = await card();
+        expect(c.text).toContain(`boshqaruv botiga ulangan administratorlarga (2 kishi) ${PROMISE}`);
+        expect(c.text).not.toContain(NO_ADMIN);
+        expect(c.text).not.toContain(NO_BOT);
+        expect(c.html).not.toMatch(/7000001|7000002/);
+      }
+      // Yozuvi buzilgan (raqam bo'lmagan ID) administrator xabar ololmaydi — u sanoqqa ham kirmaydi
+      s.admins = ['7000001', '@pack24_admin'];
+      expect((await card()).text).toContain('(1 kishi)');
+    });
+
+    it('ro\'yxatni o\'qib bo\'lmasa: "yo\'q" deb qo\'rqitilmaydi, son ham aytilmaydi', async () => {
+      heartbeat();
+      tokens('', '222:staff');
+      s.admins = null;
+      const { text } = await card();
+      expect(text).toContain(`boshqaruv botiga ulangan administratorlarga ${PROMISE}`);
+      expect(text).not.toContain('kishi)');
+      expect(text).not.toContain(NO_ADMIN);
+    });
+
+    it('izoh signal holatiga bog\'liq emas: signal hali kelmagan serverda ham chiqadi', async () => {
+      tokens('', '222:staff');
+      s.admins = [];
+      const c = await card();
+      expect(c.badge).toBe("Ma'lumot yo'q");
+      expect(c.text).toContain(NO_ADMIN);
+    });
   });
 });

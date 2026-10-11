@@ -22,6 +22,15 @@ mv "$OUT/uploads-$STAMP.tar.gz.tmp" "$OUT/uploads-$STAMP.tar.gz"
 find "$OUT" -type f -mtime +14 ! -name 'premigration-*' -delete
 echo "$STAMP: $(du -sh "$OUT" | cut -f1) jami"
 
+# Faqat kunlik zaxirada (migratsiya oldidan olinadigan nusxada emas — u yangilanishni kechiktirmasin). Ikkalasining xatosi
+# zaxiraning o'ziga ta'sir qilmaydi (nusxa allaqachon joyida); natijani deploy/watchdog.sh ko'radi va administratorlarga xabar beradi.
+if [ "$PREFIX" = "db" ]; then
+  # 1) Zaxirani sinash: yangi nusxa vaqtinchalik bazaga tiklab ko'riladi — ochilmaydigan nusxa zaxira emas
+  ./deploy/restore-test.sh "$OUT/$PREFIX-$STAMP.sql.gz" || true
+  # 2) Serverdan tashqaridagi nusxa (ixtiyoriy, deploy/offsite-setup.sh yoqadi): shifrlangan nusxa Telegram orqali yuboriladi
+  [ "${BACKUP_SKIP_OFFSITE:-0}" = "1" ] || ./deploy/offsite-send.sh "$OUT/$PREFIX-$STAMP.sql.gz" || true
+fi
+
 # Tiklash. Nusxa faqat BO'SH bazaga to'g'ri tushadi: ishlab turgan baza ustiga quyilsa psql xatolarni o'tkazib
 # yuboradi va baza aralash holatda qoladi. Shuning uchun tartib:
 #   1) Avtomatik yangilanishni vaqtincha to'xtating (crontab -e yoki /etc/cron.d/pack24 da auto-update.sh satrini

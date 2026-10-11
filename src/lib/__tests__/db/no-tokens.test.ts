@@ -24,10 +24,15 @@ describe.skipIf(!DB_TESTS)('botlar: token yo\'q yoki Telegram ishlamayapti (haqi
 
   type Call = { url: string; chat: string };
   const calls: Call[] = [];
+  /** Yuborishga urinilgan har bir xabar (kimga, qanday matn): o'tmaganlari navbatga (BotOutbox) tushadi — oxirida aynan o'shalar tozalanadi */
+  const attempted: { chatId: string; html: string }[] = [];
+  let started = new Date();
   const stubFetch = (impl: () => Promise<Response>) => {
     calls.length = 0;
     vi.stubGlobal('fetch', async (url: string, init: { body: string }) => {
-      calls.push({ url, chat: String((JSON.parse(init.body) as { chat_id?: unknown }).chat_id) });
+      const body = JSON.parse(init.body) as { chat_id?: unknown; text?: unknown };
+      calls.push({ url, chat: String(body.chat_id) });
+      attempted.push({ chatId: String(body.chat_id), html: String(body.text) });
       return impl();
     });
   };
@@ -56,11 +61,16 @@ describe.skipIf(!DB_TESTS)('botlar: token yo\'q yoki Telegram ishlamayapti (haqi
   });
   beforeEach(() => {
     vi.stubEnv('TELEGRAM_API_BASE', '');
+    attempted.length = 0;
+    started = new Date(Date.now() - 1000);
   });
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // Navbat butun bazaga bitta, xabarnoma esa bu faylda haqiqiy: Telegram "ishlamagan" testdan keyin navbatda shu testning xabarlari qoladi —
+    // boshqa fayllarning xodimlariga yuborilganlari ham (ular ham "orders" ruxsatli, ulangan xodimlar). Faqat shu test qo'yganlari o'chiriladi
+    if (attempted.length) await prisma.botOutbox.deleteMany({ where: { createdAt: { gte: started }, OR: attempted.map(({ chatId, html }) => ({ chatId, html })) } });
   });
 
   it('token kiritilmagan: hech narsa yuborilmaydi (tarmoqqa chiqilmaydi), holat va to\'lov baribir o\'zgaradi va tarixga yoziladi', async () => {

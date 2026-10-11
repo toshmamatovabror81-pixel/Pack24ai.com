@@ -127,9 +127,11 @@ uni avtomatik yangilanish cron'i (`deploy/auto-update.sh`, har 5 daqiqada) ishga
 cd /opt/pack24 && docker compose exec -T web node -e "fetch('http://127.0.0.1:3000/api/cron/tick',{method:'POST',headers:{authorization:'Bearer '+process.env.TELEGRAM_OPS_SECRET}}).then(async r=>console.log(r.status,await r.text()))"
 ```
 
-Javob `200 {"ok":true,"digest":null,"audit":null}` bo'lsa hammasi joyida (bugungi eslatma va tekshiruv allaqachon bajarilgan
-yoki vaqti hali kelmagan: tekshiruv 08:00 dan, eslatma 09:00 dan keyin); `"digest":{...}` — eslatma shu so'rov bilan yuborildi
-(nechta xodimga yetgani ko'rsatiladi); `"audit":{"findings":..,"sent":..,"ai":..}` — kunlik tekshiruv shu so'rov bilan bajarildi,
+Javob `200 {"ok":true,"digest":null,"audit":null,"outbox":{"sent":0,"retry":0,"failed":0}}` bo'lsa hammasi joyida (bugungi
+eslatma va tekshiruv allaqachon bajarilgan yoki vaqti hali kelmagan: tekshiruv 08:00 dan, eslatma 09:00 dan keyin);
+`"outbox":{...}` — ilgari yuborilmay qolgan bot xabarlari navbati (6a-bo'lim): shu so'rov bilan yetkazilgani, keyinroq qayta
+uriniladigani va endi yuborilmaydigani (`"outbox":null` — navbat bu safar o'qilmadi); `"digest":{...}` — eslatma shu so'rov bilan
+yuborildi (nechta xodimga shu zahoti yetgani ko'rsatiladi; Telegram javob bermagan bo'lsa xabar navbatga tushadi va keyinroq boradi); `"audit":{"findings":..,"sent":..,"ai":..}` — kunlik tekshiruv shu so'rov bilan bajarildi,
 `"audit":"running"` — u fonda davom etyapti, `"audit":"failed"` — xato bilan tugadi (`docker compose logs web`; bugun takrorlanmaydi,
 kerak bo'lsa Admin > AI tekshiruv > «Hozir tekshirish»). Diqqat: bu buyruq vaqti kelgan
 tekshiruv va eslatmani haqiqatan ishga tushiradi — xodimlarga xabar ketadi.
@@ -241,6 +243,61 @@ qolganda qo'lda o'chiriladi. Papka faqat `root` uchun ochiq (nusxalarda mijozlar
 
 Tiklash tartibi `deploy/backup.sh` oxirida. Muhim: nusxa faqat bo'sh bazaga to'g'ri tushadi, shuning uchun avval
 baza qayta yaratiladi (ishlab turgan baza ustiga quyish aralash holat qoldiradi).
+
+**Zaxira sinovi.** Har kunlik zaxiradan keyin `deploy/restore-test.sh` yangi nusxani vaqtinchalik bazaga
+(`pack24_restore_test`) tiklab ko'radi va asosiy jadvallar o'qilishini tekshiradi; ishlab turgan bazaga tegmaydi, sinov
+bazasi oxirida o'chiriladi. Sinov o'tmasa administratorlarga Telegram xabari boradi (pastdagi kuzatuv) — ochilmaydigan
+nusxa zaxira emas. Qo'lda: `/opt/pack24/deploy/restore-test.sh` (natija `/var/log/pack24-backup.log` da ham bor).
+
+**Serverdan tashqaridagi nusxa (ixtiyoriy).** Kunlik nusxalar shu serverning o'zida turadi: server butunlay ishdan chiqsa
+ular ham yo'qoladi. Yoqilsa, har kuni baza nusxasi shifrlanib (AES-256), boshqaruv boti orqali administratorlarga
+Telegram'da fayl bo'lib keladi (rasmlar yuborilmaydi; fayl 45 MB dan oshsa yuborilmaydi va xabar beriladi). Yoqish:
+
+```bash
+ssh -t -i ~/.ssh/KALIT root@<server IP> /opt/pack24/deploy/offsite-setup.sh
+```
+
+Skript parol o'ylab topishni so'raydi (ikki marta, ekranda ko'rinmaydi) va darhol sinov nusxasini yuboradi. Parolni yozib
+qo'ying: faylni faqat shu parol bilan ochish mumkin, uni hech kim tiklab bera olmaydi. Oldindan botlar ulangan va siz
+boshqaruv botiga ulangan bo'lishingiz kerak. Faylni ochish (istalgan kompyuterda, parol so'raladi):
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in db-SANA.sql.gz.enc -out db-SANA.sql.gz
+```
+
+O'chirish: skriptni qayta ishga tushirib, parol so'ralganda bitta chiziqcha (`-`) yozing.
+
+## 6a. Kuzatuv (monitoring)
+
+Alohida sozlash kerak emas: `deploy/watchdog.sh` avtomatik yangilanish bilan birga har 5 daqiqada ishlaydi va tekshiradi:
+
+- sayt ichkaridan (ilova va baza) va internetdan (`https://<domen>/api/health` — proksi va sertifikat ham);
+- diskdagi joy (90% dan oshsa);
+- oxirgi kunlik zaxira (30 soatdan eski bo'lsa), zaxira sinovi va (yoqilgan bo'lsa) Telegram'ga yuborilgan nusxa;
+- HTTPS sertifikat muddati (14 kundan kam qolsa);
+- davriy ishlar signali (kunlik eslatma va tekshiruv).
+
+Muammo paydo bo'lsa boshqaruv botiga ulangan **administratorlarga** Telegram xabari boradi: bir marta, muammo davom etsa har
+24 soatda bir eslatma (har bir muammo uchun alohida), tuzalganda — "tuzaldi" xabari. Xabar Telegram'ga to'g'ridan-to'g'ri yuboriladi, shuning
+uchun sayt ishlamay qolganda ham yetib boradi. Qabul qiluvchilar ro'yxati sayt ishlab turgan paytda yangilanib turadi
+(`/var/lib/pack24/watchdog/chats`); bot ulanmagan yoki administrator botga ulanmagan bo'lsa muammo faqat
+`/var/log/pack24-update.log` ga yoziladi — administrator ulanmagani "Server holati" kartasida va kunlik tekshiruvda, bot ulanmagani
+esa faqat kartada ogohlantirish bilan ko'rinadi (bot ulanmaguncha kunlik tekshiruv xabari ham Telegram'ga yuborilmaydi). Yangilanish (deploy) ketayotgan daqiqalarda tekshiruv ishlamaydi.
+
+Server holati Admin > **AI tekshiruv** sahifasidagi "Server holati" kartasida ham ko'rinadi va kunlik tekshiruvga kiradi.
+Qo'lda ko'rish: `/opt/pack24/deploy/watchdog.sh -v`.
+
+**Yuborilmay qolgan bot xabarlari.** Telegram vaqtincha javob bermasa (tarmoq uzilishi, Telegram nosozligi) mijoz va xodimlarga
+boradigan xabarnomalar yo'qolmaydi: navbatga tushadi va keyingi signallarda qayta yuboriladi (5 daqiqa, 15 daqiqa, 1, 3 va
+12 soatdan keyin). Shunda ham yetib bormasa "yetkazilmadi" deb belgilanadi va kunlik tekshiruvda ko'rinadi.
+
+**Tashqaridan tekshiruv.** Server butunlay o'chib qolsa serverdagi kuzatuv xabar bera olmaydi. Buning uchun
+`.github/workflows/uptime.yml` saytni GitHub serverlaridan har 15 daqiqada tekshiradi va ochilmasa "pack24.uz ishlamayapti"
+nomli issue ochadi (GitHub repo egasiga email yuboradi), tiklangach yopadi. Kalit kerak emas, lekin u faqat kod `main`
+branch'iga qo'shilgandan keyin ishlay boshlaydi. Diqqat: repo ochiq (public) bo'lgani uchun GitHub 60 kun davomida repoga hech
+narsa qo'shilmasa bu jadvalli tekshiruvni o'zi o'chirib qo'yadi. Undan oldin GitHub'dan inglizcha email keladi (mavzusi:
+`The "Uptime" workflow in ... will be disabled soon`) — xatdagi havolani oching yoki GitHub repo > Actions > Uptime sahifasida
+**Enable workflow** tugmasini bosing.
 
 ## 7. Foydali buyruqlar
 

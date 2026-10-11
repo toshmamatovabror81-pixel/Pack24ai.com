@@ -1039,3 +1039,24 @@ model AiUsage {
   outputTokens Int      @default(0)
   updatedAt    DateTime @updatedAt
 }
+
+// ─── Ishonchlilik ────────────────────────────────────────────────────────────
+
+// Darhol yuborib bo'lmagan bot xabarlari navbati (Telegram vaqtincha ishlamaganda): davriy signal qayta yuboradi (telegram/outbox.ts)
+model BotOutbox {
+  id        Int       @id @default(autoincrement())
+  bot       String // customer | staff
+  chatId    String
+  topic     String? // bitta narsaning holati haqidagi xabarlar (masalan order-status:15): yangisi chiqsa navbatdagi eskisi bekor bo'ladi
+  html      String
+  inline    Json? // inline tugmalar
+  attempts  Int       @default(1) // shu paytgacha urinishlar soni (birinchisi — darhol yuborishga urinish)
+  nextAt    DateTime // keyingi urinish vaqti
+  lastError String?
+  sentAt    DateTime? // yetib bordi
+  failedAt  DateTime? // urinishlar tugadi, doimiy xato yoki eskirgan — endi yuborilmaydi
+  createdAt DateTime  @default(now())
+
+  @@index([sentAt, failedAt, nextAt])
+  @@index([bot, chatId, topic])
+}

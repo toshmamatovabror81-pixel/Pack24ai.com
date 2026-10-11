@@ -38,6 +38,13 @@ elif [ "$(cat "$TICK_FAILED" 2>/dev/null || true)" != "$TICK_RC" ]; then
   { echo "$TICK_RC" > "$TICK_FAILED"; } 2>/dev/null || true
 fi
 
+# Kuzatuv (deploy/watchdog.sh): sayt, disk, zaxira nusxa va sertifikat tekshiriladi; muammo bo'lsa administratorlarga Telegram
+# xabari boradi. Yangilanishni hech qachon to'xtatmaydi (150 s da uziladi, xatosi e'tiborga olinmaydi). Yangilanish ketayotgan
+# paytda bu skript boshidagi qulf tufayli ishlamaydi — sayt qayta ishga tushayotganda yolg'on "ishlamayapti" xabari chiqmaydi.
+if [ -x ./deploy/watchdog.sh ]; then
+  { timeout -k 10 150 ./deploy/watchdog.sh </dev/null || true; } 2>/dev/null
+fi
+
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
   echo "$(date '+%F %T') branch '$BRANCH' GitHub'da yo'q, main'ga o'tilmoqda"

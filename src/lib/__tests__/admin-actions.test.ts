@@ -82,7 +82,11 @@ vi.mock('@/lib/db', () => {
     },
     workOrder: {
       findUnique: async ({ where }: { where: { id: number } }) => { const w = s.workOrders.get(where.id); return w ? { ...w, stages: [...s.stages.values()].filter((st) => st.workOrderId === where.id).map((st) => ({ ...st })) } : null; },
-      update: async ({ where, data }: { where: { id: number }; data: Record<string, unknown> }) => ({ ...Object.assign(s.workOrders.get(where.id)!, data) }),
+      // Haqiqiy baza kabi: `select` berilsa faqat so'ralgan ustunlar qaytadi (xabarnomaga nima yetib borishi shunga bog'liq)
+      update: async ({ where, data, select }: { where: { id: number }; data: Record<string, unknown>; select?: Record<string, boolean> }) => {
+        const row = Object.assign(s.workOrders.get(where.id)!, data);
+        return select ? Object.fromEntries(Object.entries(row).filter(([k]) => select[k])) : { ...row };
+      },
     },
   };
   prisma.$transaction = async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma);
@@ -281,16 +285,20 @@ describe('admin: hisob-faktura amallari', () => {
 });
 
 describe('admin: ishlab chiqarish bosqichlari', () => {
+  /** Ish topshirig'ining raqami: bosqich raqamlaridan (1–4) ham, buyurtma raqamidan (7) ham farq qiladi */
+  const WORK_ORDER = 31;
   const setup = (woOver: Record<string, unknown> = {}) => {
-    s.workOrders.set(1, { id: 1, orderId: 7, productName: 'Quti 30x20', currentStage: 'gofra', progress: 0, status: 'planned', ...woOver });
-    ['gofra', 'pechat', 'yiguv', 'qc'].forEach((stage, i) => s.stages.set(i + 1, { id: i + 1, workOrderId: 1, stage, status: 'pending', startedAt: null }));
+    s.workOrders.set(WORK_ORDER, { id: WORK_ORDER, orderId: 7, productName: 'Quti 30x20', currentStage: 'gofra', progress: 0, status: 'planned', ...woOver });
+    ['gofra', 'pechat', 'yiguv', 'qc'].forEach((stage, i) => s.stages.set(i + 1, { id: i + 1, workOrderId: WORK_ORDER, stage, status: 'pending', startedAt: null }));
   };
 
   it('ish boshlanganda, bosqich almashganda va tayyor bo\'lganda xabar ketadi — boshqa paytda yo\'q', async () => {
     setup();
     await run(production.startStage, { stageId: '1' });
     expect(named('notifyCustomerProduction')).toHaveLength(1);
-    expect(named('notifyCustomerProduction')[0][1]).toMatchObject({ orderId: 7, productName: 'Quti 30x20', currentStage: 'gofra', progress: 0, status: 'in_progress' });
+    // Xabarnomaga topshiriqning O'Z raqami ham beriladi: navbatdagi xabar mavzusi shundan yasaladi (bir xil mahsulotli ikki topshiriq
+    // bir-birining xabarini bekor qilmasin)
+    expect(named('notifyCustomerProduction')[0][1]).toMatchObject({ id: WORK_ORDER, orderId: 7, productName: 'Quti 30x20', currentStage: 'gofra', progress: 0, status: 'in_progress' });
     await run(production.saveStage, { stageId: '1', operator: 'Vali' });
     expect(named('notifyCustomerProduction')).toHaveLength(1);
     await run(production.finishStage, { stageId: '1' });

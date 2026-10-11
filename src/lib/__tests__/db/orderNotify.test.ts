@@ -1,14 +1,18 @@
-import type { User } from '@prisma/client';
+import type { Prisma, User } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearOutbox, DB_TESTS, fixture, outbox, prisma, type Fixture } from './helpers';
 
-/** Soxta Telegram'ni sekinlashtirish yoki bitta oluvchida "yiqitish" va bir vaqtda nechta xabar yo'lda ekanini ko'rish uchun */
-const net = vi.hoisted(() => ({ delayMs: 0, inFlight: 0, peak: 0, failFor: null as string | null }));
+/**
+ * Soxta Telegram'ni sekinlashtirish yoki bitta oluvchida "yiqitish" va bir vaqtda nechta xabar yo'lda ekanini ko'rish uchun.
+ * topics — mijozga ketgan har bir xabarning navbat mavzusi (notifyCustomer ning to'rtinchi dalili; mavzusiz xabarda null)
+ */
+const net = vi.hoisted(() => ({ delayMs: 0, inFlight: 0, peak: 0, failFor: null as string | null, topics: [] as { to: string; topic: string | null }[] }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/telegram/notify', async () => {
   const real = (await import('./helpers')).notifyMock();
-  const tracked = (send: typeof real.notifyStaff): typeof real.notifyStaff => async (to, html, inline) => {
+  const tracked = (send: typeof real.notifyStaff, topics?: typeof net.topics) => async (to: string | null | undefined, html: string, inline?: Parameters<typeof real.notifyStaff>[2], topic?: string) => {
+    topics?.push({ to: String(to), topic: topic ?? null });
     net.inFlight += 1;
     net.peak = Math.max(net.peak, net.inFlight);
     try {
@@ -19,11 +23,11 @@ vi.mock('@/lib/telegram/notify', async () => {
       net.inFlight -= 1;
     }
   };
-  return { ...real, notifyCustomer: tracked(real.notifyCustomer), notifyStaff: tracked(real.notifyStaff) };
+  return { ...real, notifyCustomer: tracked(real.notifyCustomer, net.topics), notifyStaff: tracked(real.notifyStaff) };
 });
 vi.mock('@/lib/settings', async () => (await import('./helpers')).settingsMock());
 
-const { notifyCustomerInvoice, notifyCustomerProduction, notifyStaffLead, notifyStaffNewOrder } = await import('@/lib/orderNotify');
+const { notifyCustomerInvoice, notifyCustomerOrderStatus, notifyCustomerPaid, notifyCustomerProduction, notifyStaffLead, notifyStaffNewOrder } = await import('@/lib/orderNotify');
 const { getDict } = await import('@/lib/i18n');
 
 describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, () => {
@@ -49,6 +53,7 @@ describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, ()
   beforeEach(() => {
     clearOutbox();
     Object.assign(net, { delayMs: 0, inFlight: 0, peak: 0, failFor: null });
+    net.topics.length = 0;
   });
 
   describe('xodimlarga', () => {
@@ -179,11 +184,14 @@ describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, ()
       const first = await fx.customer({ phone });
       const second = await fx.customer({ lang: 'ru' });
       const o = await fx.order({ contactPhone: phone, telegramUserId: second.telegramId, status: 'processing' });
-      const wo = { orderId: o.id, productName: 'Quti', currentStage: 'gofra' as const, progress: 10, status: 'in_progress' };
+      const wo = { id: 7, orderId: o.id, productName: 'Quti', currentStage: 'gofra' as const, progress: 10, status: 'in_progress' };
 
       net.delayMs = 40;
       expect(await notifyCustomerProduction(wo)).toBe(2);
       expect(net.peak).toBe(2);
+      // Ikkala oluvchiga ham bir xil mavzu bilan (navbat har bir oluvchi uchun alohida yuritiladi)
+      expect(net.topics.map((t) => t.topic)).toEqual([`order-production:${o.id}:7`, `order-production:${o.id}:7`]);
+      expect(net.topics.map((t) => t.to).sort()).toEqual([first.telegramId, second.telegramId].sort());
 
       clearOutbox();
       net.failFor = first.telegramId;
@@ -202,8 +210,8 @@ describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, ()
       const c = await fx.customer({ phone });
       const o = await fx.order({ contactPhone: phone, status: 'processing' });
 
-      expect(await notifyCustomerProduction({ orderId: o.id, productName: 'Quti <30x20>', currentStage: 'pechat', progress: 40.4, status: 'in_progress' })).toBe(1);
-      expect(await notifyCustomerProduction({ orderId: o.id, productName: 'Quti <30x20>', currentStage: 'qc', progress: 80, status: 'completed' })).toBe(1);
+      expect(await notifyCustomerProduction({ id: 7, orderId: o.id, productName: 'Quti <30x20>', currentStage: 'pechat', progress: 40.4, status: 'in_progress' })).toBe(1);
+      expect(await notifyCustomerProduction({ id: 7, orderId: o.id, productName: 'Quti <30x20>', currentStage: 'qc', progress: 80, status: 'completed' })).toBe(1);
       expect(outbox.customer.map((m) => m.to)).toEqual([c.telegramId, c.telegramId]);
       const [stage, done] = outbox.customer.map((m) => m.html);
       expect(stage).toContain(`Buyurtma #${o.id}`);
@@ -211,6 +219,87 @@ describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, ()
       expect(stage).toContain(`<b>${getDict('uz').order.stages.pechat}</b>`);
       expect(stage).toContain('(40%)');
       expect(done).toContain('<b>tayyor</b> (100%)');
+      // Bitta topshiriqning bosqichlari — bitta mavzu: navbatda yangi bosqich eskisining o'rnini bosadi
+      expect(net.topics.map((t) => t.topic)).toEqual([`order-production:${o.id}:7`, `order-production:${o.id}:7`]);
+    });
+
+    // Ilgari mavzu mahsulot nomidan yasalardi: bitta buyurtmada bir xil mahsulotning ikki topshirig'i (ikki partiya) bitta mavzuga tushib,
+    // navbatda bir-birining xabarini bekor qilardi
+    it('xabarlarning navbat mavzusi: ishlab chiqarish — buyurtma va TOPSHIRIQ raqami bo\'yicha (mahsulot nomi bo\'yicha emas), holat — buyurtma bo\'yicha, to\'lov va hisob-faktura — mavzusiz', async () => {
+      const phone = fx.phone();
+      await fx.customer({ phone });
+      const o = await fx.order({ contactPhone: phone, status: 'processing' });
+      const other = await fx.order({ contactPhone: phone, status: 'processing' });
+      const invoice = await fx.invoice({ orderId: o.id, total: 100000, dueDate: new Date('2031-01-15T00:00:00Z') });
+      const wo = (id: number, orderId: number) => ({ id, orderId, productName: 'Quti 30x20', currentStage: 'gofra' as const, progress: 10, status: 'in_progress' });
+
+      expect(await notifyCustomerProduction(wo(7, o.id))).toBe(1);
+      expect(await notifyCustomerProduction(wo(8, o.id))).toBe(1); // shu mahsulotning ikkinchi topshirig'i
+      expect(await notifyCustomerProduction(wo(7, other.id))).toBe(1); // boshqa buyurtma
+      expect(await notifyCustomerProduction({ ...wo(7, o.id), productName: 'Nomi o\'zgargan quti' })).toBe(1); // o'sha topshiriq
+      expect(await notifyCustomerOrderStatus(o)).toBe(1);
+      expect(await notifyCustomerPaid(o)).toBe(1);
+      expect(await notifyCustomerInvoice(o.id, invoice)).toBe(1);
+      expect(net.topics.map((t) => t.topic)).toEqual([
+        `order-production:${o.id}:7`,
+        `order-production:${o.id}:8`,
+        `order-production:${other.id}:7`,
+        `order-production:${o.id}:7`,
+        `order-status:${o.id}`,
+        null,
+        null,
+      ]);
+      expect(JSON.stringify(net.topics)).not.toMatch(/Quti|quti/);
+    });
+
+    // Bekor qilingan buyurtma uchun yangi ishlab chiqarish xabari chiqmaydi — navbatda turganlarini "bekor qilindi" xabarining o'zi tozalaydi
+    it('buyurtma bekor qilinsa navbatda turgan ishlab chiqarish xabarlari bekor bo\'ladi (haqiqiy bazada); boshqa holat o\'zgarishi va boshqa buyurtma ularga tegmaydi', async () => {
+      const phone = fx.phone();
+      const c = await fx.customer({ phone });
+      const second = await fx.customer({ lang: 'ru' });
+      const o = await fx.order({ contactPhone: phone, telegramUserId: second.telegramId, status: 'processing' });
+      const chats = [c.telegramId, second.telegramId];
+      // Navbat butun bazaga bitta: vaqtlar uzoq kelajakda — boshqa fayllarning ticklari bu qatorlarni "vaqti kelgan" deb olmaydi
+      const far = new Date('2099-01-01T00:00:00.000Z');
+      const queue = (data: Partial<Prisma.BotOutboxUncheckedCreateInput>) =>
+        prisma.botOutbox.create({ data: { bot: 'customer', chatId: c.telegramId, html: '🏭 <b>Buyurtma</b>', nextAt: far, createdAt: far, lastError: 'fetch failed', ...data } });
+      const mine = (ids: number[]) => prisma.botOutbox.findMany({ where: { id: { in: ids } }, orderBy: { id: 'asc' } });
+      try {
+        const target = [
+          await queue({ topic: `order-production:${o.id}:7` }),
+          await queue({ topic: `order-production:${o.id}:7`, chatId: second.telegramId, attempts: 4 }), // boshqa oluvchi
+          await queue({ topic: `order-production:${o.id}:8` }), // shu buyurtmaning boshqa topshirig'i
+        ];
+        const kept = [
+          await queue({ topic: `order-production:${o.id}1:7` }), // raqami shu bilan boshlanadigan boshqa buyurtma (15 va 151 kabi)
+          await queue({ topic: `order-status:${o.id}` }),
+          await queue({ topic: null }), // mavzusiz (to'lov, hisob-faktura)
+          await queue({ topic: `order-production:${o.id}:7`, bot: 'staff' }),
+          await queue({ topic: `order-production:${o.id}:7`, sentAt: far, lastError: null }), // allaqachon yetib borgan
+          await queue({ topic: `order-production:${o.id}:7`, failedAt: far, lastError: 'Telegram sendMessage: 403 Forbidden' }), // haqiqiy xato
+        ];
+        const all = [...target, ...kept].map((r) => r.id);
+
+        // Oddiy holat o'zgarishi navbatdagi ishlab chiqarish xabarlariga tegmaydi
+        for (const status of ['shipping', 'delivered'] as const) expect(await notifyCustomerOrderStatus({ ...o, status })).toBe(2);
+        expect(await mine(all)).toEqual([...target, ...kept]);
+
+        const started = Date.now();
+        clearOutbox();
+        expect(await notifyCustomerOrderStatus({ ...o, status: 'cancelled' })).toBe(2);
+        expect(outbox.customer.map((m) => m.to).sort()).toEqual([...chats].sort());
+        expect(outbox.customer.find((m) => m.to === c.telegramId)?.html).toContain('Buyurtmangiz bekor qilindi.');
+        const after = await mine(target.map((r) => r.id));
+        expect(after.map((r) => ({ ...r, failedAt: null, lastError: null }))).toEqual(target.map((r) => ({ ...r, failedAt: null, lastError: null })));
+        for (const r of after) {
+          expect(r.lastError).toBe('eskirgan');
+          expect(r.failedAt!.getTime()).toBeGreaterThanOrEqual(started);
+          expect(r.failedAt!.getTime()).toBeLessThanOrEqual(Date.now());
+        }
+        expect(await mine(kept.map((r) => r.id))).toEqual(kept);
+      } finally {
+        await prisma.botOutbox.deleteMany({ where: { chatId: { in: chats } } });
+      }
     });
 
     it('buyurtmaga bog\'lanmagan topshiriq, bekor qilingan yoki o\'chirilgan buyurtma: xabar yo\'q', async () => {
@@ -218,7 +307,7 @@ describe.skipIf(!DB_TESTS)('orderNotify (haqiqiy baza)', { timeout: 20_000 }, ()
       await fx.customer({ phone });
       const cancelled = await fx.order({ contactPhone: phone, status: 'cancelled' });
       const deleted = await fx.order({ contactPhone: phone, deletedAt: new Date() });
-      const wo = { productName: 'Quti', currentStage: 'gofra' as const, progress: 10, status: 'in_progress' };
+      const wo = { id: 7, productName: 'Quti', currentStage: 'gofra' as const, progress: 10, status: 'in_progress' };
 
       expect(await notifyCustomerProduction({ ...wo, orderId: null })).toBe(0);
       expect(await notifyCustomerProduction({ ...wo, orderId: cancelled.id })).toBe(0);

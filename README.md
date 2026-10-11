@@ -14,7 +14,7 @@ Texnologiyalar: Next.js 15 (App Router), React 19, Prisma 6, PostgreSQL 16, Tail
 - `src/lib` — baza, auth, narx hisoblash, buyurtma, to'lovlar, SEO, i18n lug'atlari
 - `src/lib/ai` — sun'iy intellekt (Anthropic Claude, ixtiyoriy): mijoz botidagi savol-javob yordamchisi va kunlik tekshiruv xulosasi (`deploy/ai-setup.sh`)
 - `prisma` — sxema, migratsiyalar, `seed/catalog.sql` (boshlang'ich 120 mahsulot)
-- `deploy` — server skriptlari (o'rnatish, yangilash, zaxira), Caddyfile
+- `deploy` — server skriptlari (o'rnatish, yangilash, zaxira va uni sinash, kuzatuv), Caddyfile
 - `docs/DEPLOY-UZCLOUD.md` — serverga joylash qo'llanmasi
 
 ## Lokal ishga tushirish

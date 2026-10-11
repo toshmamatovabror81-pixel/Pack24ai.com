@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DB_TESTS, fixture, prisma, waitForBlocked, type Fixture } from './helpers';
 
@@ -169,6 +170,46 @@ describe.skipIf(!DB_TESTS)('telegram/customers (haqiqiy baza)', { timeout: 20_00
       expect(await prisma.order.findUnique({ where: { id: mine.id }, select: { contactPhone: true, deletedAt: true } })).toEqual({ contactPhone: phone, deletedAt: null });
 
       await expect(unlinkCustomer(tg)).resolves.toBeUndefined(); // ikkinchi marta ham xatosiz
+    });
+
+    // Navbatdagi (Telegram vaqtincha ishlamagani uchun kechikkan) xabarlarda buyurtma ma'lumoti bor: botdan chiqqan mijozga ular
+    // keyinroq ham yetib bormasligi kerak (telegram/outbox.ts)
+    it('navbatda turgan (hali yuborilmagan) xabarlarini ham o\'chiradi; yetkazilgan, "yuborilmadi" va boshqalarning xabarlari qoladi', async () => {
+      const tg = fx.tg();
+      const other = fx.tg();
+      await linkCustomerPhone(tg, fx.phone(), 'Ketuvchi');
+      await fx.customer({ telegramId: other });
+      // Navbat butun bazaga bitta va boshqa test fayllari uni o'z soati bilan (2031-yilgacha) yuboradi va tozalaydi. Vaqtlar uzoq kelajakda:
+      // ular bu qatorlarni "vaqti kelgan" yoki "eskirgan" deb olmaydi; "yuborilmadi" sanog'iga ham kirmaydi (eskirgan belgisi)
+      const far = new Date('2099-01-01T00:00:00.000Z');
+      const queue = (data: Partial<Prisma.BotOutboxUncheckedCreateInput> = {}) =>
+        prisma.botOutbox.create({ data: { bot: 'customer', chatId: tg, html: '📦 <b>Buyurtma #1</b>', nextAt: far, createdAt: far, lastError: 'fetch failed', ...data } });
+      const mine = () => prisma.botOutbox.findMany({ where: { chatId: { in: [tg, other] } }, orderBy: { id: 'asc' } });
+      try {
+        const pending = [
+          await queue({ topic: 'order-status:1' }),
+          await queue({ attempts: 4, inline: [[{ text: 'Batafsil', callback_data: 'o_1' }]] }),
+        ];
+        const kept = [
+          await queue({ sentAt: far, lastError: null }), // yetkazilgan
+          await queue({ failedAt: far, lastError: 'eskirgan', topic: 'order-status:1' }), // yakunlangan, endi yuborilmaydi
+          await queue({ chatId: other }), // boshqa mijozniki
+          await queue({ bot: 'staff' }), // shu Telegram hisobining boshqaruv botidagi xabari
+        ];
+        expect(await mine()).toEqual([...pending, ...kept]);
+
+        await unlinkCustomer(Number(tg));
+        expect(await mine()).toEqual(kept);
+        expect(await botCustomer(tg)).toBeNull();
+
+        // Navbatida hech narsa yo'q mijoz uchun ham xatosiz, boshqalarnikiga tegmaydi
+        await expect(unlinkCustomer(tg)).resolves.toBeUndefined();
+        expect(await mine()).toEqual(kept);
+        await unlinkCustomer(other);
+        expect((await mine()).map((r) => r.id)).toEqual([kept[0].id, kept[1].id, kept[3].id]);
+      } finally {
+        await prisma.botOutbox.deleteMany({ where: { chatId: { in: [tg, other] } } });
+      }
     });
   });
 

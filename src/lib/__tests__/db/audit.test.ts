@@ -13,9 +13,16 @@ import { clearOutbox, DB_TESTS, fixture, outbox, prisma, type Fixture } from './
  *  2) Fayl bitta ochiq tranzaksiya ichida ishlaydi va oxirida ROLLBACK qilinadi: 1960-yilgi qatorlar boshqa fayllarga ko'rinmaydi
  *     (aks holda cron.test.ts dagi "eng eski yangi buyurtmalar" sanog'ini buzardi), test uzilib qolsa ham bazada hech narsa qolmaydi.
  * Baza soxtalashtirilmaydi: `prisma` haqiqiy, faqat tranzaksiya ochiq paytida so'rovlar o'sha tranzaksiya ulanishidan o'tadi.
+ * Ikki jadval butun bazaga bitta, shuning uchun alohida ehtiyot qilinadi:
+ *  - Xabarlar navbati (BotOutbox): "yetkazilmagan / kutib qolgan xabarlar" qoidalari uni butunlay sanaydi, boshqa fayllar esa unga
+ *    parallel yozadi. Bu faylda navbatning faqat shu fayl testlari qo'ygan yozuvlari ko'rinadi — `create` yozuv raqamini eslab qoladi,
+ *    qolgan har bir so'rov shartiga "id shulardan biri" qo'shiladi (db/cron.test.ts dagi kabi); so'rovning o'zi haqiqiy.
+ *  - Server holati (SiteSetting "ops"): boshida tranzaksiya ichida o'chiriladi (ishlab chiquvchi bazasida qolgan signal sanoqlarni
+ *    buzmasin), testlar o'z holatini saveOps bilan yozadi — oxirida hammasi ROLLBACK bilan avvalgi holiga qaytadi.
  */
 const h = vi.hoisted(() => ({
   tx: null as object | null,
+  queueIds: [] as number[],
   settings: { companyName: 'Pack24', phone: '998880557888', lowStockThreshold: 10, legalName: 'Pack24 MChJ', inn: '301234567', bankDetails: 'h/r 2020 8000 0000 0000 0001' },
   http: vi.fn<(url: string, init: RequestInit) => Promise<Response>>(),
 }));
@@ -33,10 +40,28 @@ vi.mock('@anthropic-ai/sdk', async (importOriginal) => {
 });
 vi.mock('@/lib/db', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/db')>();
+  const filtered = ['count', 'findMany', 'findFirst', 'updateMany', 'deleteMany'];
+  /** BotOutbox so'rovlari: faqat shu fayl qo'ygan yozuvlarga tegadi (fayl boshidagi izohga qarang) */
+  const queue = (table: object) => new Proxy(table, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop);
+      if (typeof prop !== 'string' || typeof value !== 'function') return value;
+      if (prop === 'create') {
+        return async (args: object) => {
+          const row = await (value as (a: object) => Promise<{ id: number }>).call(target, args);
+          h.queueIds.push(row.id);
+          return row;
+        };
+      }
+      if (!filtered.includes(prop)) return () => { throw new Error(`test: botOutbox.${prop} bu faylda kutilmagan (navbatni o'z yozuvlari bilan cheklab bo'lmaydi)`); };
+      return (args: { where?: object } = {}) => (value as (a: object) => unknown).call(target, { ...args, where: { AND: [args.where ?? {}, { id: { in: h.queueIds } }] } });
+    },
+  });
   const routed = new Proxy(real.prisma, {
     get(target, prop) {
       const source = (h.tx ?? target) as Record<PropertyKey, unknown>;
       const value = source[prop];
+      if (prop === 'botOutbox') return queue(value as object);
       return typeof value === 'function' ? value.bind(source) : value;
     },
   });
@@ -48,6 +73,7 @@ vi.mock('@/lib/settings', () => ({ getSettings: async () => h.settings }));
 const { collectChecks, dailyAudit, reportChecks, runAudit } = await import('@/lib/ai/audit');
 const { formatDate, formatPrice } = await import('@/lib/format');
 const { overdueCutoff } = await import('@/lib/invoiceStatus');
+const { alertChats, saveOps } = await import('@/lib/ops');
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -123,6 +149,8 @@ describe.skipIf(!DB_TESTS)('kunlik tekshiruv: aniq qoidalar (haqiqiy baza)', { t
     await transaction.ready;
     fx = await fixture(0);
     PII.phone = fx.phone();
+    // Toza server holati: bazada qolgan kuzatuv signali (bo'lsa) shu tranzaksiya ichida ko'rinmaydi
+    await prisma.siteSetting.deleteMany({ where: { key: 'ops' } });
 
     manager = await fx.user({ role: 'manager', telegramId: fx.tg() });
     worker = await fx.user({ role: 'staff', telegramId: fx.tg() });
@@ -497,6 +525,94 @@ describe.skipIf(!DB_TESTS)('kunlik tekshiruv: aniq qoidalar (haqiqiy baza)', { t
     // Boshqaruv boti tokeni bor va "orders" ruxsatli xodim (shu faylning menejeri) botga ulangan
     vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
     expect(await found('no_staff_linked')).toBeUndefined();
+    // Administrator ham ulangan (shu faylniki xabarnomani o'chirib qo'ygan — server nosozligi xabari uchun bu ahamiyatsiz)
+    expect(await found('ops_no_admin')).toBeUndefined();
+  });
+
+  // Server nosozligi xabarlarini (deploy/watchdog.sh) oladiganlar ro'yxati haqiqiy so'rov bilan: faqat faol, o'chirilmagan administratorlar
+  it('server xabarlarini oladiganlar (alertChats): menejer, oddiy xodim, o\'chirilgan yoki faol bo\'lmagan administrator kirmaydi', async () => {
+    const inactive = await fx.user({ role: 'admin', telegramId: fx.tg(), isActive: false });
+    const removed = await fx.user({ role: 'admin', telegramId: fx.tg(), deletedAt: ago(DAY) });
+    const chats = await alertChats();
+    for (const user of [manager, worker, inactive, removed]) expect(chats, user.role).not.toContain(user.telegramId);
+    // Ro'yxat ko'pi bilan 10 kishilik va bazada boshqa fayllarning administratorlari ham bo'lishi mumkin — shu faylniki unga sig'gan bo'lsa, u bor
+    if (chats.length < 10) expect(chats).toContain(muted.telegramId);
+    expect(chats.length).toBeGreaterThanOrEqual(1);
+    for (const id of chats) expect(id).toMatch(/^-?\d{4,20}$/);
+  });
+
+  // ── Server holati va xabarlar navbati (kaliti ops_ / outbox_): haqiqiy SiteSetting va BotOutbox jadvallaridan
+
+  const infra = (checks: AuditCheck[]) => checks.filter((c) => /^(ops|outbox)_/.test(c.key)).map((c) => `${c.severity}:${c.key}`);
+  const MINUTE = 60_000;
+  const HEALTHY = { disk: 41, backupAgeH: 5, restoreOk: 1, offsiteOk: 1, certDays: 60, siteOk: 1, tickOk: 1 };
+  const TOOL_LINE = '🛠 Bular admin panelda tuzatilmaydi — texnik mutaxassisga ayting («Batafsil» → Server holati).';
+  const dropOps = () => prisma.siteSetting.deleteMany({ where: { key: 'ops' } });
+
+  it('server holati: kuzatuv signali (SiteSetting "ops") bo\'yicha topilmalar; signal hali kelmagan yoki sog\'lom bo\'lsa — yo\'q, eskirgan bo\'lsa — faqat shu', async () => {
+    try {
+      // Signal hali umuman kelmagan (eski server skripti): server bo'yicha hech narsa aytilmaydi
+      expect(infra(await collectChecks(NOW))).toEqual([]);
+
+      await saveOps({ disk: 93, backupAgeH: 31, restoreOk: 0, offsiteOk: 0, certDays: 5, siteOk: 0, tickOk: 1 }, ago(2 * MINUTE));
+      const bad = await collectChecks(NOW);
+      expect(infra(bad)).toEqual(['high:ops_disk', 'high:ops_backup', 'high:ops_restore', 'high:ops_cert', 'high:ops_site', 'medium:ops_offsite']);
+      const title = Object.fromEntries(bad.map((c) => [c.key, c.title]));
+      expect(title.ops_disk).toContain('93%');
+      expect(title.ops_backup).toContain('31 soat');
+      expect(title.ops_cert).toContain('5 kun');
+      for (const c of bad.filter((x) => x.key.startsWith('ops_'))) expect(c, c.key).toMatchObject({ count: 1, items: [], link: '/admin/audit' });
+      // Muhim server topilmalari ish topilmalarining muhimlari bilan birga tepada: umumiy tartib buzilmagan
+      const rank = { high: 0, medium: 1, low: 2 };
+      expect(bad.map((c) => rank[c.severity])).toEqual(bad.map((c) => rank[c.severity]).sort((a, b) => a - b));
+
+      // Xuddi shu faktlar 31 daqiqa oldin kelgan: ular endi hozirgi holat emas — bitta "signal kelmayapti" (oxirgi signal vaqti bilan)
+      await saveOps({ disk: 93, backupAgeH: 31, restoreOk: 0, offsiteOk: 0, certDays: 5, siteOk: 0, tickOk: 1 }, ago(31 * MINUTE));
+      const stale = (await collectChecks(NOW)).filter((c) => c.key.startsWith('ops_'));
+      expect(stale).toEqual([expect.objectContaining({ key: 'ops_stale', severity: 'medium', count: 1, items: [], link: '/admin/audit' })]);
+      expect(stale[0].title).toContain('10.03.1960');
+      expect(stale[0].title).toContain(`(oxirgisi ${formatDate(ago(31 * MINUTE), 'uz', true)})`);
+
+      await saveOps(HEALTHY, ago(MINUTE));
+      expect(infra(await collectChecks(NOW))).toEqual([]);
+    } finally {
+      await dropOps();
+    }
+  });
+
+  it('xabarlar navbati: oxirgi 24 soatda yetkazilmagan va bir soatdan beri kutayotgan xabarlar sanaladi; yuborilgani, yangisi va eskirib o\'rnini yangisi bosgani — yo\'q', async () => {
+    const chatId = manager.telegramId ?? '';
+    const row = (data: { createdAt: Date; sentAt?: Date; failedAt?: Date; lastError?: string }) =>
+      prisma.botOutbox.create({ data: { bot: 'staff', chatId, html: 'x', attempts: 2, nextAt: new Date(NOW.getTime() + 5 * MINUTE), ...data } });
+    try {
+      expect(infra(await collectChecks(NOW))).toEqual([]);
+      // Kutayotganlar: 2 soatdan beri (qotgan), aynan 1 soat (hali emas) va 30 daqiqa (oddiy kutish — keyingi tick yuboradi)
+      await row({ createdAt: ago(2 * HOUR) });
+      await row({ createdAt: ago(HOUR) });
+      await row({ createdAt: ago(30 * MINUTE) });
+      // Yetkazilmaganlar: 2 soat oldin (urinishlar tugagan) va token yo'qligidan — sanaladi; aynan 24 soat va 25 soat oldingisi — yo'q
+      await row({ createdAt: ago(20 * HOUR), failedAt: ago(2 * HOUR), lastError: 'Telegram sendMessage: 502 Bad Gateway' });
+      await row({ createdAt: ago(3 * DAY), failedAt: ago(HOUR), lastError: "bot tokeni yo'q" });
+      await row({ createdAt: ago(2 * DAY), failedAt: ago(DAY), lastError: 'fetch failed' });
+      await row({ createdAt: ago(2 * DAY), failedAt: ago(25 * HOUR), lastError: 'fetch failed' });
+      // Yangi holat xabari o'rnini bosgan (eskirgan) yozuv yetkazilmagan sanalmaydi: mijoz yangisini olgan
+      await row({ createdAt: ago(3 * HOUR), failedAt: ago(HOUR), lastError: 'eskirgan' });
+      // Yetib borgan xabar hech qaysi sanoqda yo'q (2 soat oldin yaratilgan bo'lsa ham)
+      await row({ createdAt: ago(2 * HOUR), sentAt: ago(HOUR) });
+
+      const checks = await collectChecks(NOW);
+      expect(infra(checks)).toEqual(['medium:outbox_failed', 'medium:outbox_stuck']);
+      expect(checks.find((c) => c.key === 'outbox_failed')).toMatchObject({ count: 2, items: [], link: '/admin/audit' });
+      expect(checks.find((c) => c.key === 'outbox_stuck')).toMatchObject({ count: 1, items: [], link: '/admin/audit' });
+      // Xabar matni ham, oluvchi ham hisobotga tushmaydi — faqat sonlar
+      expect(JSON.stringify(checks)).not.toContain(chatId);
+
+      // Bir daqiqadan keyingi tekshiruvda aynan 1 soatlik yozuv ham "qotgan"; 23 soatdan keyin 2 soat oldingi xato hali hisobda, 1 soat oldingisi ham
+      expect((await collectChecks(new Date(NOW.getTime() + MINUTE))).find((c) => c.key === 'outbox_stuck')?.count).toBe(2);
+      expect((await collectChecks(new Date(NOW.getTime() + 22 * HOUR + MINUTE))).find((c) => c.key === 'outbox_failed')?.count).toBe(1);
+    } finally {
+      await prisma.botOutbox.deleteMany({});
+    }
   });
 
   it('maxfiylik: natijada mijoz ismi, telefoni, manzili, kompaniyasi yoki izohi yo\'q', async () => {
@@ -614,8 +730,13 @@ describe.skipIf(!DB_TESTS)('kunlik tekshiruv: aniq qoidalar (haqiqiy baza)', { t
     expect(outbox.staff.filter((m) => m.to === worker.telegramId || m.to === muted.telegramId)).toEqual([]);
     const lines = toManager[0].html.split('\n');
     expect(lines[0]).toBe('🧭 <b>Kunlik tekshiruv</b>');
-    // AI xulosasi yo'q: dastlabki 8 ta tekshiruv muhimlik tartibida, soni bilan
-    expect(lines).toHaveLength(10);
+    // AI xulosasi yo'q: dastlabki 8 ta tekshiruv muhimlik tartibida, soni bilan; qolgan 4 tasi borligi oxirgi satrda aytiladi.
+    // Server va navbat topilmalari yo'q — "admin panelda tuzatilmaydi" izohi ham chiqmaydi
+    expect(lines).toHaveLength(11);
+    expect(lines[1]).toBe('');
+    expect(lines[9]).toMatch(/^🟠 /);
+    expect(lines[10]).toBe('… yana 4 ta');
+    expect(toManager[0].html).not.toContain('🛠');
     expect(lines[2]).toBe("🔴 To'lovi kelgan, lekin hali qabul qilinmagan buyurtmalar (2 soatdan ortiq): <b>2</b>");
     expect(lines[3]).toBe('🔴 24 soatdan beri qabul qilinmagan yangi buyurtmalar: <b>2</b>');
     expect(lines[4]).toMatch(/^🔴 Muddati o'tgan hisob-fakturalar \(jami qoldiq 2\s200\s000 so'm\): <b>4<\/b>$/);
@@ -630,5 +751,44 @@ describe.skipIf(!DB_TESTS)('kunlik tekshiruv: aniq qoidalar (haqiqiy baza)', { t
     expect(await prisma.auditReport.findUnique({ where: { id: old.id } })).toBeNull();
     expect(await prisma.auditReport.findUnique({ where: { id: edge.id } })).not.toBeNull();
     expect(await prisma.auditReport.count({ where: { trigger: 'manual', createdAt: NOW } })).toBeGreaterThanOrEqual(1);
+  });
+
+  // Server topilmalari admin panelda tuzatilmaydi: AI ularga panel bo'limini ko'rsatib to'qilgan amal yozmasin deb umuman yuborilmaydi,
+  // xabarda esa modelga bog'liq bo'lmagan o'z satrida, ustuvor ishlardan oldin turadi
+  it('dailyAudit, server va navbat topilmalari bilan: AI\'ga faqat ish topilmalari ketadi; xabarda ular sarlavhadan keyin o\'z satrlarida', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    aiAnswers();
+    const now = new Date('1960-03-14T05:00:00Z'); // AI sarfi bo'yicha boshqa testlar tegmagan kun
+    try {
+      await saveOps({ ...HEALTHY, restoreOk: 0 }, new Date(now.getTime() - 2 * MINUTE));
+      await prisma.botOutbox.create({ data: { bot: 'staff', chatId: worker.telegramId ?? '', html: 'x', attempts: 6, nextAt: now, createdAt: new Date(now.getTime() - DAY), failedAt: new Date(now.getTime() - HOUR), lastError: 'fetch failed' } });
+
+      const result = await dailyAudit(now);
+      expect(result).toMatchObject({ sent: outbox.staff.length, ai: true });
+      const report = await prisma.auditReport.findFirstOrThrow({ where: { trigger: 'cron', createdAt: now } });
+      const saved = reportChecks(report.checks);
+      expect(saved).toHaveLength(result.findings);
+      // Hisobotda (admin sahifasi shundan o'qiydi) hammasi bor
+      expect(infra(saved)).toEqual(['high:ops_restore', 'medium:outbox_failed']);
+      expect(report.summary).toEqual(AI_SUMMARY);
+
+      // Simdan ketgan so'rov: ish topilmalari bor, server va navbat topilmalarining kaliti ham, matni ham yo'q
+      expect(h.http).toHaveBeenCalledTimes(1);
+      const wire = String(h.http.mock.calls[0][1].body);
+      expect(wire).toContain('overdue_invoices');
+      for (const hidden of ['ops_', 'outbox_', 'Zaxira nusxani', 'bot xabarlari']) expect(wire, hidden).not.toContain(hidden);
+
+      const [toManager] = outbox.staff.filter((m) => m.to === manager.telegramId);
+      expect(toManager.html.split('\n')).toEqual([
+        '🧭 <b>Kunlik tekshiruv</b>', AI_SUMMARY.headline, '',
+        "🔴 Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin: <b>1</b>",
+        "🟠 Oxirgi 24 soatda Telegram'ga yetkazib bo'lmagan bot xabarlari (qayta urinishlar tugadi): <b>1</b>",
+        TOOL_LINE, '',
+        `1. <b>${AI_SUMMARY.priorities[0].title}</b>`, AI_SUMMARY.priorities[0].action,
+      ]);
+    } finally {
+      await dropOps();
+      await prisma.botOutbox.deleteMany({});
+    }
   });
 });

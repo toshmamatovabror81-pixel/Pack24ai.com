@@ -1,12 +1,15 @@
 import { inspect } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditCheck, AuditSummary } from '@/lib/ai/audit';
+import type { OpsFacts } from '@/lib/ops';
 
 /**
  * Kunlik tekshiruv (src/lib/ai/audit.ts): bazasiz va tarmoqsiz. prisma, sozlamalar, ombor, xodimlar ro'yxati va Telegram
  * xabarnomasi soxta; Anthropic SDK esa haqiqiy — faqat uning fetch'i shu fayldagi soxta "API"ga ulangan (ai-client.test.ts
  * dagi kabi). Shuning uchun so'rov tanasi simdan ketadigan ko'rinishda tekshiriladi, javobni va xato sinflarini SDK'ning o'zi
  * yasaydi, api.anthropic.com ga esa hech narsa ketmaydi. Aniq qoidalar haqiqiy bazada — db/audit.test.ts.
+ * Server holati (ops.ts), xabarlar navbati (telegram/outbox.ts) va davriy ishlar (cron.ts) ham haqiqiy: ular o'qiydigan jadvallar
+ * (SiteSetting, BotOutbox, User) o'rnida shu fayldagi `world` turadi. Server qoidalarining chegaralari — ops.test.ts da.
  */
 const h = vi.hoisted(() => ({
   prisma: {
@@ -18,11 +21,14 @@ const h = vi.hoisted(() => ({
     lead: { count: vi.fn() },
     review: { count: vi.fn() },
     siteSetting: { findUnique: vi.fn(), upsert: vi.fn() },
+    botOutbox: { count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    user: { findMany: vi.fn() },
   },
   http: vi.fn<(url: string, init: RequestInit) => Promise<Response>>(),
   settings: {} as Record<string, unknown>,
   lowStockProducts: vi.fn(),
   staffRecipients: vi.fn(),
+  staffByTelegram: vi.fn(),
   notifyStaff: vi.fn(),
   sendDailyDigest: vi.fn(),
 }));
@@ -31,7 +37,8 @@ vi.mock('server-only', () => ({}));
 vi.mock('@/lib/db', () => ({ prisma: h.prisma }));
 vi.mock('@/lib/settings', () => ({ getSettings: async () => h.settings }));
 vi.mock('@/lib/inventory', () => ({ lowStockProducts: h.lowStockProducts }));
-vi.mock('@/lib/telegram/staffLink', () => ({ staffRecipients: h.staffRecipients }));
+// staffByTelegram — navbat (outbox.ts) xabarni qayta yuborishdan oldin oluvchi hamon xodimmi, shuni so'raydi
+vi.mock('@/lib/telegram/staffLink', () => ({ staffRecipients: h.staffRecipients, staffByTelegram: h.staffByTelegram }));
 vi.mock('@/lib/telegram/notify', () => ({ notifyStaff: h.notifyStaff }));
 vi.mock('@/lib/orderNotify', () => ({ sendDailyDigest: h.sendDailyDigest }));
 vi.mock('@anthropic-ai/sdk', async (importOriginal) => {
@@ -137,22 +144,72 @@ function usageTable(): void {
   });
 }
 
+// ─── Server holati, xabarlar navbati va administratorlar o'rnida ─────────────
+
+const MINUTE = 60_000;
+/** Sog'lom server: bu faktlar bilan hech qanday server topilmasi chiqmaydi */
+const HEALTHY: OpsFacts = { disk: 41, backupAgeH: 5, restoreOk: 1, offsiteOk: 1, certDays: 60, siteOk: 1, tickOk: 1 };
+/** Hamma narsa yomon: har bir server qoidasi topilma beradi */
+const BROKEN: OpsFacts = { disk: 97, backupAgeH: 51, restoreOk: 0, offsiteOk: 0, certDays: 3, siteOk: 0, tickOk: 1 };
+/** Navbatda yuboradigan narsa bo'lmagan tick natijasi */
+const NOTHING_QUEUED = { sent: 0, retry: 0, failed: 0 };
+const TOOL_LINE = '🛠 Bular admin panelda tuzatilmaydi — texnik mutaxassisga ayting («Batafsil» → Server holati).';
+/** "Administrator ulanmagan" topilmasining o'z izohi: u server muammosi emas — admin panelda (Xodimlar) tuzatiladi */
+const ADMIN_LINE = "👉 Buni administrator tuzatadi: admin panel → Xodimlar → o'z qatorida «Telegram kodi» tugmasi, chiqqan kodni boshqaruv botiga yozadi.";
+const NO_ADMIN_TITLE = "Boshqaruv botiga hech bir administrator ulanmagan — sayt ishlamay qolsa yoki serverda muammo chiqsa Telegram xabari hech kimga bormaydi";
+
+/**
+ * Tekshiruv o'qiydigan qolgan jadvallar: SiteSetting yozuvlari (kalit -> qiymat: "ops" — server holati, "cron" — davriy ishlar belgisi),
+ * navbat sanoqlari (outboxStats) va boshqaruv botiga ulangan faol administratorlarning Telegram ID lari (alertChats).
+ * Standart holat — tinch server: kuzatuv signali hali kelmagan, navbat bo'sh, bitta administrator ulangan.
+ */
+const world = { settings: new Map<string, unknown>(), queue: { pending: 0, stuck: 0, failed24h: 0 }, admins: ['7000001'] };
+/** Server `agoMs` oldin shu faktlarni yuborgan (watchdog.sh -> /api/ops/heartbeat -> SiteSetting("ops")) */
+const heartbeat = (patch: Partial<OpsFacts> = {}, agoMs = 2 * MINUTE) => world.settings.set('ops', { ...HEALTHY, ...patch, at: new Date(NOW.getTime() - agoMs).toISOString() });
+
+function worldTables(): void {
+  world.settings.clear();
+  world.queue = { pending: 0, stuck: 0, failed24h: 0 };
+  world.admins = ['7000001'];
+  const p = h.prisma;
+  p.siteSetting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => (world.settings.has(where.key) ? { key: where.key, value: world.settings.get(where.key) } : null));
+  p.siteSetting.upsert.mockResolvedValue({});
+  // outboxStats uchta sanoq so'raydi: kutayotganlar, bir soatdan beri kutayotganlar (createdAt sharti bilan) va yetkazilmaganlar (failedAt
+  // sharti bilan; "eskirgan" belgisi borlari OR orqali chiqarib tashlanadi). Boshqa shart kelsa xato — so'rov shakli o'zgarsa test jim o'tib ketmaydi
+  p.botOutbox.count.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+    const extra = Object.keys(where).filter((k) => !['sentAt', 'failedAt', 'createdAt', 'OR'].includes(k));
+    if (extra.length) throw new Error(`test: botOutbox.count da kutilmagan shart: ${extra.join(', ')}`);
+    if (where.failedAt) return world.queue.failed24h;
+    return where.createdAt ? world.queue.stuck : world.queue.pending;
+  });
+  p.botOutbox.findMany.mockResolvedValue([]);
+  p.botOutbox.updateMany.mockResolvedValue({ count: 0 });
+  p.botOutbox.deleteMany.mockResolvedValue({ count: 0 });
+  p.user.findMany.mockImplementation(async () => world.admins.map((telegramId) => ({ telegramId })));
+}
+
 beforeEach(() => {
   h.http.mockReset();
   for (const model of Object.values(h.prisma)) for (const fn of Object.values(model)) fn.mockReset();
   usageTable();
+  worldTables();
   h.lowStockProducts.mockReset().mockResolvedValue([]);
   h.staffRecipients.mockReset().mockResolvedValue([]);
+  h.staffByTelegram.mockReset().mockResolvedValue(null);
   h.notifyStaff.mockReset().mockResolvedValue(true);
   h.sendDailyDigest.mockReset().mockResolvedValue({ finance: 0, orders: 0 });
   h.settings = { lowStockThreshold: 10, legalName: 'Pack24 MChJ', inn: '301234567', bankDetails: 'h/r 2020 8000 0000 0000 0001' };
   // Tashqi muhitdagi sozlamalar (ishlab chiquvchi kompyuteridagi kalit, ANTHROPIC_BASE_URL yoki bot tokeni) testga ta'sir qilmasin
-  for (const name of ['ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_CUSTOM_HEADERS', 'ANTHROPIC_LOG', 'AI_DAILY_LIMIT', 'AI_CUSTOMER_DAILY_LIMIT', 'STAFF_BOT_TOKEN', 'SUPERVISOR_BOT_TOKEN']) vi.stubEnv(name, undefined);
+  for (const name of ['ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_CUSTOM_HEADERS', 'ANTHROPIC_LOG', 'AI_DAILY_LIMIT', 'AI_CUSTOMER_DAILY_LIMIT', 'CUSTOMER_BOT_TOKEN', 'STAFF_BOT_TOKEN', 'SUPERVISOR_BOT_TOKEN', 'TELEGRAM_API_BASE']) vi.stubEnv(name, undefined);
   vi.stubEnv('APP_URL', 'https://test.pack24.uz');
+  // Xavfsizlik to'ri: Anthropic SDK o'z fetch'ini (h.http) ishlatadi, Telegram'ga esa bu faylda faqat navbat testlari o'z soxta
+  // fetch'i bilan chiqadi — boshqa har qanday tarmoq so'rovi xato bilan to'xtaydi
+  vi.stubGlobal('fetch', async () => { throw new Error('test: tarmoqqa so\'rov ketmasligi kerak'); });
 });
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -768,14 +825,238 @@ describe('tekshiruv: xodimlarga yuborish (sendAuditToStaff)', () => {
     }
   });
 
-  it('xulosasiz: ko\'pi bilan 8 ta tekshiruv sanaladi; nomi ham matn sifatida chiqadi', async () => {
-    const many = Array.from({ length: 11 }, (_, i) => check({ key: `k${i}`, title: i === 0 ? 'Nomi <b>qalin</b> & belgili' : `Tekshiruv ${i}`, count: i + 1 }));
-    await sendAuditToStaff({ checks: many, summary: null });
-    const lines = htmlTo('7001').split('\n');
+  it('xulosasiz: ko\'pi bilan 8 ta tekshiruv sanaladi, qolganlari "… yana N ta" bo\'lib aytiladi; nomi ham matn sifatida chiqadi', async () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => check({ key: `k${i}`, title: i === 0 ? 'Nomi <b>qalin</b> & belgili' : `Tekshiruv ${i}`, count: i + 1 }));
+    const send = async (n: number) => {
+      h.notifyStaff.mockClear();
+      await sendAuditToStaff({ checks: many(n), summary: null });
+      return htmlTo('7001').split('\n');
+    };
+    const lines = await send(11);
     expect(lines.filter((l) => l.startsWith('🔴'))).toHaveLength(8);
     expect(lines[2]).toBe('🔴 Nomi &lt;b&gt;qalin&lt;/b&gt; &amp; belgili: <b>1</b>');
-    expect(lines.at(-1)).toBe('🔴 Tekshiruv 7: <b>8</b>');
+    expect(lines.at(-2)).toBe('🔴 Tekshiruv 7: <b>8</b>');
+    // Ro'yxat kesilgani yashirilmaydi: ko'rsatilmagan 3 ta tekshiruv borligi aytiladi (o'zi — «Batafsil» sahifasida)
+    expect(lines.at(-1)).toBe('… yana 3 ta');
+    expect(lines).toHaveLength(11);
     expectValidHtml(htmlTo('7001'));
+
+    // Aynan 8 ta: hammasi ko'rsatilgan — "yana" satri yo'q; 9 ta: bittasi qolgan
+    const eight = await send(8);
+    expect(eight).toHaveLength(10);
+    expect(eight.at(-1)).toBe('🔴 Tekshiruv 7: <b>8</b>');
+    expect(eight.join('\n')).not.toContain('… yana');
+    expect((await send(9)).slice(-2)).toEqual(['🔴 Tekshiruv 7: <b>8</b>', '… yana 1 ta']);
+  });
+
+  // AI xulosasi bo'lsa ro'yxat umuman sanalmaydi (uning o'rnida ustuvor ishlar) — "yana N ta" ham bo'lmaydi
+  it('AI xulosasi bilan: 8 tadan ko\'p tekshiruv bo\'lsa ham "… yana N ta" satri chiqmaydi', async () => {
+    const many = Array.from({ length: 11 }, (_, i) => check({ key: `k${i}`, title: `Tekshiruv ${i}`, count: i + 1 }));
+    await sendAuditToStaff({ checks: many, summary: SUMMARY });
+    expect(htmlTo('7001')).not.toContain('… yana');
+    expect(htmlTo('7001')).not.toContain('Tekshiruv');
+    expect(htmlTo('7001')).toContain('1. <b>1-ish</b>\n1-amal');
+  });
+
+  // ── Server va navbat topilmalari (kaliti ops_ / outbox_): admin panelda tuzatilmaydi, AI xulosasiga kirmaydi — shuning uchun
+  //    xabarda har doim o'z satrida, sarlavhadan keyin va ish topilmalaridan oldin turadi
+
+  /** collectChecks qaytaradigan tartibda (muhimlik bo'yicha): server topilmalari ish topilmalari orasida aralash keladi */
+  const INFRA: AuditCheck[] = [
+    check({ key: 'ops_restore', severity: 'high', title: "Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin", count: 1, items: [], link: '/admin/audit' }),
+    check({ key: 'outbox_failed', severity: 'medium', title: "Oxirgi 24 soatda Telegram'ga yetkazib bo'lmagan bot xabarlari (qayta urinishlar tugadi)", count: 3, items: [], link: '/admin/audit' }),
+  ];
+  const INFRA_LINES = [
+    "🔴 Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin: <b>1</b>",
+    "🟠 Oxirgi 24 soatda Telegram'ga yetkazib bo'lmagan bot xabarlari (qayta urinishlar tugadi): <b>3</b>",
+  ];
+  const BUSINESS_LINES = [
+    '🔴 24 soatdan beri qabul qilinmagan yangi buyurtmalar: <b>2</b>',
+    "🔴 Muddati o'tgan hisob-fakturalar (jami qoldiq 3 400 000 so'm): <b>1</b>",
+    '🟠 24 soatdan beri javobsiz arizalar: <b>4</b>',
+    "🟡 3 kundan beri ko'rib chiqilmagan sharhlar: <b>1</b>",
+  ];
+  const MIXED: AuditCheck[] = [CHECKS[0], CHECKS[1], INFRA[0], CHECKS[2], INFRA[1], CHECKS[3]];
+
+  it('server topilmalari AI xulosasi bilan: sarlavhadan keyin o\'z satrlarida va izohi bilan, ustuvor ishlardan oldin', async () => {
+    await sendAuditToStaff({ checks: MIXED, summary: SUMMARY });
+    expect(htmlTo('7001').split('\n')).toEqual([
+      HEADER, 'Bugun 2 ta shoshilinch ish bor', '',
+      ...INFRA_LINES, TOOL_LINE, '',
+      '1. <b>1-ish</b>', '1-amal', '2. <b>2-ish</b>', '2-amal',
+      '', "💡 Yangi buyurtmalarni har kuni ertalab ko'rib chiqing",
+    ]);
+    // Ish topilmalarining xom ro'yxati xulosa bo'lganda takrorlanmaydi — faqat server satrlari qo'shilgan
+    for (const line of BUSINESS_LINES) expect(htmlTo('7001')).not.toContain(line);
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  it('server topilmalari xulosasiz: avval ular (izohi bilan), keyin ish topilmalari muhimlik tartibida', async () => {
+    for (const summary of [null, { headline: 5 }]) {
+      h.notifyStaff.mockClear();
+      await sendAuditToStaff({ checks: MIXED, summary });
+      expect(htmlTo('7001').split('\n')).toEqual([HEADER, '', ...INFRA_LINES, TOOL_LINE, '', ...BUSINESS_LINES]);
+    }
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  it('faqat server topilmalari bo\'lsa ham xabar yuboriladi: ro\'yxat va "admin panelda tuzatilmaydi" izohi', async () => {
+    expect(await sendAuditToStaff({ checks: INFRA, summary: null })).toBe(2);
+    expect(htmlTo('7001').split('\n')).toEqual([HEADER, '', ...INFRA_LINES, TOOL_LINE, '']);
+    expect(h.notifyStaff.mock.calls[0][2]).toEqual([[{ text: '📋 Batafsil', url: 'https://test.pack24.uz/admin/audit' }]]);
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  it('izoh satri faqat server topilmasi bo\'lganda chiqadi; ops_/outbox_ bilan boshlanmaydigan kalit server topilmasi emas', async () => {
+    // "ops" yoki "outbox" so'zi kalit ichida bo'lsa-da boshida bo'lmasa (yoki pastki chiziqsiz) — oddiy ish topilmasi
+    const lookalikes = ['stops_late', 'drop_outbox_failed', 'opsdisk', 'outboxes', 'OPS_disk'].map((key, i) => check({ key, title: `O'xshash ${i}`, count: 1 }));
+    await sendAuditToStaff({ checks: lookalikes, summary: null });
+    expect(htmlTo('7001')).not.toContain('🛠');
+    expect(htmlTo('7001').split('\n')).toEqual([HEADER, '', ...lookalikes.map((c) => `🔴 ${c.title}: <b>1</b>`)]);
+
+    // Har bir haqiqiy turkum: ops_* (server holati) va outbox_* (xabarlar navbati)
+    for (const key of ['ops_stale', 'ops_disk', 'ops_backup', 'ops_restore', 'ops_offsite', 'ops_cert', 'ops_site', 'outbox_failed', 'outbox_stuck']) {
+      h.notifyStaff.mockClear();
+      await sendAuditToStaff({ checks: [check({ key, title: 'Server', count: 1 }), CHECKS[0]], summary: null });
+      expect(htmlTo('7001').split('\n'), key).toEqual([HEADER, '', '🔴 Server: <b>1</b>', TOOL_LINE, '', BUSINESS_LINES[0]]);
+    }
+  });
+
+  // ── "Administrator ulanmagan" (ops_no_admin). Kaliti ops_ bilan boshlanadi, lekin u server muammosi emas: aynan admin panelda tuzatiladi
+  //    (Xodimlar bo'limida administratorni botga ulash; topilmaning havolasi ham /admin/staff). Ilgari u "Bular admin panelda
+  //    tuzatilmaydi — texnik mutaxassisga ayting" izohi ostida chiqardi
+
+  const NO_ADMIN = check({ key: 'ops_no_admin', severity: 'medium', title: NO_ADMIN_TITLE, count: 1, items: [], link: '/admin/staff' });
+  const NO_ADMIN_LINE = `🟠 ${NO_ADMIN_TITLE}: <b>1</b>`;
+
+  it('"administrator ulanmagan" topilmasi "admin panelda tuzatilmaydi" izohi ostida chiqmaydi: o\'z bo\'lagida, server satrlaridan oldin va qanday tuzatish ko\'rsatilgan holda', async () => {
+    // Saqlangan hisobot tartibida (muhimlik bo'yicha) u server va ish topilmalari orasida aralash keladi
+    const checks = [CHECKS[0], CHECKS[1], INFRA[0], CHECKS[2], NO_ADMIN, INFRA[1], CHECKS[3]];
+    for (const summary of [null, { headline: 5 }]) {
+      h.notifyStaff.mockClear();
+      await sendAuditToStaff({ checks, summary });
+      expect(htmlTo('7001').split('\n')).toEqual([
+        HEADER, '',
+        NO_ADMIN_LINE, ADMIN_LINE, '',
+        ...INFRA_LINES, TOOL_LINE, '',
+        ...BUSINESS_LINES,
+      ]);
+    }
+    expectValidHtml(htmlTo('7001'));
+    // Topilma bir marta chiqadi: server satrlari orasida ham, ish topilmalari orasida ham takrorlanmaydi
+    expect(htmlTo('7001').split(NO_ADMIN_TITLE)).toHaveLength(2);
+    // "Texnik mutaxassisga ayting" izohi undan KEYINGI (server) satrlarga tegishli
+    expect(htmlTo('7001').indexOf(ADMIN_LINE)).toBeLessThan(htmlTo('7001').indexOf(INFRA_LINES[0]));
+  });
+
+  it('"administrator ulanmagan" AI xulosasi bilan: sarlavhadan keyin o\'z izohi bilan, undan keyin server satrlari va ustuvor ishlar', async () => {
+    await sendAuditToStaff({ checks: [...MIXED, NO_ADMIN], summary: SUMMARY });
+    expect(htmlTo('7001').split('\n')).toEqual([
+      HEADER, 'Bugun 2 ta shoshilinch ish bor', '',
+      NO_ADMIN_LINE, ADMIN_LINE, '',
+      ...INFRA_LINES, TOOL_LINE, '',
+      '1. <b>1-ish</b>', '1-amal', '2. <b>2-ish</b>', '2-amal',
+      '', "💡 Yangi buyurtmalarni har kuni ertalab ko'rib chiqing",
+    ]);
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  it('yagona topilma "administrator ulanmagan" bo\'lsa: faqat u va o\'z izohi — "texnik mutaxassisga ayting" izohi yo\'q; ish topilmalari bilan ham shunday', async () => {
+    expect(await sendAuditToStaff({ checks: [NO_ADMIN], summary: null })).toBe(2);
+    expect(htmlTo('7001').split('\n')).toEqual([HEADER, '', NO_ADMIN_LINE, ADMIN_LINE, '']);
+    expect(htmlTo('7001')).not.toContain('🛠');
+    expect(h.notifyStaff.mock.calls[0][2]).toEqual([[{ text: '📋 Batafsil', url: 'https://test.pack24.uz/admin/audit' }]]);
+
+    h.notifyStaff.mockClear();
+    await sendAuditToStaff({ checks: [CHECKS[0], NO_ADMIN, CHECKS[2]], summary: null });
+    expect(htmlTo('7001').split('\n')).toEqual([HEADER, '', NO_ADMIN_LINE, ADMIN_LINE, '', BUSINESS_LINES[0], BUSINESS_LINES[2]]);
+    expect(htmlTo('7001')).not.toContain('🛠');
+
+    // Va aksincha: administrator ulangan (topilma yo'q) bo'lsa uning izohi ham chiqmaydi
+    h.notifyStaff.mockClear();
+    await sendAuditToStaff({ checks: MIXED, summary: null });
+    expect(htmlTo('7001')).not.toContain('👉');
+  });
+
+  it('"administrator ulanmagan" ham "ko\'pi bilan 8 ta" chegarasiga kirmaydi va nomi matn sifatida chiqadi', async () => {
+    const business = Array.from({ length: 9 }, (_, i) => check({ key: `k${i}`, severity: 'low', title: `Tekshiruv ${i}`, count: i + 1 }));
+    await sendAuditToStaff({ checks: [...business, { ...NO_ADMIN, title: 'Administrator <b>ulanmagan</b> & xabar yo\'q' }], summary: null });
+    expect(htmlTo('7001').split('\n')).toEqual([
+      HEADER, '',
+      '🟠 Administrator &lt;b&gt;ulanmagan&lt;/b&gt; &amp; xabar yo\'q: <b>1</b>', ADMIN_LINE, '',
+      ...business.slice(0, 8).map((c) => `🟡 ${c.title}: <b>${c.count}</b>`),
+      '… yana 1 ta',
+    ]);
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  it('server topilmalari "ko\'pi bilan 8 ta" chegarasiga kirmaydi: ular hammasi, ish topilmalaridan esa 8 tasi va "… yana N ta"', async () => {
+    const infra = [...INFRA, check({ key: 'ops_site', severity: 'high', title: 'Sayt internetdan ochilmayapti (server ichidan ishlayapti)', count: 1, items: [], link: '/admin/audit' })];
+    const business = Array.from({ length: 10 }, (_, i) => check({ key: `k${i}`, severity: 'low', title: `Tekshiruv ${i}`, count: i + 1 }));
+    // Server topilmalari ro'yxatning oxirida kelsa ham (saqlangan hisobot tartibi qanday bo'lmasin) tepada chiqadi
+    await sendAuditToStaff({ checks: [...business, ...infra], summary: null });
+    expect(htmlTo('7001').split('\n')).toEqual([
+      HEADER, '',
+      ...INFRA_LINES, '🔴 Sayt internetdan ochilmayapti (server ichidan ishlayapti): <b>1</b>', TOOL_LINE, '',
+      ...business.slice(0, 8).map((c) => `🟡 ${c.title}: <b>${c.count}</b>`),
+      '… yana 2 ta',
+    ]);
+  });
+
+  it('server topilmasi nomi ham matn sifatida chiqadi (saqlangan hisobot o\'zgartirilgan bo\'lsa ham teg o\'tmaydi)', async () => {
+    await sendAuditToStaff({ checks: [check({ key: 'ops_disk', title: 'Disk <b>97%</b> & <a href="https://evil.example">band</a>', count: 1 })], summary: null });
+    expect(htmlTo('7001').split('\n')[2]).toBe('🔴 Disk &lt;b&gt;97%&lt;/b&gt; &amp; &lt;a href="https://evil.example"&gt;band&lt;/a&gt;: <b>1</b>');
+    expectValidHtml(htmlTo('7001'));
+  });
+
+  // Xabar bo'laklab yig'iladi va 3800 belgiga sig'magan joyida to'xtaydi: server satrlari tepada turgani uchun joy yetmasa ish
+  // topilmalari (yoki AI bandlari) tashlanadi — "zaxira nusxa yaroqsiz" kabi xabar uzun ro'yxat ortida yo'qolib ketmaydi
+  it('3800 belgi chegarasi: joy yetmasa ish topilmalari tashlanadi, server satrlari va izohi esa to\'liq qoladi', async () => {
+    const wide = Array.from({ length: 8 }, (_, i) => check({ key: `k${i}`, title: `${i}<&>`.repeat(52), count: i + 1 }));
+    const wideLine = (i: number) => `🔴 ${`${i}&lt;&amp;&gt;`.repeat(52)}: <b>${i + 1}</b>`;
+    const send = async (checks: AuditCheck[]) => {
+      h.notifyStaff.mockClear();
+      await sendAuditToStaff({ checks, summary: null });
+      return htmlTo('7001');
+    };
+    // Server topilmalarisiz: 8 ta keng satrdan nechtasi sig'ishi
+    const alone = (await send(wide)).split('\n').slice(2);
+    expect(alone.length).toBeGreaterThan(2);
+    expect(alone.length).toBeLessThan(8);
+
+    const html = await send([...wide, ...INFRA]);
+    expect(html.length).toBeLessThanOrEqual(3800);
+    expectValidHtml(html);
+    const lines = html.split('\n');
+    expect(lines.slice(0, 6)).toEqual([HEADER, '', ...INFRA_LINES, TOOL_LINE, '']);
+    // Qolgan joyga ish topilmalari butun satr bo'lib, boshidan tartib bilan sig'ganicha; server satrlari egallagan joy ulardan olingan
+    const kept = lines.slice(6);
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.length).toBeLessThan(alone.length);
+    expect(kept).toEqual(kept.map((_, i) => wideLine(i)));
+    expect(html.length + 1 + wideLine(kept.length).length).toBeGreaterThan(3800);
+  });
+
+  it('3800 belgi chegarasi, AI xulosasi bilan: qochirilganda kengayadigan sarlavha va bandlar server satrlarini siqib chiqarmaydi', async () => {
+    const huge: AuditSummary = {
+      headline: '&'.repeat(3000),
+      priorities: [1, 2, 3, 4, 5].map(() => ({ title: '<'.repeat(500), why: '>'.repeat(900), action: '&'.repeat(900) })),
+      note: '>'.repeat(1500),
+    };
+    await sendAuditToStaff({ checks: MIXED, summary: huge });
+    const html = htmlTo('7001');
+    expect(html.length).toBeLessThanOrEqual(3800);
+    expectValidHtml(html);
+    // Eng uzun holat: kesilgan (300 belgi) va qochirilgan sarlavhadan keyin server satrlari to'liq; AI bandlarining birortasi ham sig'maydi
+    // (server satrlarisiz birinchisi sig'ardi — yuqoridagi testga qarang): joy aynan AI matnidan olingan
+    expect(html.split('\n')).toEqual([HEADER, '&amp;'.repeat(300), '', ...INFRA_LINES, TOOL_LINE, '']);
+
+    // Bandlar biroz qisqaroq bo'lsa: server satrlaridan keyin birinchisi butunligicha sig'adi, ikkinchisi va maslahat — yo'q
+    h.notifyStaff.mockClear();
+    await sendAuditToStaff({ checks: MIXED, summary: { ...huge, priorities: huge.priorities.map((p) => ({ ...p, action: '&'.repeat(200) })) } });
+    expect(htmlTo('7001').length).toBeLessThanOrEqual(3800);
+    expectValidHtml(htmlTo('7001'));
+    expect(htmlTo('7001').split('\n')).toEqual([HEADER, '&amp;'.repeat(300), '', ...INFRA_LINES, TOOL_LINE, '', `1. <b>${'&lt;'.repeat(120)}</b>`, '&amp;'.repeat(200)]);
   });
 
   it('natija — yetib borgan xabarlar soni; bitta oluvchidagi xato qolganlarini to\'xtatmaydi', async () => {
@@ -857,6 +1138,86 @@ describe('tekshiruv: sozlamaga bog\'liq qoidalar va tartib (collectChecks, bazas
     expect(h.staffRecipients).not.toHaveBeenCalledWith('reports');
   });
 
+  // Server nosozligi xabarlari (deploy/watchdog.sh) faqat botga ulangan faol administratorlarga boradi. Menejer ulangan-u administrator
+  // ulanmagan bo'lsa "xodim ulanmagan" ogohlantirishi chiqmaydi — sayt ishlamay qolgani esa faqat server logida qoladi
+  it('boshqaruv boti ulangan, lekin hech bir administrator ulanmagan bo\'lsa ogohlantiradi (ops_no_admin); token yo\'q yoki administrator bor bo\'lsa — yo\'q', async () => {
+    // Bot hali sozlanmagan server: ogohlantirish ortiqcha
+    world.admins = [];
+    expect(await keys()).toEqual([]);
+    // Mijoz botining tokeni boshqaruv botini "ulangan" qilmaydi
+    vi.stubEnv('CUSTOMER_BOT_TOKEN', '111:customer-token');
+    expect(await keys()).toEqual([]);
+
+    for (const env of ['STAFF_BOT_TOKEN', 'SUPERVISOR_BOT_TOKEN']) {
+      vi.stubEnv('STAFF_BOT_TOKEN', undefined);
+      vi.stubEnv('SUPERVISOR_BOT_TOKEN', undefined);
+      vi.stubEnv(env, '222:staff-token');
+      world.admins = [];
+      const found = await collectChecks(NOW);
+      expect(found, env).toEqual([{ key: 'ops_no_admin', severity: 'medium', title: expect.stringContaining('hech bir administrator ulanmagan'), count: 1, items: [], link: '/admin/staff' }]);
+      // Oqibati ham aytilgan: ega nima yo'qotayotganini tushunsin
+      expect(found[0].title).toContain('Telegram xabari hech kimga bormaydi');
+      expect(JSON.stringify(found)).not.toContain('222:staff-token');
+      // Yozuvi buzilgan (raqam bo'lmagan Telegram ID) administrator xabar ololmaydi — u "ulangan" sanalmaydi
+      world.admins = ['@pack24_admin'];
+      expect(await keys(), env).toEqual(['ops_no_admin']);
+      world.admins = ['7000001'];
+      expect(await keys(), env).toEqual([]);
+    }
+  });
+
+  it('hech kim ulanmagan bo\'lsa ikkala ogohlantirish ham chiqadi: xodimlar (buyurtma xabarlari) va administratorlar (server xabarlari) alohida', async () => {
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    h.staffRecipients.mockResolvedValue([]);
+    world.admins = [];
+    expect(await keys()).toEqual(['no_staff_linked', 'ops_no_admin']);
+  });
+
+  // "Bilmayman" — "yo'q" degani emas: baza bir lahza javob bermasa ega "administrator ulanmagan" degan yolg'on ogohlantirish olmasin
+  it('administratorlar ro\'yxatini o\'qib bo\'lmasa "ulanmagan" deyilmaydi; qolgan tekshiruvlar ishlayveradi', async () => {
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    h.prisma.user.findMany.mockRejectedValue(new Error('baza band'));
+    h.prisma.lead.count.mockResolvedValue(3);
+    expect(await collectChecks(NOW)).toEqual([expect.objectContaining({ key: 'stale_leads', count: 3 })]);
+    expect(h.prisma.user.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('server holati yoki navbatni o\'qib bo\'lmasa ham qolgan tekshiruvlar ishlayveradi', async () => {
+    heartbeat(BROKEN);
+    world.queue = { pending: 5, stuck: 4, failed24h: 2 };
+    h.prisma.lead.count.mockResolvedValue(3);
+    h.prisma.siteSetting.findUnique.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    expect(await keys()).toEqual(['stale_leads', 'outbox_failed', 'outbox_stuck']);
+    h.prisma.botOutbox.count.mockRejectedValue(new Error('relation "BotOutbox" does not exist'));
+    expect(await keys()).toEqual(['stale_leads']);
+  });
+
+  it('xabarlar navbati: yetkazilmagan va bir soatdan beri turganlar soni bilan chiqadi; chegaralar tekshiruv vaqtidan sanaladi', async () => {
+    // Kutayotgan xabarlarning o'zi muammo emas (keyingi tick yuboradi)
+    world.queue = { pending: 7, stuck: 0, failed24h: 0 };
+    expect(await collectChecks(NOW)).toEqual([]);
+    world.queue = { pending: 5, stuck: 4, failed24h: 2 };
+    expect(await collectChecks(NOW)).toEqual([
+      expect.objectContaining({ key: 'outbox_failed', severity: 'medium', count: 2, items: [], link: '/admin/audit' }),
+      expect.objectContaining({ key: 'outbox_stuck', severity: 'medium', count: 4, items: [], link: '/admin/audit' }),
+    ]);
+    // "Bir soatdan beri" va "oxirgi 24 soatda" server soatidan emas, tekshiruv vaqtidan (NOW) hisoblanadi
+    const wheres = h.prisma.botOutbox.count.mock.calls.slice(-3).map((c) => (c[0] as { where: { createdAt?: unknown; failedAt?: unknown } }).where);
+    expect(wheres.find((w) => w.createdAt)?.createdAt).toEqual({ lt: new Date(NOW.getTime() - 60 * MINUTE) });
+    expect(wheres.find((w) => w.failedAt)?.failedAt).toEqual({ gt: new Date(NOW.getTime() - DAY_MS) });
+    // "Yetkazilmadi" sanog'i: o'rnini yangisi bosgan (eskirgan) xabarlar kirmaydi, xato matni yozilmaganlari (NULL) esa kiradi
+    expect(wheres.find((w) => w.failedAt)).toEqual({ failedAt: { gt: new Date(NOW.getTime() - DAY_MS) }, OR: [{ lastError: null }, { lastError: { not: 'eskirgan' } }] });
+  });
+
+  it('server holati: yangi signal faktlari bo\'yicha topilmalar; eskirgan signalda faqat "signal kelmayapti"', async () => {
+    heartbeat({ restoreOk: 0, siteOk: 0 });
+    expect((await collectChecks(NOW)).map((c) => `${c.severity}:${c.key}`)).toEqual(['high:ops_restore', 'high:ops_site']);
+    expect(h.prisma.siteSetting.findUnique).toHaveBeenCalledWith({ where: { key: 'ops' } });
+    // 30 daqiqadan eski signal: faktlar hozirgi holat emas — ular bo'yicha hech narsa aytilmaydi
+    heartbeat(BROKEN, 30 * MINUTE + 1);
+    expect((await collectChecks(NOW)).map((c) => `${c.severity}:${c.key}`)).toEqual(['medium:ops_stale']);
+  });
+
   it('ombor qoldig\'ini o\'qib bo\'lmasa qolgan tekshiruvlar ishlayveradi', async () => {
     h.lowStockProducts.mockRejectedValue(new Error('ombor topilmadi'));
     h.prisma.lead.count.mockResolvedValue(3);
@@ -877,6 +1238,34 @@ describe('tekshiruv: sozlamaga bog\'liq qoidalar va tartib (collectChecks, bazas
     // Har bir havola admin panel ichida va saqlangan hisobotdan o'qilganda o'zgarmaydi
     expect(reportChecks(JSON.parse(JSON.stringify(found)))).toEqual(found);
     for (const c of found) expect(c.link, c.key).toMatch(/^\/admin\/[a-z]+/);
+  });
+
+  it('server va navbat topilmalari ham shu tartibga tushadi: muhimlari ish topilmalarining muhimlari bilan birga tepada', async () => {
+    database(2);
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    h.staffRecipients.mockResolvedValue([]);
+    world.admins = [];
+    world.queue = { pending: 9, stuck: 4, failed24h: 2 };
+    heartbeat(BROKEN);
+    h.settings = { ...h.settings, inn: '' };
+    const found = await collectChecks(NOW);
+    expect(found.map((c) => `${c.severity}:${c.key}`)).toEqual([
+      'high:paid_not_started', 'high:stale_new', 'high:overdue_invoices', 'high:delivered_unpaid',
+      'high:ops_disk', 'high:ops_backup', 'high:ops_restore', 'high:ops_cert', 'high:ops_site',
+      'medium:late_production', 'medium:slow_processing', 'medium:slow_shipping', 'medium:stale_leads', 'medium:low_stock', 'medium:no_staff_linked',
+      'medium:ops_no_admin', 'medium:outbox_failed', 'medium:outbox_stuck', 'medium:ops_offsite',
+      'low:failed_payments', 'low:invoices_due_soon', 'low:old_reviews', 'low:requisites_missing',
+    ]);
+    expect(Object.fromEntries(found.filter((c) => c.key.startsWith('outbox_')).map((c) => [c.key, c.count]))).toEqual({ outbox_failed: 2, outbox_stuck: 4 });
+    // Server topilmalarida misollar yo'q, soni 1; havolasi admin panel ichida (server holati sahifasi yoki Xodimlar)
+    for (const c of found.filter((x) => x.key.startsWith('ops_'))) expect(c, c.key).toMatchObject({ count: 1, items: [], link: c.key === 'ops_no_admin' ? '/admin/staff' : '/admin/audit' });
+    expect(reportChecks(JSON.parse(JSON.stringify(found)))).toEqual(found);
+    // Token qiymati hisobotga tushmaydi
+    expect(JSON.stringify(found)).not.toContain('222:staff-token');
+
+    // Signal eskirgan: server faktlari o'rnida bitta "signal kelmayapti"; navbat va administrator ogohlantirishlari signalga bog'liq emas
+    heartbeat(BROKEN, 31 * MINUTE);
+    expect((await collectChecks(NOW)).map((c) => c.key).filter((k) => /^(ops|outbox)_/.test(k))).toEqual(['ops_no_admin', 'outbox_failed', 'outbox_stuck', 'ops_stale']);
   });
 });
 
@@ -1035,6 +1424,144 @@ describe('tekshiruv: hisobotni saqlash (runAudit, dailyAudit — bazasiz)', () =
     expect(h.prisma.auditReport.create).toHaveBeenCalledTimes(1);
     expect(h.notifyStaff).not.toHaveBeenCalled();
   });
+
+  // ── Server va navbat topilmalari: AI'ga yuborilmaydi (u har bir bandga admin paneldagi bo'limni yozishi shart — server muammosiga
+  //    to'qilgan amal chiqardi), xabarda esa modelga bog'liq bo'lmagan o'z satrlarida turadi
+
+  const INFRA_KEYS = /^(ops|outbox)_/;
+
+  it('AI\'ga faqat ish topilmalari ketadi: server va navbat topilmalari so\'rovda yo\'q, hisobotda esa hammasi saqlanadi', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    respond(() => message(SUMMARY));
+    world.queue = { pending: 5, stuck: 4, failed24h: 2 };
+    world.admins = []; // "administrator ulanmagan" ham chiqadi: u ham AI'ga yuborilmaydi (xabarda o'z izohi bilan turadi)
+    heartbeat(BROKEN);
+
+    await runAudit('manual', NOW);
+    expect(reportChecks(created().checks).map((c) => c.key)).toEqual(['ops_disk', 'ops_backup', 'ops_restore', 'ops_cert', 'ops_site', 'stale_leads', 'ops_no_admin', 'outbox_failed', 'outbox_stuck', 'ops_offsite']);
+    expect(created()).toMatchObject({ summary: SUMMARY, model: 'claude-opus-5-5' });
+    // Simdan ketgan ro'yxat: yagona ish topilmasi
+    expect(h.http).toHaveBeenCalledTimes(1);
+    expect(sentChecks()).toEqual([{ key: 'stale_leads', severity: 'medium', title: '24 soatdan beri javobsiz arizalar', count: 4, examples: [] }]);
+    // Butun so'rov tanasida (tizim ko'rsatmasi va sxema bilan birga) server topilmalarining kaliti ham, matni ham yo'q
+    const wire = JSON.stringify(sent().body);
+    for (const c of reportChecks(created().checks).filter((x) => INFRA_KEYS.test(x.key))) {
+      expect(wire, c.key).not.toContain(c.key);
+      expect(wire, c.key).not.toContain(c.title);
+    }
+    for (const word of ['ops_', 'outbox_', 'Zaxira', 'sertifikat', 'disk', 'administrator ulanmagan']) expect(wire, word).not.toContain(word);
+    expect(wire).not.toContain('222:staff-token');
+  });
+
+  // Administrator ulanmagan serverda hisobotni "reports" ruxsati bor boshqa xodim (menejer) oladi: unga kim va qayerda tuzatishi aytiladi
+  it('kunlik ish: yagona topilma "administrator ulanmagan" bo\'lsa AI\'ga so\'rov ketmaydi; xabarda u o\'z izohi bilan, "texnik mutaxassisga ayting"siz', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    respond(() => message(SUMMARY));
+    h.prisma.lead.count.mockResolvedValue(0);
+    world.admins = [];
+    heartbeat();
+
+    expect(await dailyAudit(NOW)).toEqual({ findings: 1, sent: 1, ai: false });
+    expect(h.http).not.toHaveBeenCalled();
+    expect(reportChecks(created().checks)).toEqual([{ key: 'ops_no_admin', severity: 'medium', title: NO_ADMIN_TITLE, count: 1, items: [], link: '/admin/staff' }]);
+    expect(h.notifyStaff.mock.calls.map((c) => c[0])).toEqual(['7009']);
+    expect(String(h.notifyStaff.mock.calls[0][1]).split('\n')).toEqual([HEADER, '', `🟠 ${NO_ADMIN_TITLE}: <b>1</b>`, ADMIN_LINE, '']);
+
+    // Server topilmasi ham bo'lsa: avval administrator bo'lagi, keyin server satri o'z izohi bilan
+    h.notifyStaff.mockClear();
+    heartbeat({ restoreOk: 0 });
+    expect(await dailyAudit(NOW)).toEqual({ findings: 2, sent: 1, ai: false });
+    expect(String(h.notifyStaff.mock.calls[0][1]).split('\n')).toEqual([
+      HEADER, '',
+      `🟠 ${NO_ADMIN_TITLE}: <b>1</b>`, ADMIN_LINE, '',
+      "🔴 Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin: <b>1</b>", TOOL_LINE, '',
+    ]);
+    expect(h.http).not.toHaveBeenCalled();
+  });
+
+  it('faqat server topilmalari bo\'lsa AI\'ga so\'rov umuman ketmaydi va hisobdan band qilinmaydi; hisobot xulosasiz saqlanadi, xodimlarga ro\'yxat boradi', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    respond(() => message(SUMMARY));
+    useUp(300); // kunlik (cron) xulosa chegaradan tashqari so'raladi — lekin umumlashtiradigan ish topilmasi yo'q
+    h.prisma.lead.count.mockResolvedValue(0);
+    heartbeat({ restoreOk: 0 });
+    world.queue = { pending: 3, stuck: 0, failed24h: 3 };
+
+    expect(await dailyAudit(NOW)).toEqual({ findings: 2, sent: 1, ai: false });
+    expect(h.http).not.toHaveBeenCalled();
+    expect(used()).toEqual({ requests: 300, inputTokens: 0, outputTokens: 0 });
+    expect(h.prisma.aiUsage.updateMany).not.toHaveBeenCalled();
+    expect(created()).toMatchObject({ trigger: 'cron', model: null, createdAt: NOW });
+    expect(created().summary ?? null).toBeNull();
+    expect(reportChecks(created().checks).map((c) => c.key)).toEqual(['ops_restore', 'outbox_failed']);
+    expect(h.notifyStaff.mock.calls[0][0]).toBe('7009');
+    expect(String(h.notifyStaff.mock.calls[0][1]).split('\n')).toEqual([
+      HEADER, '',
+      "🔴 Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin: <b>1</b>",
+      "🟠 Oxirgi 24 soatda Telegram'ga yetkazib bo'lmagan bot xabarlari (qayta urinishlar tugadi): <b>3</b>",
+      TOOL_LINE, '',
+    ]);
+
+    // Qo'lda ishga tushirilganda ham shunday: so'rov yo'q, xulosa yo'q
+    await runAudit('manual', NOW);
+    expect(h.http).not.toHaveBeenCalled();
+    expect(created(1)).toMatchObject({ trigger: 'manual', model: null });
+  });
+
+  it('kunlik ish, AI xulosasi bilan: server topilmasi xabarda AI sarlavhasidan keyin, ustuvor ishlardan oldin turadi', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    respond(() => message(SUMMARY));
+    heartbeat({ disk: 93 });
+    expect(await dailyAudit(NOW)).toEqual({ findings: 2, sent: 1, ai: true });
+    expect(String(h.notifyStaff.mock.calls[0][1]).split('\n')).toEqual([
+      HEADER, SUMMARY.headline, '',
+      '🔴 Serverda joy tugayapti: disk 93% band: <b>1</b>', TOOL_LINE, '',
+      '1. <b>1-ish</b>', '1-amal', '2. <b>2-ish</b>', '2-amal',
+      '', `💡 ${SUMMARY.note}`,
+    ]);
+  });
+
+  it('kunlik ish, AI\'siz: server topilmasi ro\'yxatning boshida, ish topilmasi undan keyin', async () => {
+    heartbeat({ offsiteOk: 0 }); // o'rta muhimlikdagi server topilmasi: collectChecks tartibida "arizalar"dan keyin turadi
+    expect(await dailyAudit(NOW)).toEqual({ findings: 2, sent: 1, ai: false });
+    expect(reportChecks(created().checks).map((c) => c.key)).toEqual(['stale_leads', 'ops_offsite']);
+    expect(String(h.notifyStaff.mock.calls[0][1]).split('\n')).toEqual([
+      HEADER, '',
+      "🟠 Zaxira nusxani Telegram'ga (serverdan tashqariga) yuborib bo'lmadi: <b>1</b>", TOOL_LINE, '',
+      '🟠 24 soatdan beri javobsiz arizalar: <b>4</b>',
+    ]);
+  });
+
+  // Eng yomon holat: server qoidalarining hammasi, navbatning ikkala topilmasi (8 ta satr, eng katta sonlar bilan), "administrator ulanmagan"
+  // bo'lagi hamda qochirilganda 5 barobar kengayadigan AI matni. Joy AI bandlaridan olinadi: ular «Batafsil» sahifasida qoladi, administrator
+  // bo'lagi va server satrlari esa birortasi ham tushib qolmaydi
+  it('eng ko\'p server topilmasi va eng uzun AI xulosasi birga: administrator bo\'lagi, server satrlarining hammasi va izohlari xabarga sig\'adi', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', KEY);
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    respond(() => message({ headline: '&'.repeat(3000), priorities: [1, 2, 3, 4, 5].map(() => ({ title: '<'.repeat(500), why: '>'.repeat(900), action: '&'.repeat(900) })), note: '>'.repeat(1500) }));
+    database(2);
+    world.queue = { pending: 999_999, stuck: 888_888, failed24h: 777_777 };
+    world.admins = [];
+    heartbeat({ ...BROKEN, disk: 100, backupAgeH: 100_000 });
+
+    expect(await dailyAudit(NOW)).toMatchObject({ sent: 1, ai: true });
+    const found = reportChecks(created().checks).filter((c) => INFRA_KEYS.test(c.key));
+    expect(found.map((c) => c.key).sort()).toEqual(['ops_backup', 'ops_cert', 'ops_disk', 'ops_no_admin', 'ops_offsite', 'ops_restore', 'ops_site', 'outbox_failed', 'outbox_stuck']);
+    const infra = found.filter((c) => c.key !== 'ops_no_admin');
+    const icon = { high: '🔴', medium: '🟠', low: '🟡' };
+    const html = String(h.notifyStaff.mock.calls[0][1]);
+    expect(html.length).toBeLessThanOrEqual(3800);
+    expect(html.split('\n')).toEqual([
+      HEADER, '&amp;'.repeat(300), '',
+      `🟠 ${NO_ADMIN_TITLE}: <b>1</b>`, ADMIN_LINE, '',
+      ...infra.map((c) => `${icon[c.severity]} ${c.title}: <b>${c.count}</b>`), TOOL_LINE, '',
+    ]);
+    expect(html).toContain('<b>777777</b>');
+    expect(html).toContain('disk 100% band');
+    expect(html).toContain('100000 soatdan beri');
+  });
 });
 
 // ─── Cron: tekshiruv tick ichida (vaqt va holat haqiqiy bazada — db/cron.test.ts) ────────────────────────────────
@@ -1042,14 +1569,15 @@ describe('tekshiruv: hisobotni saqlash (runAudit, dailyAudit — bazasiz)', () =
 describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
   beforeEach(() => {
     database(0);
-    h.prisma.siteSetting.findUnique.mockResolvedValue(null);
-    h.prisma.siteSetting.upsert.mockResolvedValue({});
     h.prisma.auditReport.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 1, summary: null, ...data }));
     h.prisma.auditReport.deleteMany.mockResolvedValue({ count: 0 });
   });
   const TEN = new Date('2031-03-10T05:00:00Z'); // Toshkentda 10:00 — tekshiruv ham, eslatma ham vaqti kelgan
+  const DAY_DONE = { auditDay: '2031-03-10', digestDay: '2031-03-10' }; // bugungi ikkala ish bajarilgan
   /** Fonda qolgan ish bo'lsa ulgurib bo'lsin (soxta baza darhol javob beradi) */
   const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+  /** Shu paytgacha navbat yuborilganmi: flushOutbox har chaqirilganda oxirida eski yozuvlarni tozalaydi (botOutbox.deleteMany) */
+  const flushes = () => h.prisma.botOutbox.deleteMany.mock.calls.length;
 
   // auto-update.sh cron so'rovini 60 soniyada uzadi: AI yoki baza sekin bo'lsa tick shu vaqt ichida javob berishi kerak
   it('tekshiruv 25 soniyadan uzoq cho\'zilsa tick kutmaydi ("running"); kun allaqachon belgilangan — qayta boshlanmaydi', async () => {
@@ -1061,9 +1589,11 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     expect(result).toBeUndefined();
     expect(h.prisma.siteSetting.upsert).toHaveBeenCalledTimes(1);
     expect(h.prisma.siteSetting.upsert.mock.calls[0][0]).toMatchObject({ where: { key: 'cron' }, create: { key: 'cron', value: { auditDay: '2031-03-10' } }, update: { value: { auditDay: '2031-03-10' } } });
+    // Navbat tekshiruvdan OLDIN yuborilgan: osilib qolgan tekshiruv kutayotgan xabarlarni ushlab turmaydi
+    expect(flushes()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
     await tick;
-    expect(result).toEqual({ digest: null, audit: 'running' });
+    expect(result).toEqual({ digest: null, audit: 'running', outbox: NOTHING_QUEUED });
     expect(h.sendDailyDigest).not.toHaveBeenCalled();
   });
 
@@ -1073,7 +1603,8 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     h.sendDailyDigest.mockResolvedValue({ finance: 1, orders: 2 });
     const tick = runTick(TEN);
     await vi.advanceTimersByTimeAsync(25_000);
-    expect(await tick).toEqual({ digest: { finance: 1, orders: 2 }, audit: 'running' });
+    // Ikkala kunlik ish bitta tickda: navbat shu safar yuborilmaydi (null) — quyida alohida tekshirilgan
+    expect(await tick).toEqual({ digest: { finance: 1, orders: 2 }, audit: 'running', outbox: null });
     expect(h.sendDailyDigest).toHaveBeenCalledWith(TEN);
     expect(h.prisma.siteSetting.upsert.mock.calls[0][0]).toMatchObject({ update: { value: { auditDay: '2031-03-10', digestDay: '2031-03-10' } } });
   });
@@ -1085,7 +1616,7 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     h.prisma.order.count.mockImplementation(() => new Promise((_, reject) => { setTimeout(() => reject(new Error('baza uzildi')), 30_000); }));
     const tick = runTick(NOW);
     await vi.advanceTimersByTimeAsync(25_000);
-    expect(await tick).toEqual({ digest: null, audit: 'running' });
+    expect(await tick).toEqual({ digest: null, audit: 'running', outbox: NOTHING_QUEUED });
     expect(log).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(5_000);
     expect(log).toHaveBeenCalledTimes(1);
@@ -1096,7 +1627,7 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
 
   it('tekshiruv ulgursa natijasi tick javobida qaytadi', async () => {
     h.prisma.review.count.mockResolvedValue(2);
-    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 0, ai: false } });
+    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 0, ai: false }, outbox: NOTHING_QUEUED });
     expect(h.prisma.auditReport.create.mock.calls[0][0]).toMatchObject({ data: { trigger: 'cron', createdAt: NOW } });
   });
 
@@ -1105,7 +1636,7 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     respond(() => message(SUMMARY));
     useUp(300);
     h.prisma.review.count.mockResolvedValue(2);
-    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 0, ai: true } });
+    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 0, ai: true }, outbox: NOTHING_QUEUED });
     expect(h.http).toHaveBeenCalledTimes(1);
     expect(sent(0).headers.get('x-stainless-timeout')).toBe('120');
     expect(h.prisma.auditReport.create.mock.calls[0][0]).toMatchObject({ data: { trigger: 'cron', summary: SUMMARY } });
@@ -1115,7 +1646,7 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
   it('tekshiruv xato bilan tugasa tick javobida "running" emas, "failed"; sababi logga yoziladi', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     h.prisma.order.count.mockRejectedValue(new Error('baza ulanmadi'));
-    expect(await runTick(NOW)).toEqual({ digest: null, audit: 'failed' });
+    expect(await runTick(NOW)).toEqual({ digest: null, audit: 'failed', outbox: NOTHING_QUEUED });
     expect(h.prisma.auditReport.create).not.toHaveBeenCalled();
     expect(h.notifyStaff).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledTimes(1);
@@ -1140,7 +1671,7 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     h.prisma.order.count.mockRejectedValue(new Error('baza ulanmadi'));
     h.sendDailyDigest.mockResolvedValue({ finance: 0, orders: 3 });
-    expect(await runTick(TEN)).toEqual({ digest: { finance: 0, orders: 3 }, audit: 'failed' });
+    expect(await runTick(TEN)).toEqual({ digest: { finance: 0, orders: 3 }, audit: 'failed', outbox: null });
     expect(h.sendDailyDigest).toHaveBeenCalledTimes(1);
     expect(h.sendDailyDigest).toHaveBeenCalledWith(TEN);
     expect(h.prisma.auditReport.create).not.toHaveBeenCalled();
@@ -1149,8 +1680,8 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
   });
 
   it('yiqilgan tekshiruvdan keyingi tick (kun belgilangan): tekshiruv qayta boshlanmaydi', async () => {
-    h.prisma.siteSetting.findUnique.mockResolvedValue({ key: 'cron', value: { auditDay: '2031-03-10', digestDay: '2031-03-10' } });
-    expect(await runTick(new Date('2031-03-10T05:05:00Z'))).toEqual({ digest: null, audit: null });
+    world.settings.set('cron', DAY_DONE);
+    expect(await runTick(new Date('2031-03-10T05:05:00Z'))).toEqual({ digest: null, audit: null, outbox: NOTHING_QUEUED });
     await settle();
     expect(h.prisma.order.count).not.toHaveBeenCalled();
     expect(h.prisma.siteSetting.upsert).not.toHaveBeenCalled();
@@ -1162,13 +1693,13 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
   it('faqat eslatma vaqti kelgan tick (tekshiruv bugun bajarilgan): tekshiruv fonda ham qayta ishga tushmaydi', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', KEY);
     respond(() => message(SUMMARY));
-    h.prisma.siteSetting.findUnique.mockResolvedValue({ key: 'cron', value: { auditDay: '2031-03-10' } });
+    world.settings.set('cron', { auditDay: '2031-03-10' });
     h.prisma.lead.count.mockResolvedValue(4); // tekshiruv ishga tushsa topilma bo'lardi va xodimlarga xabar ketardi
     h.staffRecipients.mockResolvedValue(linkedStaff);
     h.sendDailyDigest.mockResolvedValue({ finance: 1, orders: 2 });
     const nine = new Date('2031-03-10T04:00:00Z'); // Toshkentda 09:00
 
-    expect(await runTick(nine)).toEqual({ digest: { finance: 1, orders: 2 }, audit: null });
+    expect(await runTick(nine)).toEqual({ digest: { finance: 1, orders: 2 }, audit: null, outbox: NOTHING_QUEUED });
     await settle();
     expect(h.prisma.order.count).not.toHaveBeenCalled();
     expect(h.prisma.auditReport.create).not.toHaveBeenCalled();
@@ -1176,5 +1707,105 @@ describe('cron: kunlik tekshiruv tick ichida (bazasiz)', () => {
     expect(h.http).not.toHaveBeenCalled();
     expect(used()).toBeNull();
     expect(h.prisma.siteSetting.upsert.mock.calls[0][0]).toMatchObject({ update: { value: { auditDay: '2031-03-10', digestDay: '2031-03-10' } } });
+  });
+
+  // ── Xabarlar navbati (telegram/outbox.ts): Telegram'ga yetib bormagan bot xabarlari har tickda qayta yuboriladi
+
+  /** Navbatda vaqti kelgan bitta xodim xabari bor; oluvchi hamon faol xodim, Telegram (soxta fetch) esa qabul qiladi */
+  const dueStaffMessage = () => {
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    const telegram = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })));
+    vi.stubGlobal('fetch', telegram);
+    h.staffRecipients.mockResolvedValue(linkedStaff);
+    h.staffByTelegram.mockResolvedValue({ ...linkedStaff[0] });
+    h.prisma.botOutbox.findMany.mockResolvedValue([{
+      id: 5, bot: 'staff', chatId: '7001', topic: null, html: '🆕 Yangi buyurtma <b>#15</b>', inline: null, attempts: 1,
+      nextAt: new Date('2031-03-10T00:00:00Z'), sentAt: null, failedAt: null, lastError: 'fetch failed', createdAt: new Date('2031-03-09T23:55:00Z'),
+    }]);
+    h.prisma.botOutbox.updateMany.mockResolvedValue({ count: 1 });
+    return telegram;
+  };
+
+  it('navbat har tickda yuboriladi — kunlik ishlarning vaqti kelmagan tickda ham; tick vaqti navbatga uzatiladi', async () => {
+    const early = new Date('2031-03-10T02:55:00Z'); // 07:55 — hech bir kunlik ish vaqti emas
+    expect(await runTick(early)).toEqual({ digest: null, audit: null, outbox: NOTHING_QUEUED });
+    expect(flushes()).toBe(1);
+    // Eski yozuvlarni tozalash chegarasi server soatidan emas, tick vaqtidan sanalgan (yuborilganlar 3 kundan keyin o'chadi)
+    expect(JSON.stringify(h.prisma.botOutbox.deleteMany.mock.calls[0][0])).toContain(new Date(early.getTime() - 3 * DAY_MS).toISOString());
+    expect(h.prisma.siteSetting.upsert).not.toHaveBeenCalled();
+
+    world.settings.set('cron', DAY_DONE);
+    expect(await runTick(new Date('2031-03-10T05:05:00Z'))).toEqual({ digest: null, audit: null, outbox: NOTHING_QUEUED });
+    expect(flushes()).toBe(2);
+  });
+
+  it('tick navbatdagi vaqti kelgan xabarni Telegram\'ga yuboradi (outbox.sent = 1); kunlik tekshiruv shu tickda odatdagidek bajariladi', async () => {
+    const telegram = dueStaffMessage();
+    h.prisma.review.count.mockResolvedValue(2);
+    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 1, ai: false }, outbox: { sent: 1, retry: 0, failed: 0 } });
+    expect(telegram).toHaveBeenCalledTimes(1);
+    const [url, init] = telegram.mock.calls[0];
+    expect(url).toBe('https://api.telegram.org/bot222:staff-token/sendMessage');
+    expect(JSON.parse(String(init?.body))).toMatchObject({ chat_id: '7001', text: '🆕 Yangi buyurtma <b>#15</b>', parse_mode: 'HTML' });
+    // Yuborishdan oldin oluvchi hamon xodimmi, shu so'ralgan
+    expect(h.staffByTelegram).toHaveBeenCalledWith('7001');
+    expect(h.prisma.auditReport.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('oluvchi endi xodim bo\'lmasa navbatdagi xabar yuborilmaydi va "yuborildi" deb sanalmaydi', async () => {
+    const telegram = dueStaffMessage();
+    h.staffByTelegram.mockResolvedValue(null); // xodim o'chirilgan yoki botdan uzilgan
+    expect((await runTick(new Date('2031-03-10T02:55:00Z'))).outbox).toEqual(NOTHING_QUEUED);
+    expect(telegram).not.toHaveBeenCalled();
+  });
+
+  // Telegram javob bermayotgan bo'lsa navbat 25 soniyagacha, tekshiruv yana 25 soniya kutadi, ustiga eslatma: uchalasi birga cron
+  // so'rovining 60 soniyalik chegarasidan oshardi (auto-update.sh so'rovni uzib, "signal o'tmadi" deb belgilardi)
+  it('ikkala kunlik ish bitta tickka tushsa navbat shu safar yuborilmaydi (outbox: null); 5 daqiqadan keyingi tick yuboradi', async () => {
+    const telegram = dueStaffMessage();
+    h.sendDailyDigest.mockResolvedValue({ finance: 1, orders: 2 });
+    h.prisma.review.count.mockResolvedValue(2);
+
+    expect(await runTick(TEN)).toEqual({ digest: { finance: 1, orders: 2 }, audit: { findings: 1, sent: 1, ai: false }, outbox: null });
+    // Navbatga umuman tegilmagan: o'qilmagan, band qilinmagan, tozalanmagan — xabar keyingi tickni kutadi
+    expect(h.prisma.botOutbox.findMany).not.toHaveBeenCalled();
+    expect(h.prisma.botOutbox.updateMany).not.toHaveBeenCalled();
+    expect(flushes()).toBe(0);
+    expect(telegram).not.toHaveBeenCalled();
+
+    world.settings.set('cron', DAY_DONE);
+    expect(await runTick(new Date('2031-03-10T05:05:00Z'))).toEqual({ digest: null, audit: null, outbox: { sent: 1, retry: 0, failed: 0 } });
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(h.sendDailyDigest).toHaveBeenCalledTimes(1);
+    expect(h.prisma.auditReport.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('navbatni yuborishda xato chiqsa: tick javobida outbox null, sababi logda; kunlik tekshiruv va eslatma baribir bajariladi', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('STAFF_BOT_TOKEN', '222:staff-token');
+    h.staffRecipients.mockResolvedValue(linkedStaff);
+    h.prisma.botOutbox.findMany.mockRejectedValue(new Error('relation "BotOutbox" does not exist'));
+    h.prisma.review.count.mockResolvedValue(2);
+
+    // 08:00 — tekshiruv vaqti: navbat yiqildi, tekshiruv esa bajarildi, saqlandi va yuborildi
+    expect(await runTick(NOW)).toEqual({ digest: null, audit: { findings: 1, sent: 1, ai: false }, outbox: null });
+    expect(h.prisma.auditReport.create).toHaveBeenCalledTimes(1);
+    expect(h.notifyStaff).toHaveBeenCalledTimes(1);
+    expect(h.prisma.siteSetting.upsert.mock.calls[0][0]).toMatchObject({ update: { value: { auditDay: '2031-03-10' } } });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(String(log.mock.calls[0][0])).toContain('[cron] xabarlar navbati');
+    expect(String(log.mock.calls[0][1])).toContain('BotOutbox');
+    expect(inspect(log.mock.calls, { depth: 6 })).not.toContain('222:staff-token');
+
+    // 09:00 — eslatma vaqti: navbat yana yiqildi, eslatma yuborildi
+    world.settings.set('cron', { auditDay: '2031-03-10' });
+    h.sendDailyDigest.mockResolvedValue({ finance: 1, orders: 2 });
+    expect(await runTick(new Date('2031-03-10T04:00:00Z'))).toEqual({ digest: { finance: 1, orders: 2 }, audit: null, outbox: null });
+    expect(h.sendDailyDigest).toHaveBeenCalledTimes(1);
+
+    // Kunlik ishi yo'q tick ham yiqilmaydi (auto-update.sh "signal o'tmadi" deb belgilamaydi)
+    world.settings.set('cron', DAY_DONE);
+    await expect(runTick(new Date('2031-03-10T05:05:00Z'))).resolves.toEqual({ digest: null, audit: null, outbox: null });
+    expect(log).toHaveBeenCalledTimes(3);
   });
 });

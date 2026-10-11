@@ -134,7 +134,7 @@ async function recomputeWorkOrder(workOrderId: number) {
       currentStage: STAGE_ORDER.find((s) => !done.has(s)) ?? 'qc',
       ...(allDone ? { status: 'completed' } : wo.status === 'planned' && anyStarted ? { status: 'in_progress' } : {}),
     },
-    select: { orderId: true, productName: true, currentStage: true, progress: true, status: true },
+    select: { id: true, orderId: true, productName: true, currentStage: true, progress: true, status: true },
   });
   // Bekor qilingan topshiriq haqida mijozga yozilmaydi; xabar ketmasa ham bosqich saqlangan bo'ladi (funksiya xato tashlamaydi)
   const changed = after.currentStage !== wo.currentStage || after.status !== wo.status;

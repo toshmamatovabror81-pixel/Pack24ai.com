@@ -7,12 +7,14 @@ import { prisma } from '@/lib/db';
 import { formatDate, formatPrice, toNumber } from '@/lib/format';
 import { lowStockProducts } from '@/lib/inventory';
 import { OPEN_INVOICE_STATUSES, overdueCutoff, overdueInvoiceWhere, OWED_ORDER } from '@/lib/invoiceStatus';
+import { alertChats, readOps } from '@/lib/ops';
 import { getSettings } from '@/lib/settings';
 import { siteUrl } from '@/lib/site';
 import { tashkentClock } from '@/lib/tashkent';
 import { clip, esc } from '@/lib/telegram/api';
 import { botToken } from '@/lib/telegram/bots';
 import { notifyStaff } from '@/lib/telegram/notify';
+import { outboxStats } from '@/lib/telegram/outbox';
 import { staffRecipients } from '@/lib/telegram/staffLink';
 import { aiClient, aiConfigured, aiModel, fallbackParams, recordAiUsage, reserveAiRequest, withoutKeys } from './client';
 
@@ -59,7 +61,7 @@ export async function collectChecks(now = new Date()): Promise<AuditCheck[]> {
   const [
     [staleNew, staleNewRows], [paidNotStarted, paidNotStartedRows], [slowProcessing, slowProcessingRows], [slowShipping, slowShippingRows],
     [deliveredUnpaid, deliveredUnpaidRows], [failedPay, failedPayRows],
-    overdueCount, overdueRows, overdueSum, dueSoon, lateWork, lateWorkRows, staleLeads, oldReviews, lowStock, linkedStaff,
+    overdueCount, overdueRows, overdueSum, dueSoon, lateWork, lateWorkRows, staleLeads, oldReviews, lowStock, linkedStaff, ops, queue, alertAdmins,
   ] = await Promise.all([
     orders({ status: 'new_', createdAt: { lt: ago(now, DAY) } }),
     orders({ status: 'new_', paymentStatus: 'paid', createdAt: { lt: ago(now, 2 * HOUR) } }),
@@ -79,6 +81,9 @@ export async function collectChecks(now = new Date()): Promise<AuditCheck[]> {
     prisma.review.count({ where: { status: 'pending', createdAt: { lt: ago(now, 3 * DAY) } } }),
     lowStockProducts(settings.lowStockThreshold).catch(() => []),
     staffRecipients('orders').catch(() => []),
+    readOps(now).catch(() => null),
+    outboxStats(now).catch(() => ({ pending: 0, stuck: 0, failed24h: 0 })),
+    alertChats().catch(() => null),
   ]);
 
   const checks: AuditCheck[] = [];
@@ -98,6 +103,29 @@ export async function collectChecks(now = new Date()): Promise<AuditCheck[]> {
   // Sozlamalar: bot ulangan-u, hech bir xodim ulanmagan bo'lsa yangi buyurtma xabarlari hech kimga bormaydi
   if (botToken('staff') && linkedStaff.length === 0) add({ key: 'no_staff_linked', severity: 'medium', title: "Boshqaruv botiga hech bir xodim ulanmagan — yangi buyurtma xabarlari hech kimga bormayapti", count: 1, items: [], link: `/admin/staff` });
   if (!settings.bankDetails || !settings.legalName || !settings.inn) add({ key: 'requisites_missing', severity: 'low', title: "Kompaniya rekvizitlari to'liq kiritilmagan (hisob-faktura va mijoz botidagi «Rekvizitlar» bo'sh chiqadi)", count: 1, items: [], link: `/admin/settings` });
+  // Server nosozligi xabarlari (deploy/watchdog.sh) faqat botga ulangan administratorlarga boradi: ular bo'lmasa muammo faqat server logida qoladi
+  if (botToken('staff') && alertAdmins && alertAdmins.length === 0) add({ key: 'ops_no_admin', severity: 'medium', title: "Boshqaruv botiga hech bir administrator ulanmagan — sayt ishlamay qolsa yoki serverda muammo chiqsa Telegram xabari hech kimga bormaydi", count: 1, items: [], link: '/admin/staff' });
+  // Bot xabarlari navbati: Telegram'ga yetib bormayotgan xabarlar
+  add({ key: 'outbox_failed', severity: 'medium', title: "Oxirgi 24 soatda Telegram'ga yetkazib bo'lmagan bot xabarlari (qayta urinishlar tugadi)", count: queue.failed24h, items: [], link: '/admin/audit' });
+  add({ key: 'outbox_stuck', severity: 'medium', title: "Bir soatdan beri yuborilmay turgan bot xabarlari (server Telegram'ga ulana olmayapti)", count: queue.stuck, items: [], link: '/admin/audit' });
+  // Server holati (deploy/watchdog.sh yuboradi). Hali umuman kelmagan bo'lsa (eski server skripti) tekshirilmaydi
+  if (ops) {
+    const s = ops.state;
+    const one = (key: string, severity: Severity, title: string) => add({ key, severity, title, count: 1, items: [], link: '/admin/audit' });
+    if (ops.stale) one('ops_stale', 'medium', `Server kuzatuvi signali kelmayapti (oxirgisi ${formatDate(s.at, 'uz', true)}) — avtomatik yangilanish va kuzatuv to'xtagan bo'lishi mumkin`);
+    else {
+      if (s.disk >= 90) one('ops_disk', 'high', `Serverda joy tugayapti: disk ${s.disk}% band`);
+      else if (s.disk >= 80) one('ops_disk', 'medium', `Server diski ${s.disk}% band`);
+      if (s.backupAgeH < 0) one('ops_backup', 'high', 'Zaxira nusxa topilmadi');
+      else if (s.backupAgeH >= 30) one('ops_backup', 'high', `Zaxira nusxa ${s.backupAgeH} soatdan beri olinmagan`);
+      if (s.restoreOk === 0) one('ops_restore', 'high', "Zaxira nusxani sinov tariqasida tiklab bo'lmadi — nusxa yaroqsiz bo'lishi mumkin");
+      if (s.offsiteOk === 0) one('ops_offsite', 'medium', "Zaxira nusxani Telegram'ga (serverdan tashqariga) yuborib bo'lmadi");
+      if (s.certDays === 0) one('ops_cert', 'high', 'HTTPS sertifikat muddati tugagan yoki bugun tugaydi');
+      else if (s.certDays > 0 && s.certDays < 7) one('ops_cert', 'high', `HTTPS sertifikat muddati ${s.certDays} kundan keyin tugaydi`);
+      else if (s.certDays >= 0 && s.certDays < 21) one('ops_cert', 'medium', `HTTPS sertifikat muddati ${s.certDays} kundan keyin tugaydi`);
+      if (s.siteOk === 0) one('ops_site', 'high', 'Sayt internetdan ochilmayapti (server ichidan ishlayapti)');
+    }
+  }
 
   const rank: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
   return checks.sort((a, b) => rank[a.severity] - rank[b.severity]);
@@ -175,7 +203,9 @@ export async function summarize(checks: AuditCheck[], now = new Date(), trigger:
 /** Tekshiruvni bajarib, hisobotni saqlaydi (admin sahifasi va kunlik cron shu funksiyani chaqiradi) */
 export async function runAudit(trigger: 'cron' | 'manual', now = new Date()) {
   const checks = await collectChecks(now);
-  const ai = await summarize(checks, now, trigger);
+  // AI faqat ish (buyurtma, to'lov, ishlab chiqarish ...) topilmalarini umumlashtiradi: server topilmalari admin panelda tuzatilmaydi,
+  // ular xabarda o'z satrida turadi va modelga bog'liq emas
+  const ai = await summarize(checks.filter((c) => !isInfra(c)), now, trigger);
   const data = { trigger, checks: checks as unknown as Prisma.InputJsonValue, createdAt: now };
   if (!ai) return prisma.auditReport.create({ data: { ...data, model: null } });
   try {
@@ -221,19 +251,29 @@ export function reportSummary(value: unknown): AuditSummary | null {
 }
 
 const ICON: Record<Severity, string> = { high: '🔴', medium: '🟠', low: '🟡' };
+/** Server va xabarlar navbati topilmalari (admin panelda emas, serverda tuzatiladi) */
+const isInfra = (c: { key: string }) => /^(ops|outbox)_/.test(c.key);
 
 /** Hisobotni "reports" ruxsati bor, botga ulangan xodimlarga yuborish; muammo topilmagan bo'lsa hech narsa yuborilmaydi */
 export async function sendAuditToStaff(report: { checks: unknown; summary: unknown }): Promise<number> {
   const checks = reportChecks(report.checks);
   if (!checks.length) return 0;
   const summary = reportSummary(report.summary);
+  const line = (c: AuditCheck) => `${ICON[c.severity]} ${esc(c.title)}: <b>${c.count}</b>`;
+  // Administrator ulanmagani — server topilmasi emas: Admin > Xodimlar bo'limida tuzatiladi, shuning uchun o'z izohi bilan chiqadi
+  const noAdmin = checks.filter((c) => c.key === 'ops_no_admin');
+  const infra = checks.filter((c) => isInfra(c) && c.key !== 'ops_no_admin');
+  const business = checks.filter((c) => !isInfra(c));
+  const shown = business.slice(0, 8);
   const parts = [
     '🧭 <b>Kunlik tekshiruv</b>',
     ...(summary ? [esc(clip(summary.headline, 300))] : []),
     '',
-    ...(summary
-      ? summary.priorities.map((p, i) => `${i + 1}. <b>${esc(clip(p.title, 120))}</b>\n${esc(clip(p.action, 300))}`)
-      : checks.slice(0, 8).map((c) => `${ICON[c.severity]} ${esc(c.title)}: <b>${c.count}</b>`)),
+    // Server va navbat topilmalari AI xulosasiga bog'liq emas: har doim o'z satrida va tepada (uzunlik chegarasida tushib qolmasin)
+    ...(noAdmin.length ? [...noAdmin.map(line), "👉 Buni administrator tuzatadi: admin panel → Xodimlar → o'z qatorida «Telegram kodi» tugmasi, chiqqan kodni boshqaruv botiga yozadi.", ''] : []),
+    ...(infra.length ? [...infra.map(line), '🛠 Bular admin panelda tuzatilmaydi — texnik mutaxassisga ayting («Batafsil» → Server holati).', ''] : []),
+    ...(summary ? summary.priorities.map((p, i) => `${i + 1}. <b>${esc(clip(p.title, 120))}</b>\n${esc(clip(p.action, 300))}`) : shown.map(line)),
+    ...(!summary && business.length > shown.length ? [`… yana ${business.length - shown.length} ta`] : []),
     ...(summary?.note ? [`\n💡 ${esc(clip(summary.note, 400))}`] : []),
   ];
   // Telegram chegarasi 4096 belgi: sig'maydigan oxirgi bandlar butunligicha tashlanadi. sendMessage'ning o'zi kesishiga
