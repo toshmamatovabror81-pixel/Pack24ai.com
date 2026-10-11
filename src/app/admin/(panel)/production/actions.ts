@@ -132,7 +132,9 @@ async function recomputeWorkOrder(workOrderId: number) {
     data: {
       progress: Math.round((completed / STAGE_ORDER.length) * 100),
       currentStage: STAGE_ORDER.find((s) => !done.has(s)) ?? 'qc',
-      ...(allDone ? { status: 'completed' } : wo.status === 'planned' && anyStarted ? { status: 'in_progress' } : {}),
+      // Bekor qilingan topshiriq bosqichlari yakunlansa ham "tayyor" bo'lmaydi (aks holda mijozga "tayyor" xabari ketardi va u
+      // mijoz botida/buyurtma sahifasida qayta ko'rinardi)
+      ...(wo.status === 'cancelled' ? {} : allDone ? { status: 'completed' } : wo.status === 'planned' && anyStarted ? { status: 'in_progress' } : {}),
     },
     select: { id: true, orderId: true, productName: true, currentStage: true, progress: true, status: true },
   });

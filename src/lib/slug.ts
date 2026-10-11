@@ -18,10 +18,13 @@ export function slugify(input: string): string {
     .slice(0, 80);
 }
 
-/** "12-karton-quti" -> 12 */
-export function idFromParam(param: string): number | null {
-  const m = /^(\d+)(?:-|$)/.exec(param);
+/** Bazadagi Int ustunning yuqori chegarasi (Postgres INT4): kattaroq son so'rovda xato beradi, 404 o'rniga 500 chiqardi */
+export const MAX_INT4 = 2_147_483_647;
+
+/** "12-karton-quti" -> 12; raqam bo'lmasa yoki Int chegarasidan chiqsa null */
+export function idFromParam(param: string | undefined | null): number | null {
+  const m = /^(\d+)(?:-|$)/.exec(param ?? '');
   if (!m) return null;
   const id = Number(m[1]);
-  return Number.isSafeInteger(id) && id > 0 ? id : null;
+  return Number.isInteger(id) && id > 0 && id <= MAX_INT4 ? id : null;
 }

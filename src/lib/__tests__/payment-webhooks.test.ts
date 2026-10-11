@@ -57,6 +57,14 @@ vi.mock('@/lib/db', () => {
     },
     paymeTransaction: {
       findUnique: async ({ where }: { where: { id: string } }) => { const t = state.txs.get(where.id); return t ? { ...t } : null; },
+      findFirst: async ({ where }: { where: { orderId: number; state: number } }) => [...state.txs.values()].find((t) => t.orderId === where.orderId && t.state === where.state) ?? null,
+      findMany: async () => [...state.txs.values()].map((t) => ({ ...t })),
+      // Baza kabi: BigInt ustuniga son berilsa qabul qilinmaydi (Prisma validatsiya xatosi)
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        if (typeof data.amount !== 'bigint') throw new Error(`test: amount BigInt bo'lishi kerak, keldi ${typeof data.amount}`);
+        state.txs.set(data.id as string, { ...data, performTime: null, cancelTime: null, reason: null });
+        return { ...data };
+      },
       // Prisma kabi: `where` dagi qo'shimcha shartga (state) mos qator bo'lmasa P2025 xatosi
       update: ({ where, data }: { where: { id: string; state?: number }; data: Record<string, unknown> }) => op(async () => {
         const t = state.txs.get(where.id)!;
@@ -75,7 +83,7 @@ const payme = await import('@/app/api/payment/payme/webhook/route');
 const click = await import('@/app/api/payment/click/route');
 
 const baseOrder = () => ({ id: 7, status: 'new_', paymentStatus: 'processing', paymentMethod: 'payme', totalAmount: 150000, accessToken: 'tok', telegramUserId: null, contactPhone: '998901234567', userId: null, deletedAt: null });
-const tx = (id: string, orderId: number, st: number) => ({ id, orderId, amount: 15000000, state: st, createTime: BigInt(Date.now()), performTime: st === 2 ? BigInt(5) : null, cancelTime: null, reason: null });
+const tx = (id: string, orderId: number, st: number) => ({ id, orderId, amount: BigInt(15000000), state: st, createTime: BigInt(Date.now()), performTime: st === 2 ? BigInt(5) : null, cancelTime: null, reason: null });
 
 beforeEach(() => {
   state.orders.clear();
@@ -98,6 +106,32 @@ afterEach(() => {
 const paymeReq = (body: unknown) => new Request('https://pack24.uz/api/payment/payme/webhook', { method: 'POST', headers: { authorization: `Basic ${Buffer.from('Paycom:payme-key').toString('base64')}` }, body: JSON.stringify(body) });
 const paymeCall = async (body: unknown) => (await payme.POST(paymeReq(body) as never)).json();
 
+describe('Payme webhook: summa 64 bit (ulgurji buyurtmalar)', () => {
+  // amount Int (32 bit) edi: 21 474 836,47 so'mdan katta buyurtmada CreateTransaction "Internal error" berardi va Payme uni
+  // qayta-qayta takrorlardi — bunday buyurtmani Payme orqali to'lab bo'lmasdi
+  it('CreateTransaction: 21,6 mln so\'mlik buyurtma uchun tranzaksiya yoziladi (summa tiyinda BigInt)', async () => {
+    state.orders.set(7, { ...baseOrder(), paymentStatus: 'pending', totalAmount: 21_600_000 });
+    const time = Date.now();
+    const json = await paymeCall({ id: 5, method: 'CreateTransaction', params: { id: 'big1', time, amount: 2_160_000_000, account: { order_id: '7' } } });
+    expect(json).toEqual({ id: 5, result: { create_time: time, transaction: 'big1', state: 1 } });
+    expect(state.txs.get('big1')).toMatchObject({ orderId: 7, amount: BigInt(2_160_000_000), state: 1 });
+    expect(state.orders.get(7)).toMatchObject({ paymentMethod: 'payme', paymentStatus: 'processing' });
+    // Hisobotda summa oddiy son (BigInt JSON'ga tushmaydi), xabarda so'mda
+    const statement = await paymeCall({ id: 6, method: 'GetStatement', params: { from: 1, to: 2_000_000_000_000 } });
+    expect(statement.result.transactions).toEqual([expect.objectContaining({ id: 'big1', amount: 2_160_000_000, account: { order_id: '7' } })]);
+    const perform = await paymeCall({ id: 7, method: 'PerformTransaction', params: { id: 'big1' } });
+    expect(perform.result).toMatchObject({ transaction: 'big1', state: 2 });
+    expect(state.admins[0]).toEqual([expect.stringContaining('21600000 so\'m')]);
+  });
+
+  it('CreateTransaction: summa buyurtma jamisiga teng bo\'lmasa yozilmaydi', async () => {
+    state.orders.set(7, { ...baseOrder(), paymentStatus: 'pending', totalAmount: 21_600_000 });
+    const json = await paymeCall({ id: 5, method: 'CreateTransaction', params: { id: 'big2', time: 1, amount: 2_160_000_001, account: { order_id: '7' } } });
+    expect(json.error.code).toBe(-31001);
+    expect(state.txs.size).toBe(0);
+  });
+});
+
 describe('Payme webhook: tarix va xabarnoma', () => {
   it('PerformTransaction: javob shakli o\'zgarmagan, afterPaymentChange oldingi holat bilan chaqiriladi', async () => {
     state.orders.set(7, baseOrder());
@@ -109,6 +143,7 @@ describe('Payme webhook: tarix va xabarnoma', () => {
     expect(json.result.transaction).toBe('tx1');
     expect(json.result.state).toBe(2);
     expect(state.admins).toHaveLength(1);
+    expect(state.admins[0]).toEqual([expect.stringContaining('150000 so\'m')]);
     expect(state.after).toHaveLength(1);
     const [order, from, actor] = state.after[0] as [Record<string, unknown>, string, unknown];
     expect(order.id).toBe(7);

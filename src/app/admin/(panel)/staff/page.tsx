@@ -37,7 +37,7 @@ async function staffBotUsername(): Promise<string | null> {
   }
 }
 
-export default async function StaffPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string; first?: string; code?: string; for?: string }> }) {
+export default async function StaffPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string; first?: string; tg?: string }> }) {
   const me = await requireStaff('staff');
   const sp = await searchParams;
   const [staff, botUsername] = await Promise.all([
@@ -47,13 +47,12 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
   const bot = botUsername ? <a href={`https://t.me/${botUsername}`} target="_blank" rel="noreferrer" className="font-medium underline">@{botUsername}</a> : 'boshqaruv boti';
   // Token kiritilmaguncha bot hech kimga javob bermaydi: sahifa buni ochiq aytadi va befoyda kod berilmaydi (amalning o'zi ham rad etadi)
   const botReady = !!botToken('staff');
-  // "Telegram kodi" bosilgandan keyingi xabar. Kod manzil satrida keladi, lekin faqat bazadagi shu xodimning amaldagi kodi bilan
-  // bir xil bo'lsa ko'rsatiladi: ishlatilgan, muddati o'tgan, qayta berilgan yoki qo'lda yozilgan ?code= "amal qiladi" deb chiqmaydi
-  // (sahifa yangilanganda ham) — o'rniga kodsiz, betaraf ogohlantirish chiqadi.
-  const code = /^\d{6}$/.test(sp.code ?? '') ? sp.code : null;
+  // "Telegram kodi" bosilgandan keyingi xabar. Manzilda faqat xodim raqami keladi (?tg=), kodning o'zi emas — manzil satri proksi
+  // jurnaliga va brauzer tarixiga tushadi. Kod bazadan, faqat shu xodimning amaldagi (muddati o'tmagan) kodi bo'lsa ko'rsatiladi:
+  // ishlatilgan, muddati o'tgan yoki qo'lda yozilgan ?tg= uchun kodsiz, betaraf ogohlantirish chiqadi.
   const now = new Date();
-  const codeFor = code ? staff.find((u) => String(u.id) === sp.for && u.telegramCode === code && u.otpExpiry != null && u.otpExpiry > now) : undefined;
-  const codeStale = !!code && !codeFor;
+  const codeFor = sp.tg ? staff.find((u) => String(u.id) === sp.tg && /^\d{6}$/.test(u.telegramCode ?? '') && u.otpExpiry != null && u.otpExpiry > now) : undefined;
+  const codeStale = !!sp.tg && !codeFor;
   return (
     <>
       <PageHeader title="Xodimlar" />
@@ -67,8 +66,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         Tokenni serverda <code className="font-mono">deploy/bots-setup.sh</code> skripti bilan kiriting; bot holati Sozlamalar &gt; «Telegram botlar» bo&apos;limida ko&apos;rinadi.
       </Notice>
       <Notice show={!!codeFor}>
-        {codeFor?.name} uchun Telegram kodi: <b className="font-mono text-base tracking-widest">{code}</b>. Xodim {bot}da /start bosib, shu kodni yozib yuboradi.
-        Kod 30 daqiqa amal qiladi va faqat bir marta ishlaydi. U boshqa hech qayerda ko&apos;rsatilmaydi — hozir xodimga ayting.
+        {codeFor?.name} uchun Telegram kodi: <b className="font-mono text-base tracking-widest">{codeFor?.telegramCode}</b>. Xodim {bot}da /start bosib, shu kodni yozib yuboradi.
+        Kod 30 daqiqa amal qiladi va faqat bir marta ishlaydi — hozir xodimga ayting.
       </Notice>
       <Notice show={codeStale} tone="warn">
         Bu Telegram kodi endi amal qilmaydi (ishlatilgan, muddati o&apos;tgan yoki o&apos;rniga yangisi berilgan). Kerak bo&apos;lsa xodim qatoridagi «Telegram kodi» tugmasini qayta bosing.

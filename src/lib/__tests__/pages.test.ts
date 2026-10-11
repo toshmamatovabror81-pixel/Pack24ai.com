@@ -225,40 +225,48 @@ describe('admin: Xodimlar sahifasi', () => {
     expect(r.html).toMatch(CODE_BUTTON);
   });
 
-  it('kod xabari faqat manzildagi kod shu xodimning bazadagi amaldagi kodi bo\'lsa chiqadi', async () => {
+  // Manzilda kodning o'zi emas, xodim raqami keladi (?tg=): manzil satri proksi jurnaliga va brauzer tarixiga tushadi
+  it('kod xabari: ?tg= dagi xodimning bazadagi amaldagi kodi ko\'rsatiladi (manzilda kod yo\'q)', async () => {
     tokens('', '222:staff');
     s.staff = [staffRow({ telegramCode: '042917', otpExpiry: soon() })];
-    const { html, text } = await page({ code: '042917', for: '5' });
+    const { html, text } = await page({ tg: '5' });
     expect(text).toContain('Vali Xodim uchun Telegram kodi: 042917');
     expect(html).toContain('>042917</b>');
     expect(text).not.toContain('endi amal qilmaydi');
+    // Eski ko'rinishdagi manzil (?code=...&for=...) endi hech narsa ko'rsatmaydi — kod manzildan olinmaydi
+    const old = await page({ code: '042917', for: '5' });
+    expect(old.text).not.toContain('uchun Telegram kodi:');
+    expect(old.text).not.toContain('042917');
   });
 
-  it('qo\'lda yozilgan, ishlatilgan, muddati o\'tgan, almashtirilgan yoki boshqa xodimning kodi "amal qiladi" deb ko\'rsatilmaydi', async () => {
+  it('ishlatilgan, muddati o\'tgan yoki yo\'q xodimning kodi "amal qiladi" deb ko\'rsatilmaydi; almashtirilgan bo\'lsa yangisi chiqadi', async () => {
     tokens('', '222:staff');
     const other = staffRow({ id: 6, name: 'Boshqa Xodim', phone: '998901112244', telegramCode: '042917', otpExpiry: soon() });
     const cases: [string, Record<string, unknown>[], Record<string, string>][] = [
-      ['qo\'lda yozilgan', [staffRow()], { code: '000000', for: '5' }],
-      ['ishlatilgan (bazada kod yo\'q)', [staffRow({ telegramId: '900', telegramCode: null, otpExpiry: null })], { code: '042917', for: '5' }],
-      ['muddati o\'tgan', [staffRow({ telegramCode: '042917', otpExpiry: new Date(Date.now() - 1_000) })], { code: '042917', for: '5' }],
-      ['muddat belgisi yo\'q', [staffRow({ telegramCode: '042917', otpExpiry: null })], { code: '042917', for: '5' }],
-      ['o\'rniga yangisi berilgan', [staffRow({ telegramCode: '777777', otpExpiry: soon() })], { code: '042917', for: '5' }],
-      ['boshqa xodimning kodi', [staffRow(), other], { code: '042917', for: '5' }],
-      ['xodim ko\'rsatilmagan', [other], { code: '042917' }],
+      ['ishlatilgan (bazada kod yo\'q)', [staffRow({ telegramId: '900', telegramCode: null, otpExpiry: null })], { tg: '5' }],
+      ['muddati o\'tgan', [staffRow({ telegramCode: '042917', otpExpiry: new Date(Date.now() - 1_000) })], { tg: '5' }],
+      ['muddat belgisi yo\'q', [staffRow({ telegramCode: '042917', otpExpiry: null })], { tg: '5' }],
+      ['bunday xodim yo\'q', [other], { tg: '5' }],
+      ['kod 6 xonali son emas', [staffRow({ telegramCode: 'abc', otpExpiry: soon() })], { tg: '5' }],
     ];
     for (const [name, staff, sp] of cases) {
       s.staff = staff;
       const { text } = await page(sp);
       expect(text, name).not.toContain('uchun Telegram kodi:');
-      expect(text, name).not.toContain(sp.code);
+      expect(text, name).not.toContain('042917');
       expect(text, name).toContain('Bu Telegram kodi endi amal qilmaydi');
     }
+    // Qayta berilgan kod: sahifa yangilansa ham amaldagi (yangi) kod ko'rinadi, eskisi emas
+    s.staff = [staffRow({ telegramCode: '777777', otpExpiry: soon() })];
+    const { text } = await page({ tg: '5' });
+    expect(text).toContain('Vali Xodim uchun Telegram kodi: 777777');
+    expect(text).not.toContain('042917');
   });
 
-  it('manzilda kod bo\'lmasa (yoki 6 xonali son bo\'lmasa) hech qanday kod xabari chiqmaydi', async () => {
+  it('manzilda xodim ko\'rsatilmasa hech qanday kod xabari chiqmaydi', async () => {
     tokens('', '222:staff');
     s.staff = [staffRow({ telegramCode: '042917', otpExpiry: soon() })];
-    for (const sp of [{}, { for: '5' }, { code: '42917', for: '5' }, { code: 'abcdef', for: '5' }] as Record<string, string>[]) {
+    for (const sp of [{}, { saved: '1' }, { code: '042917', for: '5' }] as Record<string, string>[]) {
       const { text } = await page(sp);
       expect(text).not.toContain('uchun Telegram kodi:');
       expect(text).not.toContain('endi amal qilmaydi');

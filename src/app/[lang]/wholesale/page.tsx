@@ -3,6 +3,7 @@ import { pickText } from '@/lib/i18n/config';
 import { resolveLocale } from '@/lib/locale';
 import { pageMetadata } from '@/lib/seo';
 import { str, type SearchParams } from '@/lib/params';
+import { idFromParam } from '@/lib/slug';
 import { contactFields, leadLabels } from '@/lib/leadLabels';
 import { LeadForm } from '@/components/forms/LeadForm';
 
@@ -15,7 +16,8 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function WholesalePage({ params, searchParams }: Props) {
   const { locale, t } = await resolveLocale(params);
-  const productId = Number(str((await searchParams).product)) || undefined;
+  // Faqat butun, Int chegarasidagi raqam (1.5 yoki juda katta son so'rovda xato berardi)
+  const productId = idFromParam(str((await searchParams).product)) ?? undefined;
   const product = productId ? await prisma.product.findFirst({ where: { id: productId, status: 'active' }, select: { id: true, name: true, nameI18n: true } }) : null;
   return (
     <div className="container-site max-w-3xl py-10">

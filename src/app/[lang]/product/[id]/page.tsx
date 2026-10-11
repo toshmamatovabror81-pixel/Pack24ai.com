@@ -2,10 +2,10 @@ import { SiteImage as Image } from '@/components/site/SiteImage';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { CheckCircle2, Clock } from 'lucide-react';
-import { getProduct, relatedProducts } from '@/lib/catalog';
+import { NO_IMAGE, getProduct, relatedProducts } from '@/lib/catalog';
 import { formatPrice } from '@/lib/format';
 import { resolveLocale } from '@/lib/locale';
-import { jsonLdScript, pageMetadata } from '@/lib/seo';
+import { absoluteUrl, jsonLdScript, pageMetadata } from '@/lib/seo';
 import { siteUrl } from '@/lib/site';
 import { idFromParam } from '@/lib/slug';
 import { Breadcrumbs } from '@/components/site/Breadcrumbs';
@@ -38,11 +38,13 @@ export default async function ProductPage({ params }: Props) {
   // Eski /product/12 yoki boshqa slug -> kanonik manzil
   if (`/${locale}/product/${raw}` !== product.href) permanentRedirect(product.href);
   const related = await relatedProducts(product, locale);
+  // Sxemadagi rasm to'liq manzil bo'lishi kerak (admin yuklagan /uploads/... ham); o'rinbosar rasm sxemaga kirmaydi
+  const images = product.gallery.filter((g) => g !== NO_IMAGE).map(absoluteUrl);
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    image: product.gallery.filter((g) => g.startsWith('http')),
+    image: images.length ? images : undefined,
     description: product.description || product.name,
     sku: product.sku || String(product.id),
     brand: { '@type': 'Brand', name: 'Pack24' },

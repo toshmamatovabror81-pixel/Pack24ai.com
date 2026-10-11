@@ -46,15 +46,20 @@ export async function linkCustomerPhone(telegramId: number | string, rawPhone: s
   const phone = normalizeContactPhone(rawPhone);
   if (!phone) return null;
   const id = String(telegramId);
-  const [, row] = await prisma.$transaction([
-    prisma.telegramCustomer.updateMany({ where: { phone, telegramId: { not: id } }, data: { phone: null, verifiedAt: null } }),
-    prisma.telegramCustomer.upsert({
+  return prisma.$transaction(async (tx) => {
+    const displaced = (await tx.telegramCustomer.findMany({ where: { phone, telegramId: { not: id } }, select: { telegramId: true } })).map((c) => c.telegramId);
+    await tx.telegramCustomer.updateMany({ where: { phone, telegramId: { not: id } }, data: { phone: null, verifiedAt: null } });
+    // Uzilgan hisobning navbatda turgan (hali yuborilmagan) xabarlarida shu raqam buyurtmalarining ma'lumoti bor — ular ham
+    // o'chiriladi (unlinkCustomer bilan bir xil), aks holda Telegram tiklangach raqamning yangi egasi buyurtmasi haqidagi xabar
+    // eski egasiga ketardi. Havola orqali ulangan buyurtmasi haqidagi navbatdagi xabar ham ketadi: navbat baribir "iloji boricha"
+    // (outbox.ts stillRecipient ham shunday tashlaydi)
+    if (displaced.length) await tx.botOutbox.deleteMany({ where: { bot: 'customer', chatId: { in: displaced }, sentAt: null, failedAt: null } });
+    return tx.telegramCustomer.upsert({
       where: { telegramId: id },
       create: { telegramId: id, phone, name: clipName(name) || null, verifiedAt: new Date() },
       update: { phone, verifiedAt: new Date(), ...(name ? { name: clipName(name) } : {}) },
-    }),
-  ]);
-  return row;
+    });
+  });
 }
 
 /** Botdan chiqish: telefon bog'lanishi va havola orqali ulangan buyurtmalar uziladi, yozuv o'chiriladi */

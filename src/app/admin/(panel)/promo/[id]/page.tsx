@@ -6,7 +6,8 @@ import { Field, Notice, PageHeader } from '@/components/admin/ui';
 import { savePromo } from '../../marketing-actions';
 
 export const metadata = { title: 'Promokod' };
-const d = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : '');
+// Sana Toshkent kuni bo'yicha (saqlashdagi kabi): UTC bo'yicha kesilsa 01.10 boshlanishi 30.09 deb chiqardi
+const d = (v: Date | null | undefined) => (v ? v.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' }) : '');
 
 export default async function PromoEdit({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   await requireStaff('marketing');

@@ -27,6 +27,8 @@ export function ProductForm({ product, categories, stock }: { product?: Product 
       </Field>
       <Field label="Artikul (SKU)"><input name="sku" defaultValue={product?.sku ?? ''} className="input" /></Field>
       <Field label="Minimal buyurtma, dona"><input name="minQuantity" type="number" min={1} defaultValue={product?.minQuantity ?? 1} className="input" /></Field>
+      {/* prevStock — sahifa ochilgandagi qoldiq: amal maydonni faqat xodim o'zi o'zgartirgan bo'lsa yozadi (eskirgan forma qoldiqni qaytarib qo'ymasin) */}
+      <input type="hidden" name="prevStock" value={stock ?? ''} />
       <Field label="Ombordagi qoldiq, dona" hint="Asosiy ombor"><input name="stock" type="number" defaultValue={stock ?? ''} className="input" /></Field>
       <Field label="Holat">
         <select name="status" defaultValue={product?.status ?? 'active'} className="input">

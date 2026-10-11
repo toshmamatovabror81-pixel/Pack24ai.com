@@ -154,7 +154,7 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
           {order.paymeTransactions.length > 0 && (
             <div className="card p-4 text-xs">
               <p className="mb-2 font-semibold">Payme tranzaksiyalari</p>
-              {order.paymeTransactions.map((t) => <p key={t.id} className="break-all">{t.id}: holat {t.state}, {t.amount / 100} so'm</p>)}
+              {order.paymeTransactions.map((t) => <p key={t.id} className="break-all">{t.id}: holat {t.state}, {Number(t.amount) / 100} so'm</p>)}
             </div>
           )}
         </aside>

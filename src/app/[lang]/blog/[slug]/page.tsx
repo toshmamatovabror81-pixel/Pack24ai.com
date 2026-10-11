@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { pickText } from '@/lib/i18n/config';
 import { formatDate } from '@/lib/format';
 import { resolveLocale } from '@/lib/locale';
-import { jsonLdScript, pageMetadata } from '@/lib/seo';
+import { absoluteUrl, jsonLdScript, pageMetadata } from '@/lib/seo';
 import { siteUrl } from '@/lib/site';
 import { Markdown } from '@/components/site/Markdown';
 import { Breadcrumbs } from '@/components/site/Breadcrumbs';
@@ -40,7 +40,7 @@ export default async function PostPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: title,
-    image: post.cover ? [post.cover] : undefined,
+    image: post.cover ? [absoluteUrl(post.cover)] : undefined,
     datePublished: post.publishedAt?.toISOString(),
     dateModified: post.updatedAt.toISOString(),
     author: { '@type': 'Organization', name: 'Pack24' },

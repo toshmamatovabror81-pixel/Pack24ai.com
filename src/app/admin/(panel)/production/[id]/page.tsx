@@ -72,8 +72,9 @@ export default async function WorkOrderDetail({ params, searchParams }: { params
             <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">{s.completedAt ? formatDate(s.completedAt, 'uz', true) : '—'}</td>
             <td className="whitespace-nowrap px-4 py-3 text-right">
               <span className="inline-flex gap-1">
-                {s.status === 'pending' && <button form={`stage-${s.id}`} formAction={startStage} className="btn-primary px-3 py-1.5 text-xs">Boshlash</button>}
-                {s.status !== 'completed' && <button form={`stage-${s.id}`} formAction={finishStage} className="btn-accent px-3 py-1.5 text-xs">Yakunlash</button>}
+                {/* Bekor qilingan topshiriqda bosqichlar boshlanmaydi va yakunlanmaydi (holatni "Rejada"ga qaytarib davom ettirish mumkin) */}
+                {wo.status !== 'cancelled' && s.status === 'pending' && <button form={`stage-${s.id}`} formAction={startStage} className="btn-primary px-3 py-1.5 text-xs">Boshlash</button>}
+                {wo.status !== 'cancelled' && s.status !== 'completed' && <button form={`stage-${s.id}`} formAction={finishStage} className="btn-accent px-3 py-1.5 text-xs">Yakunlash</button>}
                 <button form={`stage-${s.id}`} className="btn-ghost px-3 py-1.5 text-xs">Saqlash</button>
               </span>
             </td>

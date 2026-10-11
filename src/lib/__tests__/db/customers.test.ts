@@ -147,6 +147,44 @@ describe.skipIf(!DB_TESTS)('telegram/customers (haqiqiy baza)', { timeout: 20_00
       expect(await bindOrderByToken(tg, deleted.accessToken!)).toBeNull();
       expect(await boundTo(deleted.id)).toBeNull();
     });
+
+    // Telegram vaqtincha ishlamaganida kechikkan xabar navbatda turadi; shu orada raqam yangi egasiga o'tsa, eski egaga raqamning
+    // buyurtmasi haqidagi xabar keyinroq yetib bormasligi kerak (unlinkCustomer /stop da qanday tozalasa, shunday)
+    it('raqam yangi egasiga o\'tganda eski hisobning navbatda turgan xabarlari o\'chadi; yetkazilgan, yakunlangan va boshqalarniki qoladi', async () => {
+      const phone = fx.phone();
+      const oldOwner = fx.tg();
+      const newOwner = fx.tg();
+      const bystander = fx.tg();
+      await linkCustomerPhone(oldOwner, phone, 'Eski ega');
+      await fx.customer({ telegramId: bystander });
+      const far = new Date('2099-01-01T00:00:00.000Z');
+      const queue = (data: Partial<Prisma.BotOutboxUncheckedCreateInput> = {}) =>
+        prisma.botOutbox.create({ data: { bot: 'customer', chatId: oldOwner, html: '📦 <b>Buyurtma #2</b>', nextAt: far, createdAt: far, lastError: 'fetch failed', ...data } });
+      const all = () => prisma.botOutbox.findMany({ where: { chatId: { in: [oldOwner, newOwner, bystander] } }, orderBy: { id: 'asc' } });
+      try {
+        const pending = [await queue({ topic: 'order-status:2' }), await queue({ attempts: 3 })];
+        const kept = [
+          await queue({ sentAt: far, lastError: null }), // yetkazilgan
+          await queue({ failedAt: far, lastError: 'eskirgan' }), // yakunlangan
+          await queue({ chatId: bystander }), // boshqa mijozniki
+          await queue({ bot: 'staff' }), // shu hisobning boshqaruv botidagi xabari
+        ];
+        expect(await all()).toEqual([...pending, ...kept]);
+
+        const linked = await linkCustomerPhone(newOwner, phone, 'Yangi ega');
+        expect(linked).toMatchObject({ telegramId: newOwner, phone, name: 'Yangi ega' });
+        expect(await botCustomer(oldOwner)).toMatchObject({ phone: null, verifiedAt: null, notify: true });
+        expect(await all()).toEqual(kept);
+
+        // Egasi o'zgarmagan qayta tasdiqlash (yoki birinchi bog'lanish) navbatga tegmaydi
+        const own = await queue({ chatId: newOwner });
+        await linkCustomerPhone(newOwner, phone);
+        await linkCustomerPhone(bystander, fx.phone());
+        expect(await all()).toEqual([...kept, own]);
+      } finally {
+        await prisma.botOutbox.deleteMany({ where: { chatId: { in: [oldOwner, newOwner, bystander] } } });
+      }
+    });
   });
 
   describe('unlinkCustomer', () => {

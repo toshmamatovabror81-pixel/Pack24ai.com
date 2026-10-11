@@ -61,8 +61,9 @@ async function staffRow(fd: FormData) {
 }
 
 /**
- * "Telegram kodi": xodimni boshqaruv botiga ulash uchun bir martalik 6 xonali kod (30 daqiqa). Kod faqat shu yo'naltirishdagi
- * xabarda bir marta ko'rsatiladi — admin uni xodimga o'zi aytadi; bazada faqat tekshirish uchun turadi.
+ * "Telegram kodi": xodimni boshqaruv botiga ulash uchun bir martalik 6 xonali kod (30 daqiqa). Admin uni xodimga o'zi aytadi.
+ * Manzilga faqat xodim raqami qo'yiladi (?tg=), kodning o'zi emas: manzil satri proksi jurnaliga va brauzer tarixiga tushadi,
+ * u yerdan o'qigan odam 30 daqiqa ichida o'zini shu xodim sifatida ulab olardi. Sahifa kodni bazadan, faqat amalda bo'lsa ko'rsatadi.
  */
 export async function issueTelegramCode(fd: FormData) {
   await requireStaff('staff');
@@ -76,7 +77,7 @@ export async function issueTelegramCode(fd: FormData) {
     return null;
   });
   if (!issued) redirect('/admin/staff?error=tgCode');
-  redirect(`/admin/staff?code=${issued.code}&for=${row.id}`);
+  redirect(`/admin/staff?tg=${row.id}`);
 }
 
 /** "Uzish": xodimning Telegram hisobi botdan uziladi (bot keyingi so'rovdayoq tanimaydi), berilgan kod ham bekor bo'ladi */

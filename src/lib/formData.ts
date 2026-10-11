@@ -21,3 +21,14 @@ export const date = (fd: FormData, name: string) => {
   const d = v ? new Date(v) : null;
   return d && !Number.isNaN(d.getTime()) ? d : null;
 };
+/**
+ * <input type="date"> qiymati (YYYY-MM-DD) Toshkent kuni sifatida: kun boshi (00:00) yoki `end` bilan kun oxiri (23:59:59.999),
+ * Asia/Tashkent = +05:00 (qishki-yozgi vaqt yo'q). `date()` esa shu satrni UTC yarim tun deb oladi — "31.10 gacha" promokod
+ * 31-oktabr soat 05:00 dan rad etilardi.
+ */
+export const tashkentDay = (fd: FormData, name: string, end = false) => {
+  const v = text(fd, name, 40);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}T${end ? '23:59:59.999' : '00:00:00.000'}+05:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};

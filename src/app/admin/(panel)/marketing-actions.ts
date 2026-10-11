@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import type { ReviewStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
-import { bool, date, i18nFrom, num, optText, text } from '@/lib/formData';
+import { bool, i18nFrom, num, optText, tashkentDay, text } from '@/lib/formData';
 import { slugify } from '@/lib/slug';
 
 const site = () => revalidatePath('/[lang]', 'layout');
@@ -28,8 +28,9 @@ export async function savePromo(fd: FormData) {
     value,
     minSubtotal: num(fd, 'minSubtotal') ?? 0,
     maxUses: maxUses && maxUses > 0 ? Math.floor(maxUses) : null,
-    startsAt: date(fd, 'startsAt'),
-    endsAt: date(fd, 'endsAt'),
+    // Toshkent kuni: boshlanishi kun boshidan, tugashi kun oxirigacha (ro'yxatda ko'rsatilgan sanada kod butun kun ishlaydi)
+    startsAt: tashkentDay(fd, 'startsAt'),
+    endsAt: tashkentDay(fd, 'endsAt', true),
     isActive: bool(fd, 'isActive'),
     note: optText(fd, 'note', 300),
   };

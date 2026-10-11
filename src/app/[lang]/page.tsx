@@ -12,7 +12,8 @@ export const revalidate = 300;
 
 export async function generateMetadata({ params }: LangParams) {
   const { locale, t } = await resolveLocale(params);
-  return pageMetadata({ locale, path: '/', title: `${t.meta.siteName}: ${t.meta.tagline}`, description: t.meta.description });
+  // Brend sarlavhaning o'zida bor — layout qolipi ("| Pack24") qo'shilmaydi, aks holda "Pack24: ... | Pack24" chiqardi
+  return pageMetadata({ locale, path: '/', title: `${t.meta.siteName}: ${t.meta.tagline}`, description: t.meta.description, absoluteTitle: true });
 }
 
 export default async function HomePage({ params }: LangParams) {

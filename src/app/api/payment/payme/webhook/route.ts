@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
         const pending = await prisma.paymeTransaction.findFirst({ where: { orderId: r.order.id, state: 1 } });
         if (pending) return err(id, PaymeError.orderUnavailable, 'Buyurtma uchun boshqa tranzaksiya kutilmoqda', 'order_id');
         const time = Number(params.time) || Date.now();
-        await prisma.paymeTransaction.create({ data: { id: txId, orderId: r.order.id, amount: Number(params.amount), state: 1, createTime: BigInt(time) } });
+        // checkOrder summani buyurtma jamisi (butun tiyin) bilan tenglashtirgan; BigInt — 21 mln so'mdan katta buyurtmalar uchun
+        await prisma.paymeTransaction.create({ data: { id: txId, orderId: r.order.id, amount: BigInt(Number(params.amount)), state: 1, createTime: BigInt(time) } });
         await prisma.order.update({ where: { id: r.order.id }, data: { paymentMethod: 'payme', paymentStatus: 'processing' } });
         return ok(id, { create_time: time, transaction: txId, state: 1 });
       }
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
           return err(id, PaymeError.cannotPerform, 'Tranzaksiya bekor qilingan');
         }
         const paid = done[1];
-        await notifyAdmins([`✅ Payme: buyurtma #${tx.orderId} to'landi (${tx.amount / 100} so'm)`]);
+        await notifyAdmins([`✅ Payme: buyurtma #${tx.orderId} to'landi (${Number(tx.amount) / 100} so'm)`]);
         if (before?.paymentStatus !== 'paid') await recordPayment(paid, before?.paymentStatus ?? null, { name: 'Payme', via: 'payme' });
         return ok(id, { transaction: txId, perform_time: Number(performTime), state: 2 });
       }
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
           transactions: txs.map((tx) => ({
             id: tx.id,
             time: Number(tx.createTime),
-            amount: tx.amount,
+            amount: Number(tx.amount),
             account: { order_id: String(tx.orderId) },
             create_time: Number(tx.createTime),
             perform_time: tx.performTime ? Number(tx.performTime) : 0,

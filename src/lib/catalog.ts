@@ -40,7 +40,9 @@ export type CategoryItem = {
   productCount: number;
 };
 
-const NO_IMAGE = '/images/no-image.svg';
+export const NO_IMAGE = '/images/no-image.svg';
+/** Katalog sahifasining yuqori chegarasi (bo'sh ro'yxat chiqadi, xato emas) */
+export const MAX_PAGE = 100_000;
 
 type ProductRow = Prisma.ProductGetPayload<{ include: { categoryRel: true } }>;
 
@@ -110,7 +112,8 @@ export async function listProducts({ locale, categorySlug, q, sort = 'new', page
   }
   const orderBy: Prisma.ProductOrderByWithRelationInput[] =
     sort === 'cheap' ? [{ price: 'asc' }] : sort === 'expensive' ? [{ price: 'desc' }] : [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
-  const safePage = Math.max(1, Math.floor(page));
+  // ?page= manzildan keladi: Infinity, NaN yoki juda katta son bazaga yetmasin (skip Int64 dan chiqsa 500 chiqardi)
+  const safePage = Number.isFinite(page) ? Math.min(Math.max(1, Math.floor(page)), MAX_PAGE) : 1;
   const [rows, total] = await Promise.all([
     prisma.product.findMany({ where, orderBy, skip: (safePage - 1) * perPage, take: perPage, include: { categoryRel: true } }),
     prisma.product.count({ where }),

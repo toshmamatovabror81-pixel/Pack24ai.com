@@ -34,6 +34,14 @@ describe('format', () => {
     expect(idFromParam('12')).toBe(12);
     expect(idFromParam('abc')).toBeNull();
     expect(idFromParam('0')).toBeNull();
+    // Bazadagi Int (INT4) chegarasi: kattaroq son so'rovda xato berib 404 o'rniga 500 chiqarardi; bo'sh qiymat ham null
+    expect(idFromParam('2147483647')).toBe(2147483647);
+    expect(idFromParam('2147483648')).toBeNull();
+    expect(idFromParam('2147483648-karton-quti')).toBeNull();
+    expect(idFromParam('99999999999999999999999')).toBeNull();
+    expect(idFromParam('1.5')).toBeNull();
+    expect(idFromParam(undefined)).toBeNull();
+    expect(idFromParam(null)).toBeNull();
   });
 
   it('tarjima tanlash', () => {

@@ -4,9 +4,21 @@ import { headers } from 'next/headers';
 // Server xotirasidagi oddiy cheklov (har bir server nusxasi uchun alohida). Spam va parol tanlashni sekinlashtiradi.
 const buckets = new Map<string, { count: number; reset: number }>();
 
+/**
+ * Mijoz IP manzili. X-Forwarded-For dagi OXIRGI element olinadi: uni oldimizdagi proksi o'zi yozadi (nginx
+ * $proxy_add_x_forwarded_for mijozning manzilini oxiriga qo'shadi, Caddy sarlavhani butunlay almashtiradi). Birinchi elementni
+ * mijoz o'zi yuborishi mumkin — u olinsa, har so'rovda boshqa manzil yozib parol tanlash va spam cheklovlarini chetlab o'tish
+ * mumkin bo'lardi. X-Real-IP faqat zaxira: Caddy mijoz yuborgan X-Real-IP ni o'zgartirmay uzatadi, shuning uchun u birinchi
+ * o'rinda ishlatilmaydi.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  return (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? 'unknown').trim();
+  const xff = h.get('x-forwarded-for');
+  if (xff) {
+    const last = xff.split(',').pop()?.trim();
+    if (last) return last;
+  }
+  return (h.get('x-real-ip') ?? 'unknown').trim();
 }
 
 export async function rateLimit(scope: string, limit: number, windowMs: number): Promise<boolean> {

@@ -65,7 +65,13 @@ export async function saveProduct(fd: FormData) {
   const saved = id ? await prisma.product.update({ where: { id }, data }) : await prisma.product.create({ data });
 
   const stock = num(fd, 'stock');
-  if (stock != null) {
+  // Eskirgan forma: karta ochilgandan beri qoldiq boshqa joydan o'zgargan bo'lishi mumkin (bot orqali "Yetkazildi" qilingan
+  // buyurtma, ombor kirimi, inventarizatsiya). Shuning uchun maydon faqat xodim o'zi o'zgartirgan bo'lsa yoziladi — aks holda
+  // tavsifdagi xatoni tuzatib "Saqlash" bosilganda ham sahifa ochilgandagi eski qoldiq qaytib yozilardi (orders/actions.ts dagi
+  // prev* usuli). prevStock bo'lmasa (boshqa chaqiruvchi) — avvalgidek har doim yoziladi.
+  const prevStock = fd.get('prevStock');
+  const stockTouched = prevStock === null || String(fd.get('stock') ?? '').trim() !== String(prevStock).trim();
+  if (stock != null && stockTouched) {
     // Qoldiq ombor jurnali orqali yoziladi, shunda /admin/inventory/movements da ko'rinadi
     await setStock({ productId: saved.id, quantity: Math.max(0, Math.floor(stock)), reason: 'Mahsulot kartasi', createdBy: user.name });
     revalidatePath('/admin/inventory');

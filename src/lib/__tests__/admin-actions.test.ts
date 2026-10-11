@@ -42,12 +42,13 @@ vi.mock('@/lib/telegram/staffLink', () => ({
 }));
 vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ vatPercent: 12 }) }));
 vi.mock('@/lib/documents', () => ({
+  // Haqiqiysi kabi: mavjud bo'lsa o'shani (created: false), aks holda yangisini (created: true) qaytaradi
   ensureInvoiceForOrder: async (orderId: number) => {
     const existing = [...s.invoices.values()].find((i) => i.orderId === orderId && i.status !== 'cancelled');
-    if (existing) return existing;
+    if (existing) return { invoice: existing, created: false };
     const inv = { id: 500, orderId, invoiceNo: 'INV-2026-0001', totalAmount: 100, dueDate: new Date(), status: 'issued' };
     s.invoices.set(500, inv);
-    return inv;
+    return { invoice: inv, created: true };
   },
 }));
 vi.mock('@/lib/db', () => {
@@ -279,8 +280,18 @@ describe('admin: hisob-faktura amallari', () => {
     expect(await run(invoices.createInvoiceForOrder, { orderId: '7' })).toBe('/admin/invoices/500');
     expect(named('notifyCustomerInvoice')).toHaveLength(1);
     expect(named('notifyCustomerInvoice')[0][1]).toBe(7);
+    expect(named('notifyCustomerInvoice')[0][2]).toMatchObject({ id: 500, invoiceNo: 'INV-2026-0001' });
     await run(invoices.createInvoiceForOrder, { orderId: '7' });
     expect(named('notifyCustomerInvoice')).toHaveLength(1);
+  });
+
+  // Tugma ikki marta bosilganda ikkala so'rov ham "hali yo'q" deb ko'rib, ikkita xabar yuborardi: endi "yangi"ligini
+  // ensureInvoiceForOrder o'z tranzaksiyasida aytadi, amal alohida tekshirmaydi
+  it('createInvoiceForOrder: hujjat allaqachon bor bo\'lsa (created: false) xabar ketmaydi, amal mavjud hujjatga o\'tkazadi', async () => {
+    s.orders.set(7, order());
+    s.invoices.set(3, invoice());
+    expect(await run(invoices.createInvoiceForOrder, { orderId: '7' })).toBe('/admin/invoices/3');
+    expect(named('notifyCustomerInvoice')).toHaveLength(0);
   });
 });
 
@@ -325,6 +336,19 @@ describe('admin: ishlab chiqarish bosqichlari', () => {
     await run(production.finishStage, { stageId: '1' });
     expect(named('notifyCustomerProduction')).toHaveLength(0);
   });
+
+  it('bekor qilingan topshiriqning oxirgi bosqichi yakunlansa ham u "tayyor" bo\'lmaydi va mijozga xabar ketmaydi', async () => {
+    setup({ status: 'cancelled' });
+    for (const stageId of ['1', '2', '3', '4']) await run(production.finishStage, { stageId });
+    expect(s.workOrders.get(WORK_ORDER)).toMatchObject({ status: 'cancelled', progress: 100, currentStage: 'qc' });
+    expect(named('notifyCustomerProduction')).toHaveLength(0);
+    // Boshlash ham holatni o'zgartirmaydi
+    s.stages.clear();
+    setup({ status: 'cancelled' });
+    await run(production.startStage, { stageId: '1' });
+    expect(s.workOrders.get(WORK_ORDER)!.status).toBe('cancelled');
+    expect(named('notifyCustomerProduction')).toHaveLength(0);
+  });
 });
 
 describe('admin: xodimning Telegram amallari', () => {
@@ -340,8 +364,8 @@ describe('admin: xodimning Telegram amallari', () => {
     vi.unstubAllEnvs();
   });
 
-  it('issueTelegramCode: faqat faol xodimga; kod faqat yo\'naltirish manzilida', async () => {
-    expect(await run(staff.issueTelegramCode, { id: '5' })).toBe('/admin/staff?code=042917&for=5');
+  it('issueTelegramCode: faqat faol xodimga; manzilda kod emas, faqat xodim raqami (kod sahifada bazadan ko\'rsatiladi)', async () => {
+    expect(await run(staff.issueTelegramCode, { id: '5' })).toBe('/admin/staff?tg=5');
     expect(named('requireStaff')).toEqual([['requireStaff', 'staff']]);
     expect(named('issueStaffCode')).toEqual([['issueStaffCode', 5]]);
     expect(await run(staff.issueTelegramCode, { id: '9' })).toBe('/admin/staff');
@@ -359,7 +383,7 @@ describe('admin: xodimning Telegram amallari', () => {
     expect(named('issueStaffCode')).toHaveLength(0);
     // Eski nomdagi kalit (SUPERVISOR_BOT_TOKEN) bilan ham bot sozlangan hisoblanadi
     vi.stubEnv('SUPERVISOR_BOT_TOKEN', '222:legacy-token');
-    expect(await run(staff.issueTelegramCode, { id: '5' })).toBe('/admin/staff?code=042917&for=5');
+    expect(await run(staff.issueTelegramCode, { id: '5' })).toBe('/admin/staff?tg=5');
     expect(named('issueStaffCode')).toEqual([['issueStaffCode', 5]]);
   });
 

@@ -7,7 +7,7 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { date, num, optText, text } from '@/lib/formData';
 import { normalizePhone } from '@/lib/format';
-import { nextContractNo } from '@/lib/documents';
+import { isUniqueError, nextContractNo } from '@/lib/documents';
 
 const STATUSES: ContractStatus[] = ['active', 'suspended', 'closed'];
 
@@ -40,9 +40,11 @@ export async function saveContract(fd: FormData) {
     userId: user?.id ?? null,
   };
   const startDate = date(fd, 'startDate');
+  // Bir vaqtda ikki xodim shartnoma yaratsa raqam takrorlanishi mumkin — bir marta qayta urinamiz (ishlab chiqarish topshiriqlari kabi)
+  const create = async () => prisma.contract.create({ data: { ...data, contractNo: await nextContractNo(), startDate: startDate ?? new Date() } });
   const saved = id
     ? await prisma.contract.update({ where: { id }, data: { ...data, ...(startDate ? { startDate } : {}) } })
-    : await prisma.contract.create({ data: { ...data, contractNo: await nextContractNo(), startDate: startDate ?? new Date() } });
+    : await create().catch((e: unknown) => (isUniqueError(e) ? create() : Promise.reject(e)));
   revalidatePath('/admin/contracts');
   revalidatePath(`/admin/contracts/${saved.id}`);
   redirect(`/admin/contracts/${saved.id}?saved=1`);

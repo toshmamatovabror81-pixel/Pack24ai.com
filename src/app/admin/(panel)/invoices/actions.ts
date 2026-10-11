@@ -52,10 +52,10 @@ export async function createInvoiceForOrder(fd: FormData) {
   if (!order) redirect('/admin/orders');
   const raw = num(fd, 'contractId');
   const contract = raw ? await prisma.contract.findUnique({ where: { id: Math.floor(raw) }, select: { id: true } }) : null;
-  const existing = await prisma.corporateInvoice.findFirst({ where: { orderId, status: { not: 'cancelled' } }, select: { id: true } });
-  const inv = await ensureInvoiceForOrder(orderId, await getSettings(), contract?.id ?? null);
-  // Mijozga faqat yangi yaratilgan hisob-faktura haqida xabar (tugma mavjud hujjatga o'tkazgan bo'lsa — jim)
-  if (!existing) await notifyCustomerInvoice(orderId, inv);
+  const { invoice: inv, created } = await ensureInvoiceForOrder(orderId, await getSettings(), contract?.id ?? null);
+  // Mijozga faqat yangi yaratilgan hisob-faktura haqida xabar (tugma mavjud hujjatga o'tkazgan bo'lsa — jim). "Yangi"ligini
+  // ensureInvoiceForOrder o'z tranzaksiyasida aniqlaydi: alohida tekshiruv ikki marta bosilganda ikkita xabar yuborardi
+  if (created) await notifyCustomerInvoice(orderId, inv);
   refresh(inv.id, orderId);
   redirect(`/admin/invoices/${inv.id}`);
 }
