@@ -203,12 +203,12 @@ describe('xabarnoma: xato tashlamaydi', () => {
     expect(errors).not.toHaveBeenCalled();
   });
 
-  it('mavzuli xabar vaqtinchalik xatoda: avval navbatdagi eski holat bekor qilinadi, keyin yangisi yoziladi; baza xatosi faqat logga tushadi', async () => {
+  it('mavzuli xabar vaqtinchalik xatoda: avval yangisi yoziladi, keyin navbatdagi eski holat bekor qilinadi; baza xatosi faqat logga tushadi', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     stubFetch(offline);
     await expect(notifyCustomer('777', 'Yo\'lda', undefined, 'order-status:5')).resolves.toBe(false);
-    // Eskisini bekor qilish o'tmadi — yangi yozuv ham qo'yilmadi: navbatda bitta mavzuda ikki holat yonma-yon qolmaydi
-    expect(h.db).toEqual(['botOutbox.updateMany']);
+    // Yangisini yozish o'tmadi — eskisini bekor qilishga o'tilmaydi: eski holat navbatda qoladi (ilgari teskari tartibda ikkalasi ham yo'qolardi)
+    expect(h.db).toEqual(['botOutbox.create']);
     expect(logged(errors)).toEqual(['[notify:customer] 777 ECONNRESET', '[notify:customer] navbatga yozilmadi baza ulanmadi']);
   });
 });

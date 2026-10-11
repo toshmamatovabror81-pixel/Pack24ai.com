@@ -52,12 +52,14 @@ export async function supersedePrefix(kind: BotKind, prefix: string, now = new D
 
 /** Darhol yuborib bo'lmagan xabarni navbatga qo'yish (birinchi urinish allaqachon bo'lgan) */
 export async function enqueue(kind: BotKind, chatId: number | string, html: string, inline: InlineKeyboard | undefined, error: unknown, now = new Date(), topic?: string): Promise<void> {
-  if (topic) await supersede(kind, chatId, topic, now);
   // Telegram "N soniyadan keyin qayta urining" desa (429), undan oldin urinilmaydi
   const wait = error instanceof TelegramError && error.retryAfter ? Math.max(error.retryAfter * 1000, BACKOFF_MIN[0] * MINUTE) : BACKOFF_MIN[0] * MINUTE;
-  await prisma.botOutbox.create({
+  const row = await prisma.botOutbox.create({
     data: { bot: kind, chatId: String(chatId), topic: topic ?? null, html, inline: (inline ?? undefined) as Prisma.InputJsonValue | undefined, attempts: 1, nextAt: new Date(now.getTime() + wait), lastError: errorText(error) },
   });
+  // Shu mavzudagi eskilari yangisi YOZILGANDAN keyin bekor qilinadi: yozish yiqilsa eski holat navbatda qoladi (mijoz hech bo'lmaganda
+  // uni oladi). Teskari tartibda ikkalasi ham yo'qolardi, "eskirgan" belgisi esa "yetkazilmadi" hisobiga kirmagani uchun bu ko'rinmas edi
+  if (topic) await prisma.botOutbox.updateMany({ where: { bot: kind, chatId: String(chatId), topic, sentAt: null, failedAt: null, id: { not: row.id } }, data: { failedAt: now, lastError: SUPERSEDED } });
 }
 
 /**

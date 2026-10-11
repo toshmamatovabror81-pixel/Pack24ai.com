@@ -246,7 +246,8 @@ baza qayta yaratiladi (ishlab turgan baza ustiga quyish aralash holat qoldiradi)
 
 **Zaxira sinovi.** Har kunlik zaxiradan keyin `deploy/restore-test.sh` yangi nusxani vaqtinchalik bazaga
 (`pack24_restore_test`) tiklab ko'radi va asosiy jadvallar o'qilishini tekshiradi; ishlab turgan bazaga tegmaydi, sinov
-bazasi oxirida o'chiriladi. Sinov o'tmasa administratorlarga Telegram xabari boradi (pastdagi kuzatuv) — ochilmaydigan
+bazasi oxirida o'chiriladi. Diskda joy yetarli bo'lmasa (ochilgan nusxaning 2 baravari + 1 GB) sinov o'tkazilmaydi — ikkala baza
+bitta diskda, joy tugasa ishlab turgan baza ham to'xtab qolardi. Sinov o'tmasa administratorlarga Telegram xabari boradi (pastdagi kuzatuv) — ochilmaydigan
 nusxa zaxira emas. Qo'lda: `/opt/pack24/deploy/restore-test.sh` (natija `/var/log/pack24-backup.log` da ham bor).
 
 **Serverdan tashqaridagi nusxa (ixtiyoriy).** Kunlik nusxalar shu serverning o'zida turadi: server butunlay ishdan chiqsa

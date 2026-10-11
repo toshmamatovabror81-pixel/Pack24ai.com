@@ -917,8 +917,23 @@ describe('enqueue: navbatga qo\'yish', () => {
     expect(row(1)).toMatchObject({ attempts: 3, sentAt: null, failedAt: t, lastError: SUPERSEDED });
     expect(snapshot(2, 3)).toEqual(untouched);
     expect(row(4)).toMatchObject({ bot: 'customer', chatId: '777', topic: STATUS, html: 'Holati: Yetkazildi', inline: KB, attempts: 1, nextAt: at(20 * MIN), sentAt: null, failedAt: null });
-    // Yangi yozuvning o'zi bekor bo'lib qolmagan: avval bekor qilish, keyin yozish
+    // Yangi yozuvning o'zi bekor bo'lib qolmagan: avval yoziladi, keyin undan boshqalari bekor qilinadi
     expect(pending()).toEqual([2, 3, 4]);
+  });
+
+  // Ilgari avval eskisi bekor qilinib, keyin yangisi yozilardi: yozish yiqilsa ikkalasi ham yo'qolardi, "eskirgan" belgisi esa
+  // "yetkazilmadi" hisobiga kirmagani uchun kunlik tekshiruvda ham ko'rinmasdi
+  it('yangisini yozib bo\'lmasa (baza xatosi aynan shu so\'rovda) eski kutayotgan holat xabari bekor qilinmaydi — mijoz hech bo\'lmaganda uni oladi', async () => {
+    seed({ id: 1, chatId: '777', topic: STATUS, attempts: 2, nextAt: at(HOUR) });
+    const before = snapshot(1);
+    db.table.create.mockRejectedValueOnce(new Error('baza ulanmadi'));
+    await expect(enqueue('customer', 777, 'Holati: Yetkazildi', KB, new TypeError('fetch failed'), at(10 * MIN), STATUS)).rejects.toThrow('baza ulanmadi');
+    expect(snapshot(1)).toEqual(before);
+    expect(pending()).toEqual([1]);
+    expect(db.table.updateMany).not.toHaveBeenCalled();
+    // Keyingi tick eski holatni yetkazadi
+    reply = OK;
+    expect(await flushOutbox(at(HOUR))).toEqual({ sent: 1, retry: 0, failed: 0 });
   });
 
   it('baza xatosi chaqiruvchiga qaytadi (uni notify ushlaydi)', async () => {
@@ -1671,6 +1686,30 @@ describe('orderNotify: buyurtma xabarlarining mavzusi', () => {
     hold.open();
     expect(await production).toBe(0);
     expect(queued().filter((r) => r.live)).toEqual([]);
+  });
+
+  // Holat o'qilgandan keyin, notify() yo'ldagi xabar belgisini qo'yguncha (oluvchilar bazadan o'qilayotgan oraliq) bekor qilish tushsa, u na
+  // yo'ldagi, na navbatdagi xabarni topadi. Shuning uchun ishlab chiqarish xabari yuborilgach holat qayta o'qiladi
+  it('buyurtma ishlab chiqarish xabari yuborilayotgan paytda bekor qilingan bo\'lsa (bekor qilish uni ko\'rmagan): navbatga tushgani keyin ketmaydi', async () => {
+    const o = order({ ...base, status: 'processing' });
+    reply = () => {
+      // Telegram javob bermayotgan paytda buyurtma boshqa jarayonda bekor qilindi — uning tozalashi bu xabarni hali topmagan
+      o.status = 'cancelled';
+      return offline();
+    };
+    expect(await notifyCustomerProduction(wo(7))).toBe(0);
+    expect(queued()).toEqual([{ chatId: '777', topic: 'order-production:15:7', live: false }]);
+    expect(row(1)).toMatchObject({ sentAt: null, lastError: SUPERSEDED });
+    reply = OK;
+    sent.length = 0;
+    for (const minute of [5, 20, 80]) expect(await flushOutbox(at(minute * MIN))).toEqual(NONE);
+    expect(sent).toEqual([]);
+    // Bekor qilinmagan buyurtmada qayta o'qish hech narsani o'zgartirmaydi: xabar navbatda qoladi
+    db.state.rows.length = 0;
+    o.status = 'processing';
+    reply = offline;
+    expect(await notifyCustomerProduction(wo(7))).toBe(0);
+    expect(queued()).toEqual([{ chatId: '777', topic: 'order-production:15:7', live: true }]);
   });
 
   it('navbatni tozalab bo\'lmasa ham (baza xatosi) "bekor qilindi" xabari yuboriladi: xato faqat logga tushadi', async () => {

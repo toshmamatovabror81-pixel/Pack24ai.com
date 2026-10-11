@@ -46,6 +46,8 @@ LAST_BACKUP="$(find "$BACKUPS" -maxdepth 1 -type f -name 'db-*.sql.gz' -printf '
 [[ "$LAST_BACKUP" =~ ^[0-9]+$ ]] && BACKUP_AGE_H=$(( (NOW - LAST_BACKUP) / 3600 ))
 # Nusxa vaqti server soatidan oldinda bo'lsa (soat orqaga surilgan) yosh manfiy chiqadi: fayl bor — "nusxa yo'q" (-1) deb o'qilmasin
 [[ "$LAST_BACKUP" =~ ^[0-9]+$ ]] && [ "$BACKUP_AGE_H" -lt 0 ] && BACKUP_AGE_H=0
+# Ilova 100000 soatdan (11 yil) katta sonni rad etadi (400 — butun signal yo'qoladi): bitta g'alati qiymat hammasini yo'qotmasin
+[ "$BACKUP_AGE_H" -gt 100000 ] && BACKUP_AGE_H=100000
 
 # 5) Zaxirani tiklash sinovi (deploy/restore-test.sh har kunlik zaxiradan keyin yozadi): 1 = o'tgan, 0 = o'tmagan, -1 = hali o'tkazilmagan
 RESTORE_OK=-1
@@ -69,6 +71,9 @@ else
     CERT_DAYS=$(( (CERT_END_S - NOW) / 86400 ))
     # Muddati o'tgan sertifikat 0 deb yuboriladi: -1 faqat "aniqlab bo'lmadi" degani, undan kichik sonni ilova rad etadi
     [ "$CERT_DAYS" -lt 0 ] && CERT_DAYS=0
+    # Ilova 10000 kundan (27 yil) uzoq muddatni rad etadi (400 — butun signal yo'qoladi, xabar oladiganlar ro'yxati yangilanmay qoladi):
+    # qo'lda o'rnatilgan uzoq muddatli (masalan 100 yillik o'z-o'zidan imzolangan) sertifikat ham shunday — chegaraga tenglanadi
+    [ "$CERT_DAYS" -gt 10000 ] && CERT_DAYS=10000
     echo "$CERT_DAYS" > "$STATE/cert-days"
   fi
 fi

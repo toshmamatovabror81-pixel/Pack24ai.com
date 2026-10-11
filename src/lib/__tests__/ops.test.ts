@@ -297,11 +297,20 @@ describe('server kuzatuvi: muddati o\'tgan sertifikat (watchdog.sh -> signal -> 
   it('skript: kunlar hisoblangach manfiy son 0 ga tenglanadi, keyin keshga yoziladi; keshdagi yaroqsiz qiymat -1 (aniqlanmadi) bo\'ladi', () => {
     const compute = script.indexOf('CERT_DAYS=$(( (CERT_END_S - NOW) / 86400 ))');
     const clamp = script.indexOf('[ "$CERT_DAYS" -lt 0 ] && CERT_DAYS=0');
+    const upper = script.indexOf('[ "$CERT_DAYS" -gt 10000 ] && CERT_DAYS=10000');
     const cache = script.indexOf('echo "$CERT_DAYS" > "$STATE/cert-days"');
     expect(compute).toBeGreaterThan(-1);
     // Tartib muhim: avval 0 ga tenglash, keyin keshga yozish — aks holda manfiy son 6 soat keshda turib, har 5 daqiqada yuborilardi
     expect(clamp).toBeGreaterThan(compute);
-    expect(cache).toBeGreaterThan(clamp);
+    // Yuqori chegara ham keshdan oldin: ilova 10000 kundan katta sonni rad etadi (qo'lda o'rnatilgan 100 yillik sertifikat butun signalni yo'qotardi)
+    expect(upper).toBeGreaterThan(clamp);
+    expect(cache).toBeGreaterThan(upper);
+    expect(OPS_FACTS.safeParse({ ...HEALTHY, certDays: 10000 }).success).toBe(true);
+    expect(OPS_FACTS.safeParse({ ...HEALTHY, certDays: 36499 }).success).toBe(false);
+    // Zaxira yoshi uchun ham: 100000 soatdan katta son chegaraga tenglanadi, undan katta sonni ilova rad etadi
+    expect(script).toContain('[ "$BACKUP_AGE_H" -gt 100000 ] && BACKUP_AGE_H=100000');
+    expect(OPS_FACTS.safeParse({ ...HEALTHY, backupAgeH: 100000 }).success).toBe(true);
+    expect(OPS_FACTS.safeParse({ ...HEALTHY, backupAgeH: 100001 }).success).toBe(false);
     // Oxirgi so'z — tekshiruvda: undan keyin o'zgaruvchiga boshqa qiymat yozilmaydi
     const check = guard();
     expect(check.index).toBeGreaterThan(cache);
@@ -1102,18 +1111,20 @@ const RESTORE_STUBS = [
   '}',
   'flock() { :; }',
   'rm() { case "${P24_MODE:-}:$*" in rmfail:*restore-test.err) return 1 ;; esac; command rm "$@"; }',
+  // Diskdagi bo'sh joy (skript df dan oxirgi satrni oladi): P24_AVAIL bayt, standart — yetarli
+  'df() { printf \'Avail\\n%s\\n\' "${P24_AVAIL:-999999999999}"; }',
 ].join('\n');
 
 type RestoreRun = Run & { ok: string | null; fail: string | null; calls: string[]; restored: string | null };
 /** restore-test.sh ni vaqtinchalik papkada bajaradi. `marker` — skriptgacha turgan belgi (oldingi sinov natijasi); `file: null` — nom berilmagan */
-function restoreTest(opts: { mode?: string; tables?: number; marker?: 'ok' | 'fail'; file?: string | null; dump?: Buffer } = {}): RestoreRun {
+function restoreTest(opts: { mode?: string; tables?: number; marker?: 'ok' | 'fail'; file?: string | null; dump?: Buffer; avail?: number } = {}): RestoreRun {
   return sandbox((dir) => {
     for (const sub of ['deploy', 'backups', 'state']) mkdirSync(join(dir, sub));
     writeFileSync(join(dir, 'deploy', 'restore-test.sh'), withStubs(restoreScript, RESTORE_STUBS));
     writeFileSync(join(dir, 'backups', DUMP_NAME), opts.dump ?? DUMP_GZ);
     if (opts.marker) writeFileSync(join(dir, 'state', `restore-test.${opts.marker}`), 'avvalgi\n');
     const args = opts.file === null ? [] : [opts.file ?? `backups/${DUMP_NAME}`];
-    const run = bash(dir, ['deploy/restore-test.sh', ...args], { WATCHDOG_STATE: 'state', BACKUP_DIR: 'backups', RESTORE_TEST_LOCK: 'restore.lock', P24_MODE: opts.mode ?? '', P24_TABLES: String(opts.tables ?? 25) });
+    const run = bash(dir, ['deploy/restore-test.sh', ...args], { WATCHDOG_STATE: 'state', BACKUP_DIR: 'backups', RESTORE_TEST_LOCK: 'restore.lock', P24_MODE: opts.mode ?? '', P24_TABLES: String(opts.tables ?? 25), ...(opts.avail === undefined ? {} : { P24_AVAIL: String(opts.avail) }) });
     return { ...run, ok: fileText(dir, 'state', 'restore-test.ok'), fail: fileText(dir, 'state', 'restore-test.fail'), calls: (fileText(dir, 'calls.log') ?? '').split('\n').filter(Boolean), restored: fileText(dir, 'restored.sql') };
   });
 }
@@ -1166,6 +1177,24 @@ describe.skipIf(NO_GNU)('zaxirani tiklash sinovi: natija belgisi (restore-test.s
       // Sinov bazasi qolib ketmaydi (yaratishgacha yetib borgan bo'lsa)
       if (run.calls.length) expect(run.calls.at(-1), name).toContain(` dropdb -U pack24 --if-exists --force ${TESTDB}`);
     }
+  });
+
+  // Sinov bazasi ishlab turgan baza bilan bitta diskda (WAL ham umumiy): joy yetmasa Postgres butunlay to'xtab, sayt ham ishlamay qolardi —
+  // va buni tuzoqdagi dropdb ham tuzata olmasdi. Shuning uchun nusxa ochilmasidan OLDIN joy tekshiriladi
+  it('diskda joy yetarli bo\'lmasa (ochilgan nusxaning 2 baravari + 1 GB): sinov o\'tkazilmaydi, "o\'tmadi" belgisi yoziladi, bazaga tegilmaydi', () => {
+    const run = restoreTest({ avail: 500 * 1024 * 1024, marker: 'ok' });
+    expect(run.code, run.out).toBe(1);
+    expect(run.fail).toMatch(STAMP);
+    expect(run.ok).toBeNull();
+    expect(failures(run, 'O\'TMADI')).toEqual([expect.stringMatching(/^tiklash sinovi O'TMADI: diskda joy kam \(bo'sh: 500 MB, sinov uchun kerak: 1024 MB\) — sinov o'tkazilmadi/)]);
+    // Sinov bazasi yaratilmagan, nusxa ochilmagan: bazaga faqat tuzoqdagi tozalash (dropdb) tegadi
+    expect(run.calls).toEqual([`compose exec -T db dropdb -U pack24 --if-exists --force ${TESTDB}`]);
+    expect(run.restored).toBeNull();
+    // Joy yetarli bo'lsa (aynan chegarada emas) sinov odatdagidek o'tadi; df ni o'qib bo'lmasa — sinov o'tkazilmaydi
+    expect(restoreTest({ avail: 1025 * 1024 * 1024 }).code).toBe(0);
+    const unreadable = restoreTest({ avail: Number.NaN });
+    expect(unreadable.code).toBe(1);
+    expect(failures(unreadable, 'O\'TMADI')).toEqual([expect.stringMatching(/^tiklash sinovi O'TMADI: diskdagi bo'sh joyni aniqlab bo'lmadi/)]);
   });
 
   // Tuzoq ilgari chiqish kodiga qarardi: signal bilan to'xtatilgan skriptda u 0 bo'lib ko'rinadi — "o'tmadi" yozilmas, kechagi "o'tdi"

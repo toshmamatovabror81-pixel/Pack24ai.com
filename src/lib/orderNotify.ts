@@ -178,7 +178,7 @@ export async function notifyCustomerProduction(wo: { id: number; orderId: number
   if (!wo.orderId) return 0;
   const order = await prisma.order.findUnique({ where: { id: wo.orderId } }).catch(() => null);
   if (!order || order.deletedAt || order.status === 'cancelled') return 0;
-  return toCustomers(order, (lang) => {
+  const n = await toCustomers(order, (lang) => {
     const t = T[lang];
     const line = wo.status === 'completed'
       ? t.productionDone(esc(wo.productName))
@@ -186,6 +186,12 @@ export async function notifyCustomerProduction(wo: { id: number; orderId: number
     return { html: `🏭 <b>${t.order(order.id)}</b>\n${line}`, inline: customerKeyboard(lang, order) };
     // Ish topshirig'i bo'yicha alohida: bitta buyurtmaning ikki topshirig'i (nomi bir xil bo'lsa ham) bir-birining xabarini bekor qilmaydi
   }, `order-production:${order.id}:${wo.id}`);
+  // Holat yuqorida o'qilgandan keyin, notify() yo'ldagi xabar belgisini qo'yguncha (oluvchilar bazadan o'qilayotgan oraliq) buyurtma bekor
+  // qilingan bo'lsa, bekor qilish na yo'ldagi (staleInFlight), na navbatdagi (supersedePrefix) xabarni topmaydi — navbatga tushgani keyin
+  // ketib qolardi. Shuning uchun holat qayta o'qiladi: bekor qilingan bo'lsa shu buyurtmaning navbatdagi ishlab chiqarish xabarlari bekor bo'ladi
+  const fresh = await prisma.order.findUnique({ where: { id: order.id }, select: { status: true } }).catch(() => null);
+  if (fresh?.status === 'cancelled') await supersedePrefix('customer', `order-production:${order.id}:`).catch((e) => console.error('[orderNotify] navbat', order.id, e));
+  return n;
 }
 
 async function toStaff(section: 'orders' | 'leads' | 'finance', html: string, inline?: (canEdit: boolean) => InlineKeyboard): Promise<number> {

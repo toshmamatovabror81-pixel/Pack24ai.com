@@ -57,6 +57,19 @@ on_exit() {
 trap on_exit EXIT
 
 gzip -t "$FILE" 2>/dev/null || fail "fayl buzilgan (gzip): $(basename "$FILE")"
+
+# Sinov bazasi ishlab turgan baza bilan BITTA diskda (Docker hajmi; WAL ham umumiy): joy yetmasa Postgres butunlay to'xtab qoladi (PANIC)
+# va ishlab turgan sayt ham ishlamay qoladi. Shuning uchun avval joy tekshiriladi: ochilgan nusxaning 2 baravari (jadvallar + indekslar)
+# va WAL uchun 1 GB. Yetmasa sinov o'tkazilmaydi — "o'tmadi" belgisi qoladi va administratorlar xabar oladi
+UNPACKED="$(gzip -dc "$FILE" 2>/dev/null | wc -c | tr -d '[:space:]' || true)"
+[[ "$UNPACKED" =~ ^[0-9]+$ ]] || fail "nusxa hajmini aniqlab bo'lmadi: $(basename "$FILE")"
+NEED=$(( UNPACKED * 2 + 1024 * 1024 * 1024 ))
+DOCKER_ROOT="${DOCKER_ROOT:-/var/lib/docker}"
+[ -d "$DOCKER_ROOT" ] || DOCKER_ROOT=/
+AVAIL="$(df -B1 --output=avail "$DOCKER_ROOT" 2>/dev/null | tail -1 | tr -d '[:space:]' || true)"
+[[ "$AVAIL" =~ ^[0-9]+$ ]] || fail "diskdagi bo'sh joyni aniqlab bo'lmadi ($DOCKER_ROOT)"
+[ "$AVAIL" -gt "$NEED" ] || fail "diskda joy kam (bo'sh: $((AVAIL / 1024 / 1024)) MB, sinov uchun kerak: $((NEED / 1024 / 1024)) MB) — sinov o'tkazilmadi, avval diskni bo'shating"
+
 drop_test
 docker compose exec -T db createdb -U pack24 "$TESTDB" >/dev/null 2>&1 || fail "sinov bazasini yaratib bo'lmadi"
 gunzip -c "$FILE" | psql_db -d "$TESTDB" >/dev/null 2>"$STATE/restore-test.err" || fail "nusxa tiklanmadi: $(tail -n 2 "$STATE/restore-test.err" | tr '\n' ' ')"
