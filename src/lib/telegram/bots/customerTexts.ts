@@ -133,7 +133,7 @@ const uz = {
     done: 'Botdan chiqdingiz.',
     bye: "Botdagi ma'lumotlaringiz uzildi: telefon raqamingiz va buyurtmalaringiz endi bu chatga bog'lanmagan.\nQayta ulanish uchun /start bosing. Salomat bo'ling!",
   },
-  help: (phone: string) => [
+  help: (phone: string, ai = false) => [
     'ℹ️ <b>Yordam</b>',
     '',
     '📦 /orders — buyurtmalarim va ularning holati',
@@ -142,9 +142,16 @@ const uz = {
     '🚪 /stop — botdan chiqish',
     '',
     "Buyurtma holati o'zgarsa, o'zimiz xabar yuboramiz.",
+    ai ? "✍️ Savolingizni oddiy matn bilan yozsangiz, sun'iy intellekt yordamchisi javob beradi (buyurtma, to'lov, mahsulot va yetkazib berish haqida)." : null,
     phone ? `Savollar bo'lsa: ${phone}` : null,
   ].filter((l) => l !== null).join('\n'),
   fallback: "Hozircha faqat menyudagi bo'limlar bo'yicha yordam bera olaman. Pastdagi tugmalardan birini tanlang yoki /help bosing.",
+  ai: {
+    hint: 'Savolingizni matn bilan yozing yoki pastdagi tugmalardan birini tanlang.',
+    busy: 'Oldingi savolingizga javob tayyorlanmoqda, biroz kuting.',
+    limit: "Bugungi savollar soni chegarasiga yetdi. Ertaga yana yozishingiz mumkin; hozircha pastdagi menyudan foydalaning yoki «Aloqa» bo'limidagi raqamga qo'ng'iroq qiling.",
+    unavailable: "Kechirasiz, bu savolga hozir javob bera olmadim. Pastdagi menyudan foydalaning yoki «Aloqa» bo'limidagi raqam orqali menejer bilan bog'laning.",
+  },
   error: "Kechirasiz, xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.",
 };
 
@@ -277,7 +284,7 @@ const ru: CustomerTexts = {
     done: 'Вы вышли из бота.',
     bye: 'Ваши данные в боте отвязаны: номер телефона и заказы больше не связаны с этим чатом.\nЧтобы подключиться снова, нажмите /start. Всего доброго!',
   },
-  help: (phone) => [
+  help: (phone, ai = false) => [
     'ℹ️ <b>Помощь</b>',
     '',
     '📦 /orders — мои заказы и их статус',
@@ -286,9 +293,16 @@ const ru: CustomerTexts = {
     '🚪 /stop — выйти из бота',
     '',
     'Когда статус заказа изменится, мы сами пришлём сообщение.',
+    ai ? '✍️ Напишите вопрос обычным текстом — ответит помощник на основе искусственного интеллекта (заказы, оплата, товары, доставка).' : null,
     phone ? `Если есть вопросы: ${phone}` : null,
   ].filter((l) => l !== null).join('\n'),
   fallback: 'Пока я могу помочь только по разделам меню. Выберите кнопку ниже или нажмите /help.',
+  ai: {
+    hint: 'Напишите вопрос текстом или выберите кнопку ниже.',
+    busy: 'Готовлю ответ на предыдущий вопрос, подождите немного.',
+    limit: 'На сегодня лимит вопросов исчерпан. Завтра можно написать снова; пока воспользуйтесь меню ниже или позвоните по номеру из раздела «Контакты».',
+    unavailable: 'Извините, сейчас не получилось ответить на этот вопрос. Воспользуйтесь меню ниже или свяжитесь с менеджером по номеру из раздела «Контакты».',
+  },
   error: 'Извините, произошла ошибка. Попробуйте ещё раз чуть позже.',
 };
 

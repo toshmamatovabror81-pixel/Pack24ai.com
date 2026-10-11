@@ -127,8 +127,12 @@ uni avtomatik yangilanish cron'i (`deploy/auto-update.sh`, har 5 daqiqada) ishga
 cd /opt/pack24 && docker compose exec -T web node -e "fetch('http://127.0.0.1:3000/api/cron/tick',{method:'POST',headers:{authorization:'Bearer '+process.env.TELEGRAM_OPS_SECRET}}).then(async r=>console.log(r.status,await r.text()))"
 ```
 
-Javob `200 {"ok":true,"digest":null}` bo'lsa hammasi joyida (bugungi eslatma allaqachon yuborilgan yoki hali 09:00
-bo'lmagan); `"digest":{...}` — eslatma shu so'rov bilan yuborildi (nechta xodimga yetgani ko'rsatiladi).
+Javob `200 {"ok":true,"digest":null,"audit":null}` bo'lsa hammasi joyida (bugungi eslatma va tekshiruv allaqachon bajarilgan
+yoki vaqti hali kelmagan: tekshiruv 08:00 dan, eslatma 09:00 dan keyin); `"digest":{...}` — eslatma shu so'rov bilan yuborildi
+(nechta xodimga yetgani ko'rsatiladi); `"audit":{"findings":..,"sent":..,"ai":..}` — kunlik tekshiruv shu so'rov bilan bajarildi,
+`"audit":"running"` — u fonda davom etyapti, `"audit":"failed"` — xato bilan tugadi (`docker compose logs web`; bugun takrorlanmaydi,
+kerak bo'lsa Admin > AI tekshiruv > «Hozir tekshirish»). Diqqat: bu buyruq vaqti kelgan
+tekshiruv va eslatmani haqiqatan ishga tushiradi — xodimlarga xabar ketadi.
 
 Cron signali o'tmasa (web konteyneri ishlamayapti, `.env` da `TELEGRAM_OPS_SECRET` yo'q yoki ilova xato qaytardi),
 `/var/log/pack24-update.log` ga sababi bilan bitta `cron tick o'tmadi: ...` satri yoziladi. Nosozlik davom etsa satr
@@ -176,6 +180,40 @@ yangilanish muvaffaqiyatli o'tgach bir marta o'chiring:
 cd /opt/pack24 && docker compose exec -T web rm -rf /data/uploads/recycling
 ```
 
+### Sun'iy intellekt (Claude)
+
+Ixtiyoriy. Anthropic API kaliti kiritilsa ikki narsa yoqiladi:
+
+- **Mijoz botidagi yordamchi.** Mijoz menyudan tashqari savolini oddiy matn bilan yozsa («buyurtmam qayerda?», «qancha
+  qarzim bor?», «karton quti narxi qancha?»), Claude o'zbek yoki rus tilida javob beradi. Yordamchi ma'lumotni faqat
+  shu mijozning o'z buyurtmalari, balansi, katalog, savol-javob va kompaniya ma'lumotlaridan oladi — boshqa mijozning
+  ma'lumotini so'rab ololmaydi (so'rovlarda «kimniki» degan parametr yo'q, hammasi shu chat egasiga bog'langan). U hech
+  narsani o'zgartirmaydi: buyurtma bermaydi, bekor qilmaydi, to'lov qabul qilmaydi.
+- **Kunlik tekshiruv xulosasi.** Har kuni 08:00 dan keyin tizim e'tibor talab qiladigan narsalarni bazadan aniq qoidalar
+  bo'yicha yig'adi (javobsiz yoki to'langan-u qabul qilinmagan buyurtmalar, muddati o'tgan hisob-fakturalar, kechikkan
+  ishlab chiqarish, kam qoldiq va h.k.) — bu qism AI'siz ham ishlaydi. Kalit bo'lsa Claude ularni muhimligi bo'yicha
+  tartiblab, bugun nima qilish kerakligini yozadi. Natija: Admin > **AI tekshiruv** sahifasi va boshqaruv boti
+  («Hisobotlar» ruxsati bor xodimlarga). Sahifadagi «Hozir tekshirish» tugmasi tekshiruvni istalgan payt bajaradi.
+
+Anthropic'ga nima yuboriladi: mijoz botida — mijozning savoli va unga javob berish uchun kerak bo'lgan o'z ma'lumotlari;
+kunlik tekshiruvda — faqat sonlar hamda buyurtma va hisob-faktura raqamlari (mijoz ismi, telefoni, manzili yuborilmaydi).
+
+Ulash (kalit ekranda ko'rinmaydi, faqat serverdagi `.env` ga yoziladi; skript modelni va kunlik chegarani ham so'raydi,
+saytni qayta ishga tushiradi va kalitni haqiqiy so'rov bilan sinaydi):
+
+```bash
+ssh -t -i ~/.ssh/KALIT root@<server IP> /opt/pack24/deploy/ai-setup.sh
+```
+
+Kalit: console.anthropic.com > API Keys > Create Key; hisobda mablag' bo'lishi kerak (Billing). Xarajat modelga bog'liq:
+bitta mijoz savoli taxminan 3–5 sent (`claude-opus-5-5`, standart), 2 sent atrofida (`claude-sonnet-5-5`) yoki 1 sentdan
+ancha kam (`claude-haiku-5-5`). Xarajat chegaralanadi: kuniga jami `AI_DAILY_LIMIT` (standart 300) va bitta mijozga
+`AI_CUSTOMER_DAILY_LIMIT` (standart 20; telefonini ulamagan chatga — 3) so'rov; chegaradan keyin bot odatdagi menyu bilan
+javob beradi. Kunlik avtomatik xulosa (kuniga bitta so'rov) umumiy chegaraga qaramay bajariladi. Sarf Admin >
+AI tekshiruv sahifasida (so'rov va tokenlar) va console.anthropic.com > Usage da (pulda) ko'rinadi.
+
+O'chirish: skriptni qayta ishga tushirib, kalit so'ralganda bitta chiziqcha (`-`) yozing.
+
 ## 5. Yangilash
 
 Avtomatik: server har 5 daqiqada GitHub'dagi o'z branch'ini tekshiradi; yangi commit bo'lsa `deploy/deploy.sh` ni
@@ -183,7 +221,7 @@ ishga tushiradi (log: `/var/log/pack24-update.log`). Branch GitHub'da o'chirilsa
 o'zi `main` ga o'tadi. Hech qanday kalit kerak emas.
 
 Shu cron satri ilovaning davriy ishlarini ham ishga tushiradi: har 5 daqiqada `/api/cron/tick` ga signal yuboradi
-(Telegram'dagi kunlik eslatma, 4-bo'lim). Avtomatik yangilanish cron'dan olib tashlansa, eslatmalar ham to'xtaydi.
+(Telegram'dagi kunlik eslatma va kunlik tekshiruv, 4-bo'lim). Avtomatik yangilanish cron'dan olib tashlansa, ular ham to'xtaydi.
 
 Yangi commit baza migratsiyasi (`prisma/migrations`) olib kelsa, `deploy.sh` kodni almashtirishdan **oldin**
 `deploy/backup.sh` ni ishga tushiradi. Zaxira o'tmasa yangilanish to'xtaydi (eski versiya ishlayveradi) va 5 daqiqadan

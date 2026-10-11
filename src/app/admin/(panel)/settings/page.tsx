@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
+import { aiConfigured } from '@/lib/ai/client';
 import { getSettings } from '@/lib/settings';
 import { DEFAULT_CONTRACT_TEXT } from '@/lib/documents';
 import { displayPhone } from '@/lib/format';
@@ -51,6 +52,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     { name: 'Click', ok: clickConfigured(), env: 'CLICK_SERVICE_ID, CLICK_MERCHANT_ID, CLICK_SECRET_KEY' },
     { name: 'Telegram xabarlar', ok: !!process.env.TELEGRAM_BOT_TOKEN && !!process.env.TELEGRAM_ADMIN_CHAT_ID, env: 'TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID' },
     ...BOT_KINDS.map((k) => ({ name: botMeta[k].title, ok: configured[k], env: botMeta[k].envKey })),
+    { name: "Sun'iy intellekt (Claude): mijoz botidagi yordamchi va kunlik AI tekshiruv", ok: aiConfigured(), env: 'ANTHROPIC_API_KEY (deploy/ai-setup.sh yozadi)' },
   ];
   // Botlar holati: faqat kamida bitta token sozlangan bo'lsa Telegram'ga so'rov yuboriladi (keshli, vaqt chegarasi bilan); xato sahifani yiqitmaydi
   const tg = sp.tg;

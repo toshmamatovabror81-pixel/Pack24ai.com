@@ -95,7 +95,7 @@ export const stopConfirmKeyboard = (lang: BotLang): InlineKeyboard => [[
 
 export const helloHtml = (lang: BotLang, name: string, company: string) => customerTexts[lang].start.hello(esc(cut(name, 40)), esc(company));
 
-export const helpHtml = (lang: BotLang, companyPhone: string) => customerTexts[lang].help(companyPhone ? esc(displayPhone(companyPhone)) : '');
+export const helpHtml = (lang: BotLang, companyPhone: string, ai = false) => customerTexts[lang].help(companyPhone ? esc(displayPhone(companyPhone)) : '', ai);
 
 export const phoneLinkedHtml = (lang: BotLang, phone: string, orders: number) => customerTexts[lang].phone.linked(esc(displayPhone(phone)), orders);
 

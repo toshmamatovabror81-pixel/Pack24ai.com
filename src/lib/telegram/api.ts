@@ -90,6 +90,11 @@ export function answerCallbackQuery(token: string, id: string, text?: string, al
   return call<true>(token, 'answerCallbackQuery', { callback_query_id: id, text: text === undefined ? undefined : clip(text, 200), show_alert: alert });
 }
 
+/** "yozmoqda…" belgisi (5 soniyada o'zi o'chadi) */
+export function sendChatAction(token: string, chatId: number | string, action: 'typing' = 'typing') {
+  return call(token, 'sendChatAction', { chat_id: chatId, action });
+}
+
 export function sendLocation(token: string, chatId: number | string, lat: number, lng: number) {
   return call<TgMessage>(token, 'sendLocation', { chat_id: chatId, latitude: lat, longitude: lng });
 }

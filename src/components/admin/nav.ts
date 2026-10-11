@@ -17,6 +17,7 @@ export const adminNav: { href: string; label: string; section: Section; icon: st
   { href: '/admin/posts', label: 'Blog', section: 'content', icon: 'Newspaper' },
   { href: '/admin/faq', label: 'Savol-javob', section: 'content', icon: 'HelpCircle' },
   { href: '/admin/reports', label: 'Hisobotlar', section: 'reports', icon: 'BarChart3' },
+  { href: '/admin/audit', label: 'AI tekshiruv', section: 'reports', icon: 'Sparkles' },
   { href: '/admin/staff', label: 'Xodimlar', section: 'staff', icon: 'UserCog' },
   { href: '/admin/settings', label: 'Sozlamalar', section: 'settings', icon: 'Settings' },
 ];

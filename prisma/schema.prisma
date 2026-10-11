@@ -1016,3 +1016,26 @@ model SiteSetting {
   value     Json
   updatedAt DateTime @updatedAt
 }
+
+// ─── Sun'iy intellekt (Anthropic Claude) ─────────────────────────────────────
+
+// Kunlik tekshiruv hisoboti: aniq qoidalar bo'yicha topilgan muammolar (checks) va ularning AI yozgan xulosasi (summary)
+model AuditReport {
+  id        Int      @id @default(autoincrement())
+  trigger   String // cron | manual
+  checks    Json // [{ key, severity, title, count, items, link }]
+  summary   Json? // { headline, priorities: [{ title, why, action }], note } — AI kaliti bo'lmasa null
+  model     String? // xulosani yozgan model
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// AI so'rovlari hisobi kunlar bo'yicha (Toshkent sanasi): kunlik chegara va xarajatni kuzatish uchun
+model AiUsage {
+  day          String   @id // YYYY-MM-DD
+  requests     Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}

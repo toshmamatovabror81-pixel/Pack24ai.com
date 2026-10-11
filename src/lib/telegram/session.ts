@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import type { BotKind } from './bots';
 
 /** Sessiya kaliti: bot turi yoki shu botning suhbat sessiyasidan alohida turadigan hisoblagichi (clearSession(bot) uni o'chirmaydi) */
-export type SessionScope = BotKind | 'staff_code';
+export type SessionScope = BotKind | 'staff_code' | 'customer_ai';
 
 /**
  * Bot suhbat holati bazada (BotSession). Har bir webhook alohida so'rov bo'lgani uchun

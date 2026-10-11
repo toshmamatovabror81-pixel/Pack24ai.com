@@ -1,9 +1,11 @@
 import 'server-only';
 import type { TelegramCustomer } from '@prisma/client';
+import { askAssistant, clearAssistantHistory } from '@/lib/ai/assistant';
+import { aiConfigured } from '@/lib/ai/client';
 import { customerDebt, getOrder, listOrders } from '@/lib/customerAccount';
 import { paymentUrl } from '@/lib/orders';
 import { getSettings } from '@/lib/settings';
-import { inline, removeKeyboard, type InlineKeyboard } from '../api';
+import { clip, esc, inline, removeKeyboard, sendChatAction, type InlineKeyboard } from '../api';
 import {
   bindOrderByToken, botCustomer, customerScope, ensureBotCustomer, isBotLang, langOf, linkCustomerPhone,
   setCustomerLang, setCustomerNotify, unlinkCustomer, type BotLang,
@@ -185,11 +187,63 @@ async function showMenu(ctx: Ctx, customer: TelegramCustomer, html: string): Pro
 }
 
 /**
- * Menyudan tashqari har qanday matn shu yerga keladi. Keyingi bosqichda AI yordamchi aynan shu funksiyaga ulanadi
- * (mijoz yozuvi va tili tayyor keladi); hozircha qisqa yo'riqnoma va menyu qaytariladi.
+ * Menyudan tashqari har qanday matn shu yerga keladi. AI ulangan bo'lsa (ANTHROPIC_API_KEY) savolga Claude javob beradi;
+ * ulanmagan bo'lsa qisqa yo'riqnoma va menyu qaytariladi. Javob bir necha soniya olishi mumkin, Telegram esa webhook
+ * javobini kutib turadi — shuning uchun javob fonda yuboriladi va webhook darhol 200 qaytaradi.
  */
 async function fallback(ctx: Ctx, customer: TelegramCustomer): Promise<void> {
-  await showMenu(ctx, customer, customerTexts[langOf(customer)].fallback);
+  const lang = langOf(customer);
+  if (!aiConfigured()) return showMenu(ctx, customer, customerTexts[lang].fallback);
+  // Stiker, ovozli xabar va shu kabilar: savol matni yo'q
+  if (ctx.text.length < 2) return showMenu(ctx, customer, customerTexts[lang].ai.hint);
+  void answerWithAi(ctx, customer).catch(async (e) => {
+    // Webhook allaqachon javob bergan, bot.onError bu yerga yetmaydi: mijoz javobsiz qolmasin
+    console.error('[bot:customer] ai', e);
+    // Shu orada mijoz botdan chiqqan bo'lsa hech narsa yuborilmaydi; tilni almashtirgan bo'lsa — yangi tilda.
+    // Yozuvni o'qib bo'lmasa (xato aynan bazada bo'lishi mumkin) boshidagi yozuv bilan javob beriladi
+    const current = await botCustomer(ctx.from.id).catch(() => customer);
+    if (!current || current.id !== customer.id) return;
+    await showMenu(ctx, current, customerTexts[langOf(current)].ai.unavailable).catch(() => undefined);
+  });
+}
+
+/** Javobni qochirilgan holda Telegram chegarasiga sig'dirish: avval qisqartiriladi, keyin esc() — belgi kodi (&amp;) o'rtasidan kesilmaydi */
+function answerHtml(text: string): string {
+  let raw = clip(text, 3500);
+  let html = esc(raw);
+  while (html.length > 4000) {
+    // Bitta belgi qochirilganda ko'pi bilan 5 belgiga aylanadi (&amp;): ortiqchaning beshdan biricha qisqartiriladi — har aylanishda
+    // kamida 1 belgi ketadi, lekin keragidan ortiq emas (ortiqchaning o'zicha qisqartirilsa "&" ko'p matn butunlay bo'shab qolardi)
+    raw = clip(raw, raw.length - Math.max(1, Math.ceil((html.length - 4000) / 5)));
+    html = esc(raw);
+  }
+  return html;
+}
+
+async function answerWithAi(ctx: Ctx, customer: TelegramCustomer): Promise<void> {
+  const lang = langOf(customer);
+  const typing = () => { void sendChatAction(ctx.token, ctx.chatId).catch(() => undefined); };
+  typing();
+  const timer = setInterval(typing, 4500);
+  let reply: Awaited<ReturnType<typeof askAssistant>>;
+  try {
+    reply = await askAssistant({ scope: await customerScope(customer), lang, question: ctx.text });
+  } finally {
+    clearInterval(timer);
+  }
+  // Javob kelguncha mijoz botdan chiqqan (qayta kirgan bo'lsa ham — yozuv id si boshqa) yoki raqamini almashtirgan bo'lsa, eski
+  // ma'lumotli javob yuborilmaydi va tarixda qolmaydi (askAssistant yozib qo'ygan tarix ham shu yerda o'chadi)
+  const current = await botCustomer(ctx.from.id);
+  if (!current || current.id !== customer.id || current.phone !== customer.phone) {
+    await clearAssistantHistory(ctx.from.id).catch((e) => console.error('[bot:customer] ai tarixi', e));
+    return;
+  }
+  // Til javob tayyorlanayotganda almashgan bo'lishi mumkin: klaviatura va matnlar yangi o'qilgan yozuvdan
+  // Javob oddiy matn: HTML sifatida talqin qilinmasligi uchun qochiriladi
+  if (reply.ok) return showMenu(ctx, current, answerHtml(reply.text));
+  const t = customerTexts[langOf(current)].ai;
+  if (reply.reason === 'busy') { await ctx.reply(t.busy); return; }
+  await showMenu(ctx, current, reply.reason === 'limit' ? t.limit : t.unavailable);
 }
 
 // ─── Buyruqlar va menyu ──────────────────────────────────────────────────────
@@ -208,7 +262,7 @@ bot.command('balance', entered(showBalance));
 bot.command('lang', entered(async (ctx, customer) => {
   await ctx.reply(`${uz.lang.choose}\n${ru.lang.choose}`, { reply_markup: inline(langKeyboard(langOf(customer))) });
 }));
-bot.command('help', entered(async (ctx, customer) => showMenu(ctx, customer, helpHtml(langOf(customer), (await getSettings()).phone))));
+bot.command('help', entered(async (ctx, customer) => showMenu(ctx, customer, helpHtml(langOf(customer), (await getSettings()).phone, aiConfigured()))));
 bot.command('stop', loaded(async (ctx, customer) => {
   const lang = langOf(customer);
   await ctx.reply(customerTexts[lang].stop.confirm, { reply_markup: inline(stopConfirmKeyboard(lang)) });
@@ -290,6 +344,8 @@ bot.callback(CB.stop, loaded(async (ctx, customer) => {
   if (step !== 'yes') return showSettings(ctx, customer);
   await unlinkCustomer(ctx.from.id);
   await ctx.clearSession();
+  // AI suhbat tarixida buyurtma va qarz ma'lumoti bor: u ham uziladi (xatosi chiqishni to'xtatmaydi)
+  await clearAssistantHistory(ctx.from.id).catch((e) => console.error('[bot:customer] ai tarixi', e));
   await ctx.edit(customerTexts[lang].stop.done);
   await ctx.reply(customerTexts[lang].stop.bye, { reply_markup: removeKeyboard });
 }));

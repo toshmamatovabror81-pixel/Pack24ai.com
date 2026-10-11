@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TelegramCustomer } from '@prisma/client';
+import type { AssistantReply } from '@/lib/ai/assistant';
 import type { CustomerDebt } from '@/lib/customerAccount';
 import type { InlineKeyboard, ReplyButton, TgMessage, TgUpdate } from '@/lib/telegram/api';
 import type { OrderCardData, OrderListData } from '@/lib/telegram/bots/customerViews';
@@ -58,7 +59,14 @@ vi.mock('@/lib/settings', () => ({
   getSettings: vi.fn(async () => ({ companyName: 'Pack24', legalName: '', inn: '', bankDetails: '', directorName: '', phone: '998880557888', phone2: '', email: '', address: {}, workHours: {}, telegramChannel: '' })),
 }));
 vi.mock('@/lib/orders', () => ({ paymentUrl: vi.fn(() => null) }));
+// AI yordamchi soxta (Anthropic'ga so'rov ketmaydi). Odatiy holat — kalit kiritilmagan; AI testlari uni o'zi "ulaydi"
+vi.mock('@/lib/ai/client', () => ({ aiConfigured: vi.fn(() => false) }));
+vi.mock('@/lib/ai/assistant', () => ({
+  askAssistant: vi.fn(async () => ({ ok: false, reason: 'disabled' })),
+  clearAssistantHistory: vi.fn(async () => undefined),
+}));
 
+const { clip, esc } = await import('@/lib/telegram/api');
 const { customerTexts } = await import('@/lib/telegram/bots/customerTexts');
 const {
   balanceHtml, balanceKeyboard, CB, contactKeyboard, contactsHtml, helloHtml, langKeyboard, mainKeyboard, maskPhone, orderCardHtml, orderCardKeyboard,
@@ -68,6 +76,8 @@ const { bot } = await import('@/lib/telegram/bots/customer');
 const { botMeta } = await import('@/lib/telegram/bots');
 const customers = vi.mocked(await import('@/lib/telegram/customers'));
 const account = vi.mocked(await import('@/lib/customerAccount'));
+const assistant = vi.mocked(await import('@/lib/ai/assistant'));
+const ai = vi.mocked(await import('@/lib/ai/client'));
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -889,6 +899,7 @@ describe('mijoz boti: suhbat', () => {
     const no = await send(press('stop_no'));
     expect(no[0].params.text).toContain(uz.settings.title);
     expect(customers.unlinkCustomer).not.toHaveBeenCalled();
+    expect(assistant.clearAssistantHistory).not.toHaveBeenCalled();
     const yes = await send(press('stop_yes'));
     expect(customers.unlinkCustomer).toHaveBeenCalledWith(777);
     expect(db.customers.has('777')).toBe(false);
@@ -898,6 +909,30 @@ describe('mijoz boti: suhbat', () => {
     expect(yes[1].params.text).toBe(uz.stop.bye);
     expect(yes[1].params.text).toContain('/start');
     expect(yes[1].params.reply_markup).toEqual({ remove_keyboard: true });
+    // AI suhbat tarixida buyurtma va qarz ma'lumoti bor: u ham shu chat uchun tozalanadi — hisob uzilgandan keyin
+    expect(assistant.clearAssistantHistory.mock.calls).toEqual([[777]]);
+    expect(customers.unlinkCustomer.mock.invocationCallOrder[0]).toBeLessThan(assistant.clearAssistantHistory.mock.invocationCallOrder[0]);
+  });
+
+  it("botdan chiqishda AI tarixini tozalab bo'lmasa ham (baza xatosi) chiqish oxirigacha bajariladi: mijozga uzr emas, xayrlashuv; xato logda", async () => {
+    known({ phone: SCOPE.phone, lang: 'ru' });
+    db.sessions.set('777', { token: TOKEN });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const down = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+    assistant.clearAssistantHistory.mockRejectedValueOnce(down);
+    const yes = await send(press('stop_yes'));
+    expect(assistant.clearAssistantHistory.mock.calls).toEqual([[777]]);
+    expect(db.customers.has('777')).toBe(false);
+    expect(db.sessions.has('777')).toBe(false);
+    expect(methods(yes)).toEqual(['editMessageText', 'sendMessage', 'answerCallbackQuery']);
+    expect(yes[0].params.text).toBe(ru.stop.done);
+    expect(yes[1].params.text).toBe(ru.stop.bye);
+    expect(yes[1].params.reply_markup).toEqual({ remove_keyboard: true });
+    // Callback javobi bo'sh (oddiy tasdiq): umumiy xato oynasi chiqmaydi
+    expect(yes[2].params.text).toBeUndefined();
+    expect(JSON.stringify(yes)).not.toContain('ECONNREFUSED');
+    expect(log.mock.calls.some((args) => args.includes(down))).toBe(true);
+    log.mockRestore();
   });
 
   it("boshqa matn: qisqa yo'riqnoma va menyu; «Keyinroq» ikkala tilda", async () => {
@@ -938,5 +973,692 @@ describe('mijoz boti: suhbat', () => {
     expect(JSON.stringify([...sent, ...alert])).not.toContain('ECONNREFUSED');
     expect(log).toHaveBeenCalled();
     log.mockRestore();
+  });
+
+  // ─── AI yordamchi: menyudan tashqari matn ──────────────────────────────────
+
+  describe('AI yordamchi (erkin matn)', () => {
+    const QUESTION = 'Buyurtmam qayerda?';
+    const on = () => void ai.aiConfigured.mockReturnValue(true);
+    const outgoing = () => db.sent.filter((s) => s.method === 'sendMessage');
+    const typings = () => db.sent.filter((s) => s.method === 'sendChatAction');
+    /** Fondagi ish (webhook qaytgandan keyin yuboriladigan javob) tugashi uchun navbatni bo'shatadi */
+    const idle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
+    /** Javobi "osilib" turadigan yordamchi: so'rovni test o'zi yakunlaydi (finish) yoki yiqitadi (fail) */
+    const pending = () => {
+      let finish!: (reply: AssistantReply) => void;
+      let fail!: (e: Error) => void;
+      assistant.askAssistant.mockReturnValueOnce(new Promise<AssistantReply>((resolve, reject) => { finish = resolve; fail = reject; }));
+      return { finish, fail };
+    };
+    /** Savol yuboradi va yordamchining (soxta) javobidan keyin mijozga ketgan xabarlarni qaytaradi */
+    const ask = async (text: string, reply: AssistantReply): Promise<Sent[]> => {
+      assistant.askAssistant.mockResolvedValueOnce(reply);
+      await send(message(text));
+      await vi.waitFor(() => expect(outgoing()).toHaveLength(1));
+      await idle();
+      return outgoing();
+    };
+    /** Savol yuborilgan, yordamchi esa hali javob bermagan holat: mijoz shu orada boshqa ish qilishi mumkin */
+    const asking = async (text = QUESTION) => {
+      const hung = pending();
+      await send(message(text));
+      await idle();
+      return hung;
+    };
+    /** Qochirilgan matnni asliga qaytaradi (boshi saqlanganini tekshirish uchun) */
+    const unesc = (html: string) => html.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    /** Buzilgan HTML: yarim qolgan belgi kodi (&am, &l …) yoki ochiq <, > */
+    const BROKEN_HTML = /&(?!(?:amp|lt|gt);)|[<>]/;
+    /** Juftsiz surrogat (emoji yarmi): Telegram bunday matnni butunlay rad etadi */
+    const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("AI ulanmagan (kalit yo'q): erkin matnga avvalgidek qisqa yo'riqnoma va menyu, yordamchi chaqirilmaydi", async () => {
+      known({ phone: SCOPE.phone });
+      for (const text of [QUESTION, undefined]) {
+        const sent = await send(message(text));
+        await idle();
+        expect(methods(db.sent)).toEqual(['sendMessage']);
+        expect(sent[0].params.text).toBe(uz.fallback);
+        expect(menuOf(sent[0])).toEqual(Object.values(uz.menu));
+      }
+      expect(assistant.askAssistant).not.toHaveBeenCalled();
+    });
+
+    it('AI ulangan: webhook javobni kutmasdan qaytadi — avval «yozmoqda» belgisi, javob tayyor bo\'lgach menyu bilan keladi', async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const { finish } = pending();
+      // Telegram webhook javobini kutib turadi: yordamchi hali javob bermagan bo'lsa ham update qayta ishlanib bo'lishi kerak
+      const handled = await Promise.race([
+        send(message(QUESTION)).then(() => 'qaytdi'),
+        new Promise<string>((r) => setTimeout(r, 500, 'yordamchini kutib qoldi')),
+      ]);
+      await idle();
+      const before = [...db.sent];
+      finish({ ok: true, text: "Buyurtmangiz yo'lda." });
+      expect(handled).toBe('qaytdi');
+      expect(assistant.askAssistant).toHaveBeenCalledTimes(1);
+      // Javobgacha mijoz faqat "yozmoqda…" ni ko'radi
+      expect(before).toHaveLength(1);
+      expect(before[0]).toMatchObject({ method: 'sendChatAction', params: { chat_id: USER.id, action: 'typing' } });
+      await vi.waitFor(() => expect(outgoing()).toHaveLength(1));
+      await idle();
+      expect(outgoing()).toHaveLength(1);
+      const [answer] = outgoing();
+      expect(answer).toMatchObject({ params: { chat_id: USER.id, parse_mode: 'HTML' } });
+      expect(answer.params.text).toBe("Buyurtmangiz yo'lda.");
+      expect(menuOf(answer)).toEqual(Object.values(uz.menu));
+    });
+
+    it("javob kutilayotganda «yozmoqda» belgisi o'chib qolmaydi (5 soniyada kamida bir marta yangilanadi); javob yoki xato kelgach to'xtaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      for (const end of ['javob', 'xato'] as const) {
+        const { finish, fail } = pending();
+        await send(message(QUESTION));
+        await idle();
+        expect(typings()).toHaveLength(1);
+        // Telegram belgini 5 soniyadan keyin o'zi o'chiradi
+        for (let n = 2; n <= 4; n++) {
+          vi.advanceTimersByTime(5000);
+          expect(typings().length, `${end}: ${(n - 1) * 5} s`).toBeGreaterThanOrEqual(n);
+        }
+        if (end === 'javob') finish({ ok: true, text: 'Tayyor' });
+        else fail(new Error('uzildi'));
+        await idle();
+        const count = typings().length;
+        expect(vi.getTimerCount(), end).toBe(0);
+        vi.advanceTimersByTime(60_000);
+        expect(typings(), end).toHaveLength(count);
+      }
+      log.mockRestore();
+    });
+
+    it("yordamchiga mijozning o'z doirasi (customerScope natijasi), tili va chetlari tozalangan savol beriladi", async () => {
+      known({ phone: SCOPE.phone, lang: 'ru' });
+      on();
+      const scope = { telegramId: '777', phone: SCOPE.phone, userId: 4242 };
+      customers.customerScope.mockResolvedValueOnce(scope);
+      const [answer] = await ask('  \n Где мой заказ №5?  ', { ok: true, text: 'В пути.' });
+      expect(customers.customerScope).toHaveBeenCalledTimes(1);
+      expect(customers.customerScope).toHaveBeenCalledWith(db.customers.get('777'));
+      expect(assistant.askAssistant).toHaveBeenCalledTimes(1);
+      const input = assistant.askAssistant.mock.calls[0][0];
+      // Doira qo'lda yig'ilmaydi: customerScope qaytargan obyektning o'zi
+      expect(input.scope).toBe(scope);
+      expect(input).toEqual({ scope, lang: 'ru', question: 'Где мой заказ №5?' });
+      expect(menuOf(answer)).toEqual(Object.values(ru.menu));
+      // Telefoni ulanmagan mijoz ham so'rashi mumkin, lekin doirasi bo'sh: telefon ham, akkaunt ham yo'q
+      known();
+      await ask('Yetkazib berish qancha?', { ok: true, text: 'Toshkent bo\'ylab bepul.' });
+      expect(assistant.askAssistant).toHaveBeenLastCalledWith({ scope: { telegramId: '777', phone: null, userId: null }, lang: 'uz', question: 'Yetkazib berish qancha?' });
+    });
+
+    it("javob oddiy matn sifatida yuboriladi: HTML belgilari qochiriladi, model yozgan teg yoki havola ishlamaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const [answer] = await ask('1 va 2?', { ok: true, text: '<b>1 & 2</b>' });
+      expect(answer.params.text).toBe('&lt;b&gt;1 &amp; 2&lt;/b&gt;');
+      expect(menuOf(answer)).toEqual(Object.values(uz.menu));
+      const [link] = await ask('havola bering', { ok: true, text: 'Mana: <a href="https://evil.example/login">pack24.uz</a> <code>x</code>' });
+      expect(link.params.text).toBe('Mana: &lt;a href="https://evil.example/login"&gt;pack24.uz&lt;/a&gt; &lt;code&gt;x&lt;/code&gt;');
+      expect(link.params.text).not.toMatch(/<[a-z/]/i);
+    });
+
+    it("juda uzun javob Telegram chegarasidan (4096 belgi) qisqa qilib kesiladi, boshi saqlanadi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const long = Array.from({ length: 900 }, (_, i) => `${i + 1}-qator matni.`).join('\n');
+      expect(long.length).toBeGreaterThan(9000);
+      const [answer] = await ask(QUESTION, { ok: true, text: long });
+      const text = answer.params.text ?? '';
+      expect(text.length).toBeLessThan(4096);
+      expect(text.length).toBeGreaterThan(3000);
+      expect(long.startsWith(text)).toBe(true);
+      expect(menuOf(answer)).toEqual(Object.values(uz.menu));
+      // Qochirish matnni uzaytiradi (& -> &amp;): shunda ham chegaradan oshmaydi, ochiq "<" ham, yarim belgi kodi ham qolmaydi
+      const priced = Array.from({ length: 400 }, (_, i) => `${i + 1}) narxi < 5000 & soni > 10 dona`).join('\n');
+      const [special] = await ask(QUESTION, { ok: true, text: priced });
+      const html = special.params.text ?? '';
+      expect(esc(clip(priced, 3500)).length).toBeGreaterThan(4096);
+      expect(html.length).toBeLessThanOrEqual(4000);
+      expect(html.length).toBeGreaterThan(3000);
+      expect(html).toMatch(/^1\) narxi &lt; 5000 &amp; soni &gt; 10 dona\n2\) /);
+      expect(html).not.toMatch(BROKEN_HTML);
+      expect(priced.startsWith(unesc(html))).toBe(true);
+      expect(menuOf(special)).toEqual(Object.values(uz.menu));
+    });
+
+    it("uzun javob qochirilgan belgi (&amp;) o'rtasidan kesilmaydi: xabar oxirida «&am» kabi bo'lak qolmaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      // Qochirilgan matn 3351 + 149 × 5 = 4096 belgi: sendMessage uni 4000 da kesganda xabar "…&amp;&amp" bilan tugardi
+      const tail = `${'a'.repeat(3351)}${'&'.repeat(500)}`;
+      expect(clip(esc(clip(tail, 3500)), 4000)).toMatch(/&amp$/);
+      const [answer] = await ask(QUESTION, { ok: true, text: tail });
+      const text = answer.params.text ?? '';
+      expect(text.length).toBeLessThanOrEqual(4000);
+      expect(text).toMatch(/^a{3351}(?:&amp;){20,}$/);
+      expect(text).not.toMatch(BROKEN_HTML);
+      expect(menuOf(answer)).toEqual(Object.values(uz.menu));
+    });
+
+    it("uzun javobni kesish emoji o'rtasiga tushmaydi: juftsiz surrogat qolmaydi (oddiy matnda ham, qochirilgandan keyin qisqartirilganda ham)", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      // 3500-belgi emoji boshiga to'g'ri keladi
+      const smiles = `a${'😀'.repeat(3000)}`;
+      expect(smiles.slice(0, 3500)).toMatch(LONE_SURROGATE);
+      const [plainAnswer] = await ask(QUESTION, { ok: true, text: smiles });
+      expect(plainAnswer.params.text).toMatch(/^a(?:😀){1700,}$/u);
+      expect(plainAnswer.params.text).not.toMatch(LONE_SURROGATE);
+      // Qochirilgan matn 4000 dan oshgani uchun yana qisqartiriladi — yangi kesish joyi ham emoji boshiga tushadi
+      const mixed = `aaa${'😀 & '.repeat(900)}`;
+      const [answer] = await ask(QUESTION, { ok: true, text: mixed });
+      const text = answer.params.text ?? '';
+      expect(text.length).toBeLessThanOrEqual(4000);
+      expect(text).toMatch(/^aaa(?:😀 &amp; ){100,}/u);
+      expect(text).not.toMatch(LONE_SURROGATE);
+      expect(text).not.toMatch(BROKEN_HTML);
+      expect(mixed.startsWith(unesc(text))).toBe(true);
+    });
+
+    // Xom matndan QOCHIRILGAN ortiqchaning o'zicha belgi olib tashlansa, '<&>'.repeat(3000) yoki `aa${'&'.repeat(5000)}` kabi matn butunlay
+    // bo'shab qolardi (bitta "&" qochirilganda 5 belgi) — Telegram bo'sh xabarni 400 bilan rad etadi va mijoz javobsiz qoladi
+    it("javob deyarli faqat maxsus belgilardan (minglab &, < yoki >) iborat bo'lsa ham bo'sh xabar ketmaydi: boshi saqlanadi, 4000 belgidan oshmaydi, to'liq belgi kodi bilan tugaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const texts = ['&'.repeat(5000), '<&>'.repeat(3000), `aa${'&'.repeat(5000)}`, `${'a'.repeat(2500)}${'&'.repeat(1000)}`, '<'.repeat(4500), `Narxlar:\n${'>'.repeat(3000)}&&&`];
+      const sent: string[] = [];
+      for (const [i, raw] of texts.entries()) {
+        // Qochirilgan ko'rinishi chegaradan ancha uzun: qisqartirmasdan yuborib bo'lmaydi
+        expect(esc(clip(raw, 3500)).length, `${i}`).toBeGreaterThan(7000);
+        const [answer] = await ask(QUESTION, { ok: true, text: raw });
+        const html = answer.params.text ?? '';
+        sent.push(html);
+        expect(html.length, `${i}`).toBeLessThanOrEqual(4000);
+        // Keragidan ortiq ham kesilmaydi: chegaragacha bitta belgi kodi (ko'pi bilan 5 belgi) sig'maydigan joy qoladi, xolos
+        expect(html.length, `${i}`).toBeGreaterThan(3990);
+        expect(BROKEN_HTML.test(html), `${i}`).toBe(false);
+        expect(/&(?:amp|lt|gt);$/.test(html), `${i}`).toBe(true);
+        // Boshi saqlangan: asliga qaytarilsa — javobning boshlanishi
+        expect(raw.startsWith(unesc(html)), `${i}`).toBe(true);
+        expect(menuOf(answer), `${i}`).toEqual(Object.values(uz.menu));
+      }
+      // Aniq misollar: 800 ta "&" roppa-rosa 4000 belgi; harflar bilan boshlangan matnda harflarning hammasi joyida
+      expect(sent[0]).toBe('&amp;'.repeat(800));
+      expect(sent[3]).toBe(`${'a'.repeat(2500)}${'&amp;'.repeat(300)}`);
+      expect(sent[5].startsWith('Narxlar:\n&gt;&gt;')).toBe(true);
+    });
+
+    it('band (oldingi savolga javob tayyorlanmoqda): qisqa xabar, menyu qayta yuborilmaydi — mijoz tilida', async () => {
+      on();
+      for (const lang of ['uz', 'ru'] as const) {
+        known({ phone: SCOPE.phone, lang });
+        const sent = await ask(QUESTION, { ok: false, reason: 'busy' });
+        expect(sent).toHaveLength(1);
+        expect(sent[0].params.text).toBe(customerTexts[lang].ai.busy);
+        expect(sent[0].params.reply_markup).toBeUndefined();
+      }
+    });
+
+    it("kunlik chegara: chegara matni; rad etish, xato yoki o'chirilgan holat: «javob bera olmadim» — menyu bilan, mijoz tilida", async () => {
+      on();
+      const cases = [['limit', 'limit'], ['refusal', 'unavailable'], ['error', 'unavailable'], ['disabled', 'unavailable']] as const;
+      for (const lang of ['uz', 'ru'] as const) {
+        known({ phone: SCOPE.phone, lang });
+        for (const [reason, key] of cases) {
+          const sent = await ask(QUESTION, { ok: false, reason });
+          expect(sent, `${lang} ${reason}`).toHaveLength(1);
+          expect(sent[0].params.text, `${lang} ${reason}`).toBe(customerTexts[lang].ai[key]);
+          expect(menuOf(sent[0]), `${lang} ${reason}`).toEqual(Object.values(customerTexts[lang].menu));
+        }
+      }
+      expect(assistant.askAssistant).toHaveBeenCalledTimes(8);
+    });
+
+    it("AI matnlari ikki tilda alohida yozilgan va HTML sifatida xavfsiz (ichida <, >, & yo'q)", () => {
+      const keys = ['hint', 'busy', 'limit', 'unavailable'] as const;
+      for (const key of keys) {
+        expect(uz.ai[key].trim().length, key).toBeGreaterThan(10);
+        expect(ru.ai[key], key).toMatch(/[А-Яа-яЁё]{4,}/);
+        expect(uz.ai[key], key).not.toMatch(/[А-Яа-яЁё]/);
+        for (const text of [uz.ai[key], ru.ai[key]]) expect(text, key).not.toMatch(/[<>&]/);
+      }
+      // Har holat o'z matniga ega: "chegara" va "javob bera olmadim" bir xil ko'rinmaydi
+      for (const lang of ['uz', 'ru'] as const) expect(new Set([...keys.map((k) => customerTexts[lang].ai[k]), customerTexts[lang].fallback]).size).toBe(keys.length + 1);
+    });
+
+    it("matnsiz xabar (stiker, ovozli xabar) yoki bitta belgi: «savolni matn bilan yozing» va menyu, yordamchi chaqirilmaydi", async () => {
+      known({ phone: SCOPE.phone, lang: 'ru' });
+      on();
+      for (const text of [undefined, '', '   ', '?']) {
+        const sent = await send(message(text));
+        await idle();
+        expect(methods(db.sent), String(text)).toEqual(['sendMessage']);
+        expect(sent[0].params.text, String(text)).toBe(ru.ai.hint);
+        expect(menuOf(sent[0]), String(text)).toEqual(Object.values(ru.menu));
+      }
+      expect(assistant.askAssistant).not.toHaveBeenCalled();
+    });
+
+    it("telefoni ulanmagan mijoz raqam yozsa: AI ulangan bo'lsa ham tugma orqali ulash yo'riqnomasi — raqam yordamchiga yuborilmaydi", async () => {
+      known();
+      on();
+      for (const text of ['+998901234567', '90 123 45 67']) {
+        const sent = await send(message(text));
+        await idle();
+        expect(methods(db.sent), text).toEqual(['sendMessage']);
+        expect(sent[0].params.text, text).toBe(uz.phone.typed);
+        expect(asksContact(sent[0]), text).toBe(true);
+      }
+      expect(assistant.askAssistant).not.toHaveBeenCalled();
+      expect(customers.linkCustomerPhone).not.toHaveBeenCalled();
+      // Telefoni ulangan mijozning raqamli matni (STIR, to'lov raqami) esa oddiy savol: yordamchiga boradi
+      known({ phone: SCOPE.phone });
+      await ask('305123456', { ok: true, text: 'Qabul qilindi.' });
+      expect(assistant.askAssistant).toHaveBeenCalledWith({ scope: SCOPE, lang: 'uz', question: '305123456' });
+    });
+
+    it("AI ulangan bo'lsa ham: guruhda jim, til tanlanmaguncha yordamchi ishlamaydi, menyu tugmasi va buyruq o'z bo'limini ochadi", async () => {
+      on();
+      // Guruh: savol ham, javob ham (mijozning buyurtma ma'lumoti) guruhga chiqmaydi
+      known({ phone: SCOPE.phone });
+      expect(await send({ update_id: 1, message: { message_id: 1, from: USER, chat: { id: -1001234, type: 'supergroup' }, date: 0, text: QUESTION } })).toEqual([]);
+      // Yangi mijoz: avval til
+      db.customers.clear();
+      expect(inlineOf((await send(message(QUESTION)))[0])).toEqual(['lang_uz', 'lang_ru']);
+      // Menyu tugmasi va buyruq
+      db.sessions.clear();
+      known({ phone: SCOPE.phone });
+      account.customerDebt.mockResolvedValueOnce(debt());
+      expect((await send(message(uz.menu.balance)))[0].params.text).toContain(uz.balance.noDebt);
+      expect((await send(message('/orders')))[0].params.text).toBe(uz.orders.empty('https://pack24.uz'));
+      await idle();
+      expect(assistant.askAssistant).not.toHaveBeenCalled();
+      expect(methods(db.sent)).not.toContain('sendChatAction');
+    });
+
+    it("/help: AI haqidagi satr faqat AI ulangan bo'lsa chiqadi", async () => {
+      for (const lang of ['uz', 'ru'] as const) {
+        const t = customerTexts[lang];
+        const base = t.help('', false).split('\n');
+        const extra = t.help('', true).split('\n').filter((line) => !base.includes(line));
+        expect(extra, lang).toHaveLength(1);
+        expect(extra[0], lang).toMatch(lang === 'uz' ? /sun'iy intellekt/ : /искусственного интеллекта/);
+        known({ phone: SCOPE.phone, lang });
+        ai.aiConfigured.mockReturnValue(false);
+        const off = await send(message('/help'));
+        expect(off[0].params.text, lang).not.toContain(extra[0]);
+        expect(off[0].params.text, lang).toContain('+998 88 055 78 88');
+        on();
+        const shown = await send(message('/help'));
+        expect(shown[0].params.text, lang).toContain(extra[0]);
+        expect(shown[0].params.text, lang).toContain('+998 88 055 78 88');
+        expect(menuOf(shown[0]), lang).toEqual(Object.values(t.menu));
+      }
+      await idle();
+      expect(assistant.askAssistant).not.toHaveBeenCalled();
+    });
+
+    it("fondagi javob kutilmagan xato bilan tugasa: jarayon yiqilmaydi (ushlanmagan rad etish yo'q), xato logda qoladi, matni mijozga chiqmaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      const logged = (e: Error) => log.mock.calls.some((args) => args.includes(e));
+      const leaked: Sent[] = [];
+      try {
+        // Yordamchining o'zi yiqildi
+        const boom = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+        assistant.askAssistant.mockRejectedValueOnce(boom);
+        await send(message(QUESTION));
+        await vi.waitFor(() => expect(logged(boom)).toBe(true));
+        await idle();
+        leaked.push(...db.sent);
+        // Mijoz doirasini aniqlashda baza xatosi: so'rov yordamchigacha yetib bormaydi
+        const down = new Error('ECONNREFUSED: baza ulanmadi');
+        customers.customerScope.mockRejectedValueOnce(down);
+        await send(message(QUESTION));
+        await vi.waitFor(() => expect(logged(down)).toBe(true));
+        await idle();
+        leaked.push(...db.sent);
+      } finally {
+        process.off('unhandledRejection', unhandled);
+        log.mockRestore();
+      }
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(assistant.askAssistant).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(leaked)).not.toContain('ECONNREFUSED');
+    });
+
+    it("fondagi javob xato bilan tugaganda mijoz botdan chiqib ketgan bo'lsa unga hech narsa yuborilmaydi; tilni almashtirgan bo'lsa uzr yangi tilda keladi", async () => {
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      try {
+        // 1) Javob kutilayotganda yozuv o'chgan (botdan chiqqan) — uzr ham, menyu ham yuborilmaydi
+        known({ phone: SCOPE.phone, lang: 'uz' });
+        const gone = await asking();
+        db.customers.delete('777');
+        db.sent.length = 0;
+        gone.fail(new Error('yordamchi yiqildi'));
+        await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(1));
+        await idle();
+        expect(db.sent).toEqual([]);
+        // 2) Chiqib, qayta kirgan (yozuv yangi — id boshqa): eski savolning uzri ham yuborilmaydi
+        known({ phone: SCOPE.phone, lang: 'uz' });
+        const back = await asking();
+        known({ id: 2, phone: SCOPE.phone, lang: 'uz' });
+        db.sent.length = 0;
+        back.fail(new Error('yordamchi yiqildi'));
+        await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(2));
+        await idle();
+        expect(db.sent).toEqual([]);
+        // 3) Tilni almashtirgan: uzr va menyu yangi tilda
+        known({ phone: SCOPE.phone, lang: 'uz' });
+        const switched = await asking();
+        known({ phone: SCOPE.phone, lang: 'ru' });
+        db.sent.length = 0;
+        switched.fail(new Error('yordamchi yiqildi'));
+        await vi.waitFor(() => expect(outgoing()).toHaveLength(1));
+        await idle();
+        expect(outgoing()[0].params.text).toBe(ru.ai.unavailable);
+        expect(menuOf(outgoing()[0])).toEqual(Object.values(ru.menu));
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it("fondagi javob xato bilan tugasa mijoz javobsiz qolmaydi: «javob bera olmadim» (ai.unavailable) matni menyu bilan, mijoz tilida keladi", async () => {
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      const logged = (e: Error) => log.mock.calls.some((args) => args.includes(e));
+      try {
+        for (const lang of ['uz', 'ru'] as const) {
+          known({ phone: SCOPE.phone, lang });
+          const t = customerTexts[lang];
+          // Yordamchining o'zi yiqildi; keyin — mijoz doirasini aniqlashda baza xatosi (so'rov yordamchigacha yetib bormaydi)
+          const failures = [
+            () => void assistant.askAssistant.mockRejectedValueOnce(new Error('connect ECONNREFUSED 10.0.0.5:5432')),
+            () => void customers.customerScope.mockRejectedValueOnce(new Error('ECONNREFUSED: baza ulanmadi')),
+          ];
+          for (const [i, arrange] of failures.entries()) {
+            arrange();
+            await send(message(QUESTION));
+            await vi.waitFor(() => expect(outgoing(), `${lang} ${i}`).toHaveLength(1));
+            await idle();
+            // Faqat "yozmoqda…" va bitta xabar: umumiy uzr (bot.onError) ham, xato matni ham emas
+            expect(methods(db.sent), `${lang} ${i}`).toEqual(['sendChatAction', 'sendMessage']);
+            const [sorry] = outgoing();
+            expect(sorry.params.text, `${lang} ${i}`).toBe(t.ai.unavailable);
+            expect(menuOf(sorry), `${lang} ${i}`).toEqual(Object.values(t.menu));
+            expect(JSON.stringify(db.sent), `${lang} ${i}`).not.toContain('ECONNREFUSED');
+          }
+        }
+        expect(assistant.askAssistant).toHaveBeenCalledTimes(2);
+        // Uzr xabarini ham yuborib bo'lmasa (Telegram javob bermayapti): jarayon baribir yiqilmaydi
+        const boom = new Error('yordamchi uzildi');
+        assistant.askAssistant.mockRejectedValueOnce(boom);
+        vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('telegram uzildi'); }));
+        await send(message(QUESTION));
+        await vi.waitFor(() => expect(logged(boom)).toBe(true));
+        await idle();
+        await idle();
+      } finally {
+        process.off('unhandledRejection', unhandled);
+        log.mockRestore();
+      }
+      expect(unhandled).not.toHaveBeenCalled();
+    });
+
+    // ─── Javob tayyor bo'lguncha mijoz holati o'zgarishi ───────────────────────
+
+    it("javob tayyor bo'lgach mijoz yozuvi qayta o'qiladi: telefoni o'sha bo'lsa (boshqa sozlamasi o'zgargan bo'lsa ham) javob yuboriladi, tarix tozalanmaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const { finish } = await asking();
+      // Javob kutilayotganda mijoz xabarnomani o'chirdi: telefon o'zgarmadi
+      await send(press('ntf_off'));
+      expect(db.customers.get('777')).toMatchObject({ phone: SCOPE.phone, notify: false });
+      const reads = customers.botCustomer.mock.calls.length;
+      finish({ ok: true, text: "Buyurtma #5 yo'lda." });
+      await vi.waitFor(() => expect(outgoing()).toHaveLength(1));
+      await idle();
+      // Yozuv aynan javobdan KEYIN, shu chat uchun bir marta o'qildi
+      expect(customers.botCustomer).toHaveBeenCalledTimes(reads + 1);
+      expect(customers.botCustomer).toHaveBeenLastCalledWith(777);
+      expect(outgoing()).toHaveLength(1);
+      expect(outgoing()[0].params.text).toBe("Buyurtma #5 yo'lda.");
+      expect(menuOf(outgoing()[0])).toEqual(Object.values(uz.menu));
+      expect(assistant.clearAssistantHistory).not.toHaveBeenCalled();
+    });
+
+    it("javob tayyorlanayotganda mijoz botdan chiqsa (/stop tasdiqlandi): tayyor javob yuborilmaydi, yozuv qayta yaratilmaydi, AI tarixi yana tozalanadi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const { finish } = await asking();
+      await send(press('stop_yes'));
+      expect(db.customers.has('777')).toBe(false);
+      expect(assistant.clearAssistantHistory).toHaveBeenCalledTimes(1);
+      const afterStop = [...db.sent];
+      expect(methods(afterStop)).toEqual(['editMessageText', 'sendMessage', 'answerCallbackQuery']);
+      // Yordamchi savol-javobni tarixga /stop dagi tozalashdan KEYIN yozadi — shuning uchun ikkinchi tozalash kerak
+      finish({ ok: true, text: "Buyurtma #5: 1 130 000 so'm, qarzingiz 500 000 so'm." });
+      await vi.waitFor(() => expect(assistant.clearAssistantHistory).toHaveBeenCalledTimes(2));
+      await idle();
+      expect(assistant.clearAssistantHistory).toHaveBeenLastCalledWith(777);
+      expect(db.sent).toEqual(afterStop);
+      expect(JSON.stringify(db.sent)).not.toContain('Buyurtma #5');
+      expect(db.customers.has('777')).toBe(false);
+      expect(customers.ensureBotCustomer).not.toHaveBeenCalled();
+    });
+
+    it("yozuvi o'chgan mijozga hech narsa yuborilmaydi: javob ham, «band», «chegara» yoki «javob bera olmadim» matni ham", async () => {
+      on();
+      const replies: AssistantReply[] = [{ ok: true, text: 'Buyurtma #5 tayyor.' }, { ok: false, reason: 'busy' }, { ok: false, reason: 'limit' }, { ok: false, reason: 'error' }, { ok: false, reason: 'refusal' }];
+      for (const reply of replies) {
+        const label = JSON.stringify(reply);
+        known({ phone: SCOPE.phone });
+        const { finish } = await asking();
+        expect(methods(db.sent), label).toEqual(['sendChatAction']);
+        db.customers.delete('777');
+        assistant.clearAssistantHistory.mockClear();
+        finish(reply);
+        await vi.waitFor(() => expect(assistant.clearAssistantHistory, label).toHaveBeenCalledTimes(1));
+        await idle();
+        expect(assistant.clearAssistantHistory, label).toHaveBeenCalledWith(777);
+        expect(methods(db.sent), label).toEqual(['sendChatAction']);
+      }
+    });
+
+    it("javob tayyorlanayotganda telefon almashsa yoki endigina ulansa: eski doira bo'yicha tayyorlangan javob yuborilmaydi, AI tarixi tozalanadi", async () => {
+      on();
+      for (const phone of [SCOPE.phone, null]) {
+        known({ phone });
+        assistant.clearAssistantHistory.mockClear();
+        const { finish } = await asking();
+        // Mijoz shu orada (boshqa) raqamini tugma orqali ulashdi
+        await send(message(undefined, { contact: { phone_number: '+998 93 765 43 21', first_name: 'Ali', user_id: 777 } }));
+        expect(db.customers.get('777')?.phone, String(phone)).toBe('998937654321');
+        const afterLink = [...db.sent];
+        expect(methods(afterLink), String(phone)).toEqual(['sendMessage']);
+        finish({ ok: true, text: "Eski doira: buyurtma #5 yo'lda." });
+        await vi.waitFor(() => expect(assistant.clearAssistantHistory, String(phone)).toHaveBeenCalledTimes(1));
+        await idle();
+        expect(assistant.clearAssistantHistory, String(phone)).toHaveBeenCalledWith(777);
+        expect(db.sent, String(phone)).toEqual(afterLink);
+        expect(JSON.stringify(db.sent), String(phone)).not.toContain('Eski doira');
+        // Yangi raqam joyida qoladi: tozalash mijoz yozuviga tegmaydi
+        expect(db.customers.get('777')?.phone, String(phone)).toBe('998937654321');
+      }
+    });
+
+    it("javob tayyor, lekin mijoz yozuvini qayta o'qib bo'lmadi (baza xatosi): tekshirilmagan javob yuborilmaydi — «javob bera olmadim» keladi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const { finish } = await asking();
+      const down = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+      customers.botCustomer.mockRejectedValueOnce(down);
+      finish({ ok: true, text: "Buyurtma #5 yo'lda." });
+      await vi.waitFor(() => expect(outgoing()).toHaveLength(1));
+      await idle();
+      expect(outgoing()).toHaveLength(1);
+      expect(outgoing()[0].params.text).toBe(uz.ai.unavailable);
+      expect(menuOf(outgoing()[0])).toEqual(Object.values(uz.menu));
+      expect(JSON.stringify(db.sent)).not.toContain('Buyurtma #5');
+      expect(JSON.stringify(db.sent)).not.toContain('ECONNREFUSED');
+      expect(log.mock.calls.some((args) => args.includes(down))).toBe(true);
+      log.mockRestore();
+    });
+
+    it("botdan chiqqan mijoz uchun tarixni tozalash xato bersa ham tayyor javob (buyurtma ma'lumoti) chatga chiqmaydi", async () => {
+      known({ phone: SCOPE.phone });
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      try {
+        const { finish } = await asking();
+        db.customers.delete('777');
+        const down = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+        assistant.clearAssistantHistory.mockRejectedValueOnce(down);
+        finish({ ok: true, text: "Buyurtma #5: qarzingiz 500 000 so'm." });
+        await vi.waitFor(() => expect(log.mock.calls.some((args) => args.includes(down))).toBe(true));
+        await idle();
+      } finally {
+        process.off('unhandledRejection', unhandled);
+        log.mockRestore();
+      }
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(JSON.stringify(db.sent)).not.toContain('Buyurtma #5');
+      expect(JSON.stringify(db.sent)).not.toContain('ECONNREFUSED');
+    });
+
+    // Tozalash xatosi fondagi ishning umumiy xato yo'liga (fallback dagi catch) tushsa, /stop bosgan chatga «javob bera olmadim» va
+    // asosiy menyu klaviaturasi qayta yuborilardi — xayrlashuvda olib tashlangan klaviatura qaytib qolardi
+    it("botdan chiqqan mijoz uchun tarixni tozalash xato bersa ham unga hech narsa (uzr matni, menyu klaviaturasi) yuborilmaydi", async () => {
+      on();
+      const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      const replies: AssistantReply[] = [{ ok: true, text: "Buyurtma #5: qarzingiz 500 000 so'm." }, { ok: false, reason: 'busy' }, { ok: false, reason: 'limit' }, { ok: false, reason: 'error' }];
+      try {
+        for (const reply of replies) {
+          const label = JSON.stringify(reply);
+          known({ phone: SCOPE.phone });
+          const { finish } = await asking();
+          // Mijoz javobni kutmay botdan chiqdi: xayrlashuv keldi, klaviatura olib tashlandi
+          await send(press('stop_yes'));
+          const afterStop = [...db.sent];
+          expect(methods(afterStop), label).toEqual(['editMessageText', 'sendMessage', 'answerCallbackQuery']);
+          expect(afterStop[1].params.reply_markup, label).toEqual({ remove_keyboard: true });
+          const down = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+          assistant.clearAssistantHistory.mockClear();
+          assistant.clearAssistantHistory.mockRejectedValueOnce(down);
+          finish(reply);
+          await vi.waitFor(() => expect(log.mock.calls.some((args) => args.includes(down)), label).toBe(true));
+          await idle();
+          expect(assistant.clearAssistantHistory.mock.calls, label).toEqual([[777]]);
+          // Xayrlashuvdan keyin chatga hech narsa ketmadi: javob ham, «javob bera olmadim» ham, menyu klaviaturasi ham
+          expect(db.sent, label).toEqual(afterStop);
+          expect(db.customers.has('777'), label).toBe(false);
+        }
+      } finally {
+        process.off('unhandledRejection', unhandled);
+        log.mockRestore();
+      }
+      expect(unhandled).not.toHaveBeenCalled();
+    });
+
+    // Bazada yozuv o'chirilib qayta yaratilsa id si yangilanadi: telefonni solishtirishning o'zi buni sezmaydi (mehmonda ikkalasi ham null,
+    // qayta kirgan mijozda o'sha raqam) — /stop bilan uzilgan suhbatning javobi yangi suhbatga kelib qolardi
+    it("javob tayyorlanayotganda mijoz botdan chiqib qayta kirsa (yozuvi yangi: id si boshqa, telefoni o'sha yoki ikkalasida ham yo'q): eski javob yuborilmaydi, AI tarixi tozalanadi", async () => {
+      on();
+      const replies: AssistantReply[] = [{ ok: true, text: "Buyurtma #5: qarzingiz 500 000 so'm." }, { ok: false, reason: 'busy' }, { ok: false, reason: 'limit' }, { ok: false, reason: 'error' }];
+      for (const phone of [SCOPE.phone, null]) {
+        for (const reply of replies) {
+          const label = `${phone} ${JSON.stringify(reply)}`;
+          known({ phone });
+          const old = db.customers.get('777')!;
+          const { finish } = await asking();
+          expect(assistant.askAssistant, label).toHaveBeenLastCalledWith({ scope: { telegramId: '777', phone, userId: phone ? 42 : null }, lang: 'uz', question: QUESTION });
+          // Chiqdi (yozuv o'chdi) va qayta kirdi: yangi qator — id si boshqa, telefoni va tili avvalgidek
+          await send(press('stop_yes'));
+          expect(db.customers.has('777'), label).toBe(false);
+          const fresh = { ...old, id: old.id + 1 };
+          db.customers.set('777', fresh);
+          db.sent.length = 0;
+          assistant.clearAssistantHistory.mockClear();
+          finish(reply);
+          await vi.waitFor(() => expect(assistant.clearAssistantHistory, label).toHaveBeenCalledTimes(1));
+          await idle();
+          expect(assistant.clearAssistantHistory, label).toHaveBeenCalledWith(777);
+          expect(db.sent, label).toEqual([]);
+          // Yangi yozuvga tegilmaydi
+          expect(db.customers.get('777'), label).toBe(fresh);
+        }
+      }
+    });
+
+    // Javob so'rov boshida o'qilgan (eski) yozuv bilan yuborilsa, mijozning endigina yangi tilga o'tgan klaviaturasi eski tilga qaytib qolardi
+    it("javob tayyorlanayotganda mijoz tilni almashtirsa: javob bilan keladigan menyu klaviaturasi yangi tilda bo'ladi", async () => {
+      on();
+      for (const [from, to] of [['uz', 'ru'], ['ru', 'uz']] as const) {
+        known({ phone: SCOPE.phone, lang: from });
+        const { finish } = await asking();
+        // Savol eski tilda berilgan (javob matnini model shu tilda yozadi)...
+        expect(assistant.askAssistant, from).toHaveBeenLastCalledWith({ scope: SCOPE, lang: from, question: QUESTION });
+        // ...javob kutilayotganda mijoz sozlamalardan tilni almashtirdi: klaviaturasi yangi tilga o'tdi
+        const changed = await send(press(`lang_${to}`));
+        expect(db.customers.get('777')?.lang, from).toBe(to);
+        expect(menuOf(changed[1]), from).toEqual(Object.values(customerTexts[to].menu));
+        db.sent.length = 0;
+        finish({ ok: true, text: 'Buyurtma #5 tayyor.' });
+        await vi.waitFor(() => expect(outgoing(), from).toHaveLength(1));
+        await idle();
+        expect(methods(db.sent), from).toEqual(['sendMessage']);
+        expect(outgoing()[0].params.text, from).toBe('Buyurtma #5 tayyor.');
+        // Javob bilan kelgan klaviatura ham yangi tilda — eski tilga qaytib qolmaydi
+        expect(menuOf(outgoing()[0]), from).toEqual(Object.values(customerTexts[to].menu));
+        expect(menuOf(outgoing()[0]), from).not.toEqual(Object.values(customerTexts[from].menu));
+      }
+      // Til almashishi telefon yoki yozuv almashishi emas: tarix tozalanmaydi
+      expect(assistant.clearAssistantHistory).not.toHaveBeenCalled();
+    });
+
+    it("javob tayyorlanayotganda til almashsa «band», «chegara» va «javob bera olmadim» matnlari (va menyu) ham yangi tilda keladi", async () => {
+      on();
+      const cases = [['busy', 'busy'], ['limit', 'limit'], ['error', 'unavailable'], ['refusal', 'unavailable'], ['disabled', 'unavailable']] as const;
+      for (const [from, to] of [['uz', 'ru'], ['ru', 'uz']] as const) {
+        const t = customerTexts[to];
+        for (const [reason, key] of cases) {
+          const label = `${from}->${to} ${reason}`;
+          known({ phone: SCOPE.phone, lang: from });
+          const { finish } = await asking();
+          await send(press(`lang_${to}`));
+          db.sent.length = 0;
+          finish({ ok: false, reason });
+          await vi.waitFor(() => expect(outgoing(), label).toHaveLength(1));
+          await idle();
+          expect(methods(db.sent), label).toEqual(['sendMessage']);
+          expect(outgoing()[0].params.text, label).toBe(t.ai[key]);
+          expect(outgoing()[0].params.text, label).not.toBe(customerTexts[from].ai[key]);
+          // «Band» xabari menyusiz ketadi, qolganlari — yangi tildagi menyu bilan
+          if (reason === 'busy') expect(outgoing()[0].params.reply_markup, label).toBeUndefined();
+          else expect(menuOf(outgoing()[0]), label).toEqual(Object.values(t.menu));
+        }
+      }
+    });
   });
 });

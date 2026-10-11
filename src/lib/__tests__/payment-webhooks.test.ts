@@ -3,12 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Payme va Click webhook'lari: to'lov tizimiga javob shakli o'zgarmagani, to'lov holati haqiqatan o'zgargandagina tarix va
- * xabarnoma (afterPaymentChange) chaqirilishi, Telegram sekin yoki xato bo'lsa ham javob kechikmasligi. Baza xotirada.
+ * xabarnoma (afterPaymentChange) chaqirilishi (bitta istisno: Click'da "o'tmagan" buyurtmaning keyingi o'tmagan urinishi ham
+ * tarixga yoziladi), Telegram sekin yoki xato bo'lsa ham javob kechikmasligi. Baza xotirada.
  */
 const state = vi.hoisted(() => ({
   orders: new Map<number, Record<string, unknown>>(),
   txs: new Map<string, Record<string, unknown>>(),
   after: [] as unknown[][],
+  /** To'lov tarixi (OrderEvent) o'rnida: afterPaymentChange har chaqirilganda shu paytdagi soat bilan bitta yozuv qo'shiladi */
+  events: [] as { orderId: number; kind: string; toValue: string; createdAt: Date }[],
   admins: [] as unknown[],
   afterImpl: (async () => undefined) as (...a: unknown[]) => Promise<unknown>,
   /** Poygani taqlid qilish uchun: so'rov eski holatni o'qib bo'lgach, yozishidan oldin chaqiriladi (orada boshqa so'rov yozib ulgurgan) */
@@ -18,7 +21,15 @@ const state = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/telegram', () => ({ notifyAdmins: async (l: unknown) => { state.admins.push(l); } }));
-vi.mock('@/lib/orderFlow', () => ({ afterPaymentChange: (...a: unknown[]) => { state.after.push(a); return state.afterImpl(...a); } }));
+vi.mock('@/lib/orderFlow', () => ({
+  // Haqiqiy afterPaymentChange kabi avval tarixga yozadi (yozuv vaqti — shu paytdagi soat), keyin xabarnomalar (afterImpl)
+  afterPaymentChange: (...a: unknown[]) => {
+    state.after.push(a);
+    const order = a[0] as { id: number; paymentStatus: string };
+    state.events.push({ orderId: order.id, kind: 'payment', toValue: order.paymentStatus, createdAt: new Date() });
+    return state.afterImpl(...a);
+  },
+}));
 vi.mock('@/lib/db', () => {
   type Op = { run: () => Promise<unknown> };
   // order.update to'g'ridan-to'g'ri ham kutiladi (Click, "o'tmadi"), $transaction ga ham beriladi (Payme): then + run()
@@ -38,6 +49,11 @@ vi.mock('@/lib/db', () => {
         Object.assign(o, data);
         return { count: 1 };
       },
+    },
+    orderEvent: {
+      // Baza kabi sanaydi: shu buyurtmaning, shu turdagi, shu qiymatli va berilgan paytdan KEYINGI yozuvlari (Click "o'tmadi"ni takror deb shundan biladi)
+      count: async ({ where }: { where: { orderId: number; kind: string; toValue: string; createdAt: { gt: Date } } }) =>
+        state.events.filter((e) => e.orderId === where.orderId && e.kind === where.kind && e.toValue === where.toValue && e.createdAt.getTime() > where.createdAt.gt.getTime()).length,
     },
     paymeTransaction: {
       findUnique: async ({ where }: { where: { id: string } }) => { const t = state.txs.get(where.id); return t ? { ...t } : null; },
@@ -65,6 +81,7 @@ beforeEach(() => {
   state.orders.clear();
   state.txs.clear();
   state.after.length = 0;
+  state.events.length = 0;
   state.admins.length = 0;
   state.afterImpl = async () => undefined;
   state.beforeBatch = () => undefined;
@@ -255,6 +272,55 @@ describe('Click: tarix va xabarnoma', () => {
     expect(state.after).toHaveLength(1);
     expect((state.after[0][0] as Record<string, unknown>).paymentStatus).toBe('failed');
     expect(state.after[0][1]).toBe('pending');
+    await clickCall({ error: '-5017' });
+    expect(state.after).toHaveLength(1);
+  });
+
+  // Kunlik tekshiruv "oxirgi 24 soatda o'tmagan to'lovlar"ni tarixdan oladi: faqat birinchi "o'tmadi" yozilsa, mijozning keyingi
+  // kunlardagi muvaffaqiyatsiz urinishlari hisobotda ko'rinmasdi. Qayta yuborilgan o'sha COMPLETE esa tarixni ko'paytirmasligi kerak
+  it('allaqachon "failed" buyurtmada: 10 daqiqa ichida qayta kelgan o\'tmagan COMPLETE tarixga yozilmaydi, undan keyingi yangi urinish esa alohida yoziladi', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-10T05:00:00Z') });
+    const cancelled = { click_trans_id: '900', merchant_trans_id: '7', error: -9, error_note: 'Transaction cancelled' };
+    state.orders.set(7, { ...baseOrder(), paymentMethod: 'click', paymentStatus: 'pending' });
+    expect(await clickCall({ error: '-5017' })).toEqual(cancelled);
+    expect(state.after).toHaveLength(1);
+    // Birinchi yozuvdan 9 daqiqa 59 soniya o'tgach kelgan signal — hali o'sha urinishning takrori
+    vi.setSystemTime(Date.now() + 10 * 60_000 - 1000);
+    expect(await clickCall({ error: '-5017' })).toEqual(cancelled);
+    expect(state.after).toHaveLength(1);
+    // 10 daqiqa 1 soniya: bu endi mijozning yangi urinishi — javob o'sha, tarixga esa ikkinchi yozuv tushadi ("failed" -> "failed")
+    vi.setSystemTime(Date.now() + 2000);
+    expect(await clickCall({ click_trans_id: '901', error: '-5017' })).toEqual({ ...cancelled, click_trans_id: '901' });
+    expect(state.after).toHaveLength(2);
+    const [order, from, actor] = state.after[1] as [Record<string, unknown>, string, unknown];
+    expect(order).toMatchObject({ id: 7, paymentStatus: 'failed' });
+    expect(from).toBe('failed');
+    expect(actor).toEqual({ name: 'Click', via: 'click' });
+    // Yangi urinishning o'z takrori ham (yana 10 daqiqa davomida) yozilmaydi
+    vi.setSystemTime(Date.now() + 5 * 60_000);
+    expect(await clickCall({ click_trans_id: '901', error: '-5017' })).toEqual({ ...cancelled, click_trans_id: '901' });
+    expect(state.after).toHaveLength(2);
+    expect(state.events.map((e) => e.createdAt.toISOString())).toEqual(['2026-10-10T05:00:00.000Z', '2026-10-10T05:10:01.000Z']);
+    expect(state.orders.get(7)!.paymentStatus).toBe('failed');
+    // "O'tmadi" hech qachon xodimlarga "to'landi" xabari bo'lib ketmaydi
+    expect(state.admins).toHaveLength(0);
+  });
+
+  it('"failed" buyurtmaning tarixida yaqinda yozilgan "to\'lov o\'tmadi" bo\'lmasa (tarix bo\'sh, yozuv boshqa buyurtmaniki yoki boshqa turdagi) o\'tmagan COMPLETE yoziladi', async () => {
+    const now = Date.now();
+    state.orders.set(7, { ...baseOrder(), paymentMethod: 'click', paymentStatus: 'failed' });
+    // Boshqa buyurtmaning yangi "o'tmadi"si, shu buyurtmaning holat (to'lov emas) yozuvi va bir soat oldingi "o'tmadi"si — takror belgisi emas
+    state.events.push(
+      { orderId: 8, kind: 'payment', toValue: 'failed', createdAt: new Date(now - 1000) },
+      { orderId: 7, kind: 'status', toValue: 'failed', createdAt: new Date(now - 1000) },
+      { orderId: 7, kind: 'payment', toValue: 'pending', createdAt: new Date(now - 1000) },
+      { orderId: 7, kind: 'payment', toValue: 'failed', createdAt: new Date(now - 3_600_000) },
+    );
+    await clickCall({ error: '-5017' });
+    expect(state.after).toHaveLength(1);
+    expect((state.after[0][0] as Record<string, unknown>).paymentStatus).toBe('failed');
+    expect(state.after[0][1]).toBe('failed');
+    // Endi tarixda shu buyurtmaning yangi yozuvi bor: darhol qaytgan o'sha signal takror hisoblanadi
     await clickCall({ error: '-5017' });
     expect(state.after).toHaveLength(1);
   });
