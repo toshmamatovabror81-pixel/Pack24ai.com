@@ -51,8 +51,13 @@ export async function updateOrder(fd: FormData) {
   const payment = PAYMENTS.find((p) => p === fd.get('paymentStatus'));
   if (payment && touched('paymentStatus', 'prevPaymentStatus') && !can(user.role, 'finance')) denied = true;
   else if (payment && touched('paymentStatus', 'prevPaymentStatus')) {
+    // Forma ko'rgan "to'langan" belgisi (prevPaidMark — orderFlow.lastPaidMark, faqat to'langan buyurtma formasida): forma ochiq
+    // turganda belgi bekor qilinib, haqiqiy to'lov bilan qayta qo'yilgan bo'lsa, eskirgan forma o'sha to'lovni bekor qilmaydi (conflict)
+    const rawMark = fd.get('prevPaidMark');
+    const mark = typeof rawMark === 'string' && /^\d{1,10}$/.test(rawMark) && Number(rawMark) <= 2147483647 ? { expectedMark: Number(rawMark) } : null;
     const base = seen('prevPaymentStatus');
-    const res = base ? await setManualPayment(id, payment, actor, base) : await setManualPayment(id, payment, actor);
+    const opts = base || mark ? { ...base, ...mark } : null;
+    const res = opts ? await setManualPayment(id, payment, actor, opts) : await setManualPayment(id, payment, actor);
     if (!res.ok && res.reason === 'not_found') redirect('/admin/orders');
     if (!res.ok && res.reason === 'conflict') conflict = true;
     if (res.ok && res.changed) invoice = res.reopened ? '&invoice=reopened' : res.stillPaid?.length ? '&invoice=paid' : '';
@@ -60,6 +65,9 @@ export async function updateOrder(fd: FormData) {
 
   if (delivered) revalidatePath('/admin/inventory');
   revalidatePath(`/admin/orders/${id}`);
-  // Holat ziddiyatga uchragan so'rovda ham to'lov belgisi bekor qilingan bo'lishi mumkin — hisob-faktura natijasi o'shanda ham sahifaga chiqadi
-  redirect(`/admin/orders/${id}?${denied ? 'error=finance' : `${conflict ? 'error=conflict' : 'saved=1'}${invoice}`}`);
+  // Holat ziddiyatga uchragan so'rovda ham to'lov belgisi bekor qilingan bo'lishi mumkin — hisob-faktura natijasi o'shanda ham sahifaga chiqadi.
+  // Ruxsatsiz to'lov o'zgarishi (denied) ziddiyatni yutib yubormaydi: ikkalasi ham bo'lsa sahifada ikkala ogohlantirish chiqadi (denied=1),
+  // aks holda xodim holat o'zgarishi saqlanmaganini bilmay qolardi
+  const outcome = conflict ? `error=conflict${denied ? '&denied=1' : ''}` : denied ? 'error=finance' : 'saved=1';
+  redirect(`/admin/orders/${id}?${outcome}${invoice}`);
 }

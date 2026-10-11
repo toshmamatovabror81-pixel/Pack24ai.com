@@ -22,6 +22,7 @@ const h = vi.hoisted(() => ({
   setStaffNotify: vi.fn(),
   changeOrderStatus: vi.fn(),
   setManualPayment: vi.fn(),
+  lastPaidMark: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({ prisma: h.prisma }));
@@ -34,7 +35,7 @@ vi.mock('@/lib/telegram/session', () => ({
 vi.mock('@/lib/telegram/staffLink', () => ({
   staffByTelegram: h.staffByTelegram, linkStaffByPhone: h.linkStaffByPhone, linkStaffByCode: h.linkStaffByCode, unlinkStaff: h.unlinkStaff, setStaffNotify: h.setStaffNotify,
 }));
-vi.mock('@/lib/orderFlow', () => ({ changeOrderStatus: h.changeOrderStatus, setManualPayment: h.setManualPayment }));
+vi.mock('@/lib/orderFlow', () => ({ changeOrderStatus: h.changeOrderStatus, setManualPayment: h.setManualPayment, lastPaidMark: h.lastPaidMark }));
 vi.mock('@/lib/orderNotify', () => ({ sendDailyDigest: vi.fn() }));
 
 const { can } = await import('@/lib/auth/permissions');
@@ -472,16 +473,16 @@ describe('boshqaruv boti: buyurtma kartasi tugmalari', () => {
 
   it("tasdiq tugmalari: «Ha» amalni bajaradi, «Yo'q» kartaga qaytaradi (or_); uch tasdiqning callback'i har xil", () => {
     expect(payConfirmKeyboard(5)).toEqual([[{ text: "Ha, to'landi", callback_data: 'opy_5' }, { text: "Yo'q", callback_data: 'or_5' }]]);
-    expect(revertConfirmKeyboard(5)).toEqual([[{ text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_5' }, { text: "Yo'q", callback_data: 'or_5' }]]);
+    expect(revertConfirmKeyboard(5, 77)).toEqual([[{ text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_5_77' }, { text: "Yo'q", callback_data: 'or_5' }]]);
     expect(cancelConfirmKeyboard(5)).toEqual([[{ text: 'Ha, bekor qilinsin', callback_data: 'ocy_5' }, { text: "Yo'q", callback_data: 'or_5' }]]);
     // Belgini bekor qilish tasdig'i buyurtmani bekor qilish (ocy_) yoki to'lash (opy_) callback'ini yubormaydi
-    expect(datas(revertConfirmKeyboard(5))).not.toContain('ocy_5');
-    expect(datas(revertConfirmKeyboard(5))).not.toContain('opy_5');
+    expect(datas(revertConfirmKeyboard(5, 77))).not.toContain('ocy_5');
+    expect(datas(revertConfirmKeyboard(5, 77))).not.toContain('opy_5');
   });
 
   it("tasdiq tugmalari: uchala «Ha» tugmasining yozuvi har xil — to'lov belgisini bekor qilish buyurtmani bekor qilish bilan adashtirilmaydi", () => {
     const yes = (rows: InlineKeyboard) => rows[0][0];
-    const confirms = { pay: payConfirmKeyboard(5), revert: revertConfirmKeyboard(5), cancel: cancelConfirmKeyboard(5) };
+    const confirms = { pay: payConfirmKeyboard(5), revert: revertConfirmKeyboard(5, 77), cancel: cancelConfirmKeyboard(5) };
     const labels = Object.values(confirms).map((rows) => yes(rows).text);
     expect(labels).toEqual(["Ha, to'landi", 'Ha, belgi bekor qilinsin', 'Ha, bekor qilinsin']);
     expect(new Set(labels).size).toBe(3);
@@ -490,7 +491,7 @@ describe('boshqaruv boti: buyurtma kartasi tugmalari', () => {
     expect(yes(confirms.revert).text).toContain('belgi');
     expect(yes(confirms.cancel).text).not.toContain('belgi');
     // Uchala tasdiq bir xil tuzilgan: bitta qator, chapda «Ha, …» (o'z callback'i bilan), o'ngda «Yo'q» (kartaga qaytaradi)
-    expect(Object.values(confirms).map((rows) => yes(rows).callback_data)).toEqual(['opy_5', 'ouy_5', 'ocy_5']);
+    expect(Object.values(confirms).map((rows) => yes(rows).callback_data)).toEqual(['opy_5', 'ouy_5_77', 'ocy_5']);
     for (const [name, rows] of Object.entries(confirms)) {
       expect(rows, name).toHaveLength(1);
       expect(rows[0], name).toHaveLength(2);
@@ -500,7 +501,7 @@ describe('boshqaruv boti: buyurtma kartasi tugmalari', () => {
     // /stop tasdig'i ham o'z yozuvi bilan: botdagi hech qaysi ikki «Ha» bir xil emas
     expect(new Set([...labels, V.stopKeyboard()[0][0].text]).size).toBe(4);
     // Yozuv buyurtma raqamiga bog'liq emas
-    expect(yes(revertConfirmKeyboard(2147483646))).toEqual({ text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_2147483646' });
+    expect(yes(revertConfirmKeyboard(2147483646, 77))).toEqual({ text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_2147483646_77' });
   });
 
   it('os_ callback tahlili: faqat ma\'lum holat va yaroqli raqam', () => {
@@ -791,7 +792,7 @@ describe('boshqaruv boti: ro\'yxat va callback_data', () => {
 
   it('barcha callback_data 64 baytdan oshmaydi', () => {
     const MAX = 2147483646;
-    const all: string[] = [...datas(cancelConfirmKeyboard(MAX)), ...datas(payConfirmKeyboard(MAX)), ...datas(revertConfirmKeyboard(MAX)), ...datas(V.stopKeyboard())];
+    const all: string[] = [...datas(cancelConfirmKeyboard(MAX)), ...datas(payConfirmKeyboard(MAX)), ...datas(revertConfirmKeyboard(MAX, 2147483647)), ...datas(V.stopKeyboard())];
     for (const status of STATUSES) for (const p of PAYMENTS) all.push(...datas(staffOrderKeyboard({ id: MAX, status, paymentStatus: p, paymentMethod: 'cash' }, true, true)));
     for (const kind of [{ key: 'new' }, { key: 'active' }, { key: 'phone', phone: '998901234567' }] as const) {
       const rows = V.listKeyboard(kind, Array.from({ length: 10 }, (_, i) => MAX - i), 9998, 9999 + 1);
@@ -800,7 +801,7 @@ describe('boshqaruv boti: ro\'yxat va callback_data', () => {
     expect(all.length).toBeGreaterThan(50);
     for (const d of all) expect(bytes(d)).toBeLessThanOrEqual(64);
     // To'lov tugmalari ham shu ro'yxatda (tekshiruv ularni chetlab o'tmagan), eng katta buyurtma raqami bilan
-    for (const d of [`op_${MAX}`, `opy_${MAX}`, `ou_${MAX}`, `ouy_${MAX}`]) {
+    for (const d of [`op_${MAX}`, `opy_${MAX}`, `ou_${MAX}`, `ouy_${MAX}_2147483647`]) {
       expect(all, d).toContain(d);
       expect(bytes(d), d).toBeLessThanOrEqual(64);
     }
@@ -868,7 +869,7 @@ const chief = { ...ali, id: 3, name: 'Direktor', role: 'admin' as const };
 const ACTOR = { name: ali.name, via: 'staff_bot' };
 /** To'lovni belgilaydigan xodim: moliya ruxsati bor (menejer) */
 const BOSS_ACTOR = { name: boss.name, via: 'staff_bot' };
-const PAY_CALLBACKS = ['op_5', 'opy_5', 'ou_5', 'ouy_5'];
+const PAY_CALLBACKS = ['op_5', 'opy_5', 'ou_5', 'ouy_5_77'];
 const ALL_CALLBACKS = ['os_5_processing', 'oc_5', 'ocy_5', 'or_5', ...PAY_CALLBACKS, 'sl_new_0', 'sb_active_1', 'sx_y', 'sx_n'];
 const ONLINE_PAY = "Onlayn to'lovni Payme / Click o'zi avtomatik belgilaydi";
 const ONLINE_REVERT = "Onlayn to'lovni Payme / Click o'zi boshqaradi — botdan bekor qilinmaydi";
@@ -932,7 +933,7 @@ describe('boshqaruv boti: ulanmagan odam', () => {
       op_5: staffOrderKeyboard(order() as never, true, true),
       opy_5: payConfirmKeyboard(5),
       ou_5: staffOrderKeyboard(order({ paymentStatus: 'paid' }) as never, true, true),
-      ouy_5: revertConfirmKeyboard(5),
+      'ouy_5_77': revertConfirmKeyboard(5, 77),
     };
     for (const data of PAY_CALLBACKS) {
       calls.length = 0;
@@ -1442,6 +1443,7 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
 
   beforeEach(() => {
     h.staffByTelegram.mockResolvedValue(boss);
+    h.lastPaidMark.mockResolvedValue(77);
   });
 
   it("op_: avval tasdiq so'raydi (hisob-faktura yopilishi va xato qanday qaytarilishi aytiladi) va hech narsa yozmaydi", async () => {
@@ -1558,7 +1560,7 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
         op_5: staffOrderKeyboard(order() as never, true, true),
         opy_5: payConfirmKeyboard(5),
         ou_5: staffOrderKeyboard(order({ paymentStatus: 'paid' }) as never, true, true),
-        ouy_5: revertConfirmKeyboard(5),
+        'ouy_5_77': revertConfirmKeyboard(5, 77),
       };
       for (const data of PAY_CALLBACKS) {
         const label = `${data} ${o.paymentStatus} ${o.paymentMethod}`;
@@ -1594,24 +1596,24 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     h.setManualPayment.mockResolvedValue({ ok: true, changed: true, order: {}, reopened: 1 });
     await press('ou_5', staffOrderKeyboard(paid as never, true, true));
     const confirm = inlineOf(lastEdit());
-    expect(datas(confirm)).toEqual(['ouy_5', 'or_5']);
+    expect(datas(confirm)).toEqual(['ouy_5_77', 'or_5']);
     // Admin panelda rol "Xodim"ga o'zgartirildi — chatdagi tasdiq tugmasi eski huquq bilan ishlamaydi
     h.staffByTelegram.mockResolvedValue({ ...boss, role: 'staff' });
-    await press('ouy_5', confirm);
+    await press('ouy_5_77', confirm);
     expect(alertText()).toBe(V.PAY_FORBIDDEN);
     expect(h.setManualPayment).not.toHaveBeenCalled();
     expect(editedText()).toBe(card(paid));
     expect(grid(inlineOf(lastEdit()))).toEqual([['os_5_processing'], ['oc_5'], ['or_5']]);
     // Rol qaytarilsa — o'sha tugma yana ishlaydi
     h.staffByTelegram.mockResolvedValue(boss);
-    await press('ouy_5', confirm);
-    expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid' });
+    await press('ouy_5_77', confirm);
+    expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 });
   });
 
   it("\"orders\" ruxsati ham yo'q rol: to'lov tugmalariga \"Ruxsat yo'q\" — buyurtma o'qilmaydi, xabar o'zgarmaydi", async () => {
     h.staffByTelegram.mockResolvedValue({ ...boss, role: 'user' });
     for (const data of PAY_CALLBACKS) {
-      await press(data, data.startsWith('ou') ? revertConfirmKeyboard(5) : payConfirmKeyboard(5));
+      await press(data, data.startsWith('ou') ? revertConfirmKeyboard(5, 77) : payConfirmKeyboard(5));
       expect(calls.map((c) => c.method), data).toEqual(['answerCallbackQuery']);
       expect(alertText(), data).toBe("Ruxsat yo'q");
     }
@@ -1637,9 +1639,47 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     h.setManualPayment.mockResolvedValue({ ok: true, changed: true, order: {} });
     await press('ou_2147483646');
     expect(h.prisma.order.findFirst.mock.lastCall![0]).toMatchObject({ where: { id: 2147483646, deletedAt: null } });
-    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_2147483646', 'or_2147483646']);
-    await press('ouy_2147483646');
-    expect(h.setManualPayment).toHaveBeenCalledWith(2147483646, 'pending', BOSS_ACTOR, { expected: 'paid' });
+    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_2147483646_77', 'or_2147483646']);
+    await press('ouy_2147483646_77');
+    expect(h.setManualPayment).toHaveBeenCalledWith(2147483646, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 });
+  });
+
+  it("ou_: tasdiq tugmasi hozirgi \"to'langan\" belgisiga bog'lanadi (ouy_<id>_<mark>, orderFlow.lastPaidMark); 0 — tarixsiz eski belgi", async () => {
+    const paid = order({ paymentStatus: 'paid', corporateInvoices: INVOICE });
+    h.prisma.order.findFirst.mockResolvedValue(paid);
+    h.lastPaidMark.mockResolvedValue(123);
+    await press('ou_5', staffOrderKeyboard(paid as never, true, true));
+    expect(h.lastPaidMark).toHaveBeenCalledWith(5);
+    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_5_123', 'or_5']);
+    // «Ha» aynan shu belgini bekor qiladi: orderFlow holat bilan birga belgini ham tekshiradi
+    h.setManualPayment.mockResolvedValue({ ok: true, changed: true, order: {}, reopened: 1 });
+    await press('ouy_5_123', inlineOf(lastEdit()));
+    expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 123 });
+    // Yangilanishdan oldin qo'yilgan (tarixsiz) belgi: 0 — bu ham belgi, "berilmagan" emas
+    h.lastPaidMark.mockResolvedValue(0);
+    await press('ou_5', staffOrderKeyboard(paid as never, true, true));
+    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_5_0', 'or_5']);
+    await press('ouy_5_0', inlineOf(lastEdit()));
+    expect(h.setManualPayment).toHaveBeenLastCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 0 });
+    expect(h.setManualPayment).toHaveBeenCalledTimes(2);
+  });
+
+  it("ouy_: belgisiz yoki yaroqsiz belgili tasdiq (yangilanishdan oldingi tugma) — eskirgan: hech narsa yozilmaydi, karta hozirgi holatga yangilanadi", async () => {
+    const paid = order({ paymentStatus: 'paid', corporateInvoices: INVOICE });
+    h.prisma.order.findFirst.mockResolvedValue(paid);
+    for (const data of ['ouy_5', 'ouy_5_', 'ouy_5_x', 'ouy_5_-1', 'ouy_5_1.5', 'ouy_5_2147483648', 'ouy_5_99999999999']) {
+      await press(data, [[{ text: 'Ha, belgi bekor qilinsin', callback_data: data }, { text: "Yo'q", callback_data: 'or_5' }]]);
+      expect(alertText(), data).toBe('Bu tugma eskirgan. /start bosing.');
+      expect(editedText(), data).toBe(card(paid));
+      // Kartada bekor qilish tugmasi yangi belgi bilan qayta so'raladi
+      expect(grid(inlineOf(lastEdit())), data).toEqual([['os_5_processing'], ['oc_5'], ['ou_5'], ['or_5']]);
+    }
+    expect(h.setManualPayment).not.toHaveBeenCalled();
+    expect(h.lastPaidMark).not.toHaveBeenCalled();
+    // Belgidan keyingi ortiqcha qism e'tiborsiz (callback faqat 64 bayt): belgi o'qiladi
+    h.setManualPayment.mockResolvedValue({ ok: true, changed: true, order: {} });
+    await press('ouy_5_77_x', revertConfirmKeyboard(5, 77));
+    expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 });
   });
 
   it("ou_: avval tasdiq so'raydi va hech narsa yozmaydi; hisob-faktura raqami faqat bo'lsa aytiladi", async () => {
@@ -1656,8 +1696,8 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     expect(editedText()).toContain("<b>Buyurtma #5 uchun «to'landi» belgisi bekor qilinsinmi?</b>");
     expect(editedText()).toContain("hisob-faktura INV-2026-0007 shu belgi bilan yopilgan bo'lsa — avvalgi holiga ochiladi");
     expect(editedText()).toContain('mijozga tuzatish xabari boradi');
-    expect(inlineOf(lastEdit())).toEqual(revertConfirmKeyboard(5));
-    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_5', 'or_5']);
+    expect(inlineOf(lastEdit())).toEqual(revertConfirmKeyboard(5, 77));
+    expect(datas(inlineOf(lastEdit()))).toEqual(['ouy_5_77', 'or_5']);
     // Savol — oyna emas: callback'ga matnsiz javob
     expect(alertText()).toBeUndefined();
 
@@ -1667,13 +1707,13 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     await press('ou_5', [...staffOrderKeyboard(plain as never, true, true), ...V.backRow(V.listKeyboard({ key: 'active' }, [5], 0, 1))]);
     expect(editedText()).toBe(`${card(plain)}\n\n${V.revertAskHtml(5)}`);
     expect(editedText()).not.toContain('hisob-faktura');
-    expect(grid(inlineOf(lastEdit()))).toEqual([['ouy_5', 'or_5'], ['sb_active_0']]);
+    expect(grid(inlineOf(lastEdit()))).toEqual([['ouy_5_77', 'or_5'], ['sb_active_0']]);
 
     // Usuli yozilmagan eski buyurtma ham qo'lda belgilangan hisoblanadi; bekor qilingan buyurtmadagi xato belgi ham qaytariladi
     for (const over of [{ paymentMethod: null }, { status: 'cancelled' }, { status: 'delivered' }]) {
       h.prisma.order.findFirst.mockResolvedValue(order({ paymentStatus: 'paid', ...over }));
       await press('ou_5');
-      expect(datas(inlineOf(lastEdit())), JSON.stringify(over)).toEqual(['ouy_5', 'or_5']);
+      expect(datas(inlineOf(lastEdit())), JSON.stringify(over)).toEqual(['ouy_5_77', 'or_5']);
       expect(alertText()).toBeUndefined();
     }
     expect(h.setManualPayment).not.toHaveBeenCalled();
@@ -1709,26 +1749,26 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     for (const [over, alert] of stale) {
       const o = order({ corporateInvoices: INVOICE, ...over });
       h.prisma.order.findFirst.mockResolvedValue(o);
-      for (const data of ['ou_5', 'ouy_5']) {
+      for (const data of ['ou_5', 'ouy_5_77']) {
         const label = `${data} ${JSON.stringify(over)}`;
-        await press(data, data === 'ou_5' ? staffOrderKeyboard(order({ paymentStatus: 'paid' }) as never, true, true) : revertConfirmKeyboard(5));
+        await press(data, data === 'ou_5' ? staffOrderKeyboard(order({ paymentStatus: 'paid' }) as never, true, true) : revertConfirmKeyboard(5, 77));
         expect(alertText(), label).toBe(alert);
         expect(edits(), label).toHaveLength(1);
         expect(editedText(), label).toBe(card(o));
         expect(grid(inlineOf(lastEdit())), label).toEqual(keysFor(o, 'manager'));
-        expect(datas(inlineOf(lastEdit())), label).not.toContain('ouy_5');
+        expect(datas(inlineOf(lastEdit())), label).not.toContain('ouy_5_77');
         expect(datas(inlineOf(lastEdit())), label).not.toContain('ou_5');
       }
     }
     // To'lanmagan (qo'lda) buyurtmaning yangilangan kartasida menejerga yana «To'landi» chiqadi
     h.prisma.order.findFirst.mockResolvedValue(order());
-    await press('ouy_5', revertConfirmKeyboard(5));
+    await press('ouy_5_77', revertConfirmKeyboard(5, 77));
     expect(grid(inlineOf(lastEdit()))).toEqual([['os_5_processing'], ['op_5', 'oc_5'], ['or_5']]);
 
     // O'chirilgan buyurtma: "topilmadi" oynasi, xabar ham shunga almashadi (ro'yxatga qaytish tugmasi qoladi)
     h.prisma.order.findFirst.mockResolvedValue(null);
-    for (const data of ['ou_5', 'ouy_5']) {
-      await press(data, [...revertConfirmKeyboard(5), ...V.backRow(V.listKeyboard({ key: 'new' }, [5], 0, 1))]);
+    for (const data of ['ou_5', 'ouy_5_77']) {
+      await press(data, [...revertConfirmKeyboard(5, 77), ...V.backRow(V.listKeyboard({ key: 'new' }, [5], 0, 1))]);
       expect(alertText(), data).toBe('Buyurtma topilmadi');
       expect(editedText(), data).toBe(V.orderGoneHtml(5));
       expect(grid(inlineOf(lastEdit())), data).toEqual([['sb_new_0']]);
@@ -1736,7 +1776,7 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     expect(h.setManualPayment).not.toHaveBeenCalled();
   });
 
-  it("ouy_: setManualPayment(id, 'pending', xodim, { expected: 'paid' }); kartada kim bekor qilgani, hisob-faktura qayta ochilgan bo'lsa — u ham", async () => {
+  it("ouy_: setManualPayment(id, 'pending', xodim, { expected: 'paid', expectedMark: 77 }); kartada kim bekor qilgani, hisob-faktura qayta ochilgan bo'lsa — u ham", async () => {
     // Ismi HTML belgili menejer: yozuvda ism qochiriladi
     h.staffByTelegram.mockResolvedValue({ ...ali, role: 'manager' });
     const paid = order({ paymentStatus: 'paid', corporateInvoices: INVOICE });
@@ -1753,9 +1793,9 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
       h.setManualPayment.mockReset().mockResolvedValue(res);
       // Avval tekshiruv "to'langan"ni ko'radi, yozuvdan keyin karta bazadan qayta o'qiladi
       h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(paid).mockResolvedValue(reverted);
-      await press('ouy_5', revertConfirmKeyboard(5));
+      await press('ouy_5_77', revertConfirmKeyboard(5, 77));
       expect(h.setManualPayment).toHaveBeenCalledTimes(1);
-      expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', ACTOR, { expected: 'paid' });
+      expect(h.setManualPayment).toHaveBeenCalledWith(5, 'pending', ACTOR, { expected: 'paid', expectedMark: 77 });
       expect(h.prisma.order.findFirst).toHaveBeenCalledTimes(2);
       expect(edits()).toHaveLength(1);
       expect(sent()).toHaveLength(0);
@@ -1793,9 +1833,9 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
       const label = JSON.stringify(extra);
       h.setManualPayment.mockReset().mockResolvedValue({ ok: true, changed: true, order: {}, ...extra });
       h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(paid).mockResolvedValue(reverted);
-      await press('ouy_5', revertConfirmKeyboard(5));
+      await press('ouy_5_77', revertConfirmKeyboard(5, 77));
       expect(h.setManualPayment, label).toHaveBeenCalledTimes(1);
-      expect(h.setManualPayment, label).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid' });
+      expect(h.setManualPayment, label).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 });
       // Yozuv tepada (satrma-satr), bo'sh satrdan keyin buyurtmaning hozirgi kartasi — bitta tahrir, yangi xabar yo'q
       expect(edits(), label).toHaveLength(1);
       expect(sent(), label).toHaveLength(0);
@@ -1824,7 +1864,7 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     for (const res of [{ ok: true, changed: false, order: {}, reopened: 1, stillPaid: ['INV-1'] }, { ok: false, reason: 'conflict', stillPaid: ['INV-1'] }]) {
       h.setManualPayment.mockReset().mockResolvedValue(res);
       h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(order({ paymentStatus: 'paid', corporateInvoices: INVOICE })).mockResolvedValue(order({ corporateInvoices: INVOICE }));
-      await press('ouy_5', revertConfirmKeyboard(5));
+      await press('ouy_5_77', revertConfirmKeyboard(5, 77));
       expect(alertText(), JSON.stringify(res)).toBe(PAYMENT_MOVED);
       expect(editedText(), JSON.stringify(res)).toBe(card(order({ corporateInvoices: INVOICE })));
       expect(editedText()).not.toContain('⚠️');
@@ -1857,8 +1897,8 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
       });
       h.setManualPayment.mockReset().mockResolvedValue({ ok: true, changed: true, order: {}, reopened: 2, stillPaid: numbers });
       h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(big('paid')).mockResolvedValue(big('pending'));
-      await press('ouy_2147483646', [...revertConfirmKeyboard(2147483646), ...back]);
-      expect(h.setManualPayment, label).toHaveBeenCalledWith(2147483646, 'pending', { name: by, via: 'staff_bot' }, { expected: 'paid' });
+      await press('ouy_2147483646_77', [...revertConfirmKeyboard(2147483646, 77), ...back]);
+      expect(h.setManualPayment, label).toHaveBeenCalledWith(2147483646, 'pending', { name: by, via: 'staff_bot' }, { expected: 'paid', expectedMark: 77 });
       const text = editedText();
       const full = card(big('pending'), V.revertedNote(by, 2, numbers));
       expect(full.length, label).toBeLessThanOrEqual(4000);
@@ -1906,7 +1946,7 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     const cancel = await yesOf('oc_5', order({ paymentStatus: 'paid' }));
     expect([pay, revert, cancel]).toEqual([
       { text: "Ha, to'landi", callback_data: 'opy_5' },
-      { text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_5' },
+      { text: 'Ha, belgi bekor qilinsin', callback_data: 'ouy_5_77' },
       { text: 'Ha, bekor qilinsin', callback_data: 'ocy_5' },
     ]);
     expect(new Set([pay, revert, cancel].map((b) => b.text)).size).toBe(3);
@@ -1924,8 +1964,8 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
     expect(editedText().split('\n')[0]).toBe(V.paidNote('Direktor'));
 
     h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(order({ paymentStatus: 'paid' })).mockResolvedValue(order());
-    await press('ouy_5', revertConfirmKeyboard(5));
-    expect(h.setManualPayment).toHaveBeenLastCalledWith(5, 'pending', { name: 'Direktor', via: 'staff_bot' }, { expected: 'paid' });
+    await press('ouy_5_77', revertConfirmKeyboard(5, 77));
+    expect(h.setManualPayment).toHaveBeenLastCalledWith(5, 'pending', { name: 'Direktor', via: 'staff_bot' }, { expected: 'paid', expectedMark: 77 });
     expect(editedText().split('\n')[0]).toBe(V.revertedNote('Direktor', 1));
     expect(h.setManualPayment).toHaveBeenCalledTimes(2);
   });
@@ -1943,9 +1983,9 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
       const label = `${JSON.stringify(res)} -> ${after?.paymentStatus}`;
       h.setManualPayment.mockReset().mockResolvedValue(res);
       h.prisma.order.findFirst.mockReset().mockResolvedValueOnce(order({ paymentStatus: 'paid' })).mockResolvedValue(after);
-      await press('ouy_5', revertConfirmKeyboard(5));
+      await press('ouy_5_77', revertConfirmKeyboard(5, 77));
       expect(h.setManualPayment, label).toHaveBeenCalledTimes(1);
-      expect(h.setManualPayment, label).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid' });
+      expect(h.setManualPayment, label).toHaveBeenCalledWith(5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 });
       expect(alertText(), label).toBe(alert);
       expect(edits(), label).toHaveLength(1);
       // «Bekor qilindi» yozuvi chiqmaydi: hech narsa bekor qilinmadi
@@ -1981,17 +2021,17 @@ describe("boshqaruv boti: to'lovni belgilash va bekor qilish (moliya ruxsati)", 
 
     await press('ou_5', kb);
     kb = inlineOf(lastEdit());
-    expect(datas(kb)).toEqual(['ouy_5', 'or_5']);
+    expect(datas(kb)).toEqual(['ouy_5_77', 'or_5']);
     expect(h.setManualPayment).toHaveBeenCalledTimes(1);
 
-    await press('ouy_5', kb);
+    await press('ouy_5_77', kb);
     expect(editedText().split('\n')[0]).toBe(V.revertedNote('Rahbar', 1));
     expect(editedText()).toContain("To'lanmagan");
     expect(grid(inlineOf(lastEdit()))).toEqual([['os_5_processing'], ['op_5', 'oc_5'], ['or_5']]);
-    expect(h.setManualPayment.mock.calls).toEqual([[5, 'paid', BOSS_ACTOR], [5, 'pending', BOSS_ACTOR, { expected: 'paid' }]]);
+    expect(h.setManualPayment.mock.calls).toEqual([[5, 'paid', BOSS_ACTOR], [5, 'pending', BOSS_ACTOR, { expected: 'paid', expectedMark: 77 }]]);
 
     // Tasdiq tugmasi ikki marta bosilgan (yoki eski xabarda qolgan): ikkinchisi hech narsa yozmaydi
-    await press('ouy_5', kb);
+    await press('ouy_5_77', kb);
     expect(alertText()).toBe(PAYMENT_MOVED);
     expect(h.setManualPayment).toHaveBeenCalledTimes(2);
     expect(paymentStatus).toBe('pending');

@@ -5,7 +5,7 @@ import { tashkentClock } from '@/lib/cron';
 import { prisma } from '@/lib/db';
 import { normalizePhone, toNumber } from '@/lib/format';
 import { overdueInvoiceWhere } from '@/lib/invoiceStatus';
-import { changeOrderStatus, setManualPayment, type Actor } from '@/lib/orderFlow';
+import { changeOrderStatus, lastPaidMark, setManualPayment, type Actor } from '@/lib/orderFlow';
 import { isManualPayment, ORDER_FLOW } from '@/lib/orderStatus';
 import { inline, removeKeyboard } from '../api';
 import { createBot, idFrom, type Ctx } from '../router';
@@ -266,7 +266,7 @@ const payAction = (prefix: string, h: (ctx: Ctx, staff: StaffUser, id: number) =
 /**
  * "To'landi" ikki bosqichli (op_ so'raydi, opy_ bajaradi): to'lov belgilanganda mijozga xabar ketadi va buyurtmaning
  * hisob-fakturasi ham yopiladi, shuning uchun bitta tasodifiy bosish yetarli bo'lmasin. Xato qo'yilgan belgi "To'lovni bekor
- * qilish" (ou_ so'raydi, ouy_ bajaradi) bilan qaytariladi. Har bosqichda shart qayta tekshiriladi: eski xabardagi tugma chatda qolib ketadi.
+ * qilish" (ou_ so'raydi, ouy_<id>_<mark> bajaradi) bilan qaytariladi. Har bosqichda shart qayta tekshiriladi: eski xabardagi tugma chatda qolib ketadi.
  */
 async function payable(ctx: Ctx, staff: StaffUser, id: number): Promise<StaffOrder | null> {
   const o = await staffOrder(id);
@@ -301,14 +301,33 @@ async function revertable(ctx: Ctx, staff: StaffUser, id: number): Promise<Staff
   return null;
 }
 
+/**
+ * Tasdiq tugmasidagi belgi (ouy_<id>_<mark>, orderFlow.lastPaidMark): tasdiq qaysi "to'langan" belgisiga so'ralgani. Yo'q yoki
+ * yaroqsiz (yangilanishdan oldingi tugma) — eskirgan: belgi qayta so'raladi. Tarix yozuvi raqami INT4 ga sig'adi (0 — tarixsiz belgi)
+ */
+const markFrom = (data: string): number | null => {
+  const raw = data.split('_')[2];
+  if (raw == null || !/^\d{1,10}$/.test(raw)) return null;
+  const n = Number(raw);
+  return n <= 2147483647 ? n : null;
+};
+
 payAction('ou_', async (ctx, staff, id) => {
   const o = await revertable(ctx, staff, id);
-  if (o) await ctx.edit(`${staffOrderHtml(o)}\n\n${revertAskHtml(id, o.corporateInvoices[0]?.invoiceNo)}`, [...revertConfirmKeyboard(id), ...backOf(ctx)]);
+  // Tasdiq hozirgi belgiga bog'lanadi: «Ha» bosilganda belgi o'sha-o'sha ekani tekshiriladi (orada bekor qilinib, haqiqiy to'lov bilan
+  // qayta qo'yilgan bo'lsa eski tugma uni bekor qilmaydi)
+  if (o) await ctx.edit(`${staffOrderHtml(o)}\n\n${revertAskHtml(id, o.corporateInvoices[0]?.invoiceNo)}`, [...revertConfirmKeyboard(id, await lastPaidMark(id)), ...backOf(ctx)]);
 });
 payAction('ouy_', async (ctx, staff, id) => {
+  const mark = markFrom(ctx.data);
+  if (mark == null) {
+    await ctx.answer(STALE_BUTTON, true);
+    return showCard(ctx, staff, id);
+  }
   if (!(await revertable(ctx, staff, id))) return;
-  // expected: faqat "to'langan" -> "to'lanmagan" (shu orada boshqa xodim o'zgartirgan bo'lsa hech narsa yozilmaydi)
-  const res = await setManualPayment(id, 'pending', actorOf(staff), { expected: 'paid' });
+  // expected: faqat "to'langan" -> "to'lanmagan"; expectedMark: aynan tasdiq so'ralgan belgi (shu orada boshqa xodim o'zgartirgan
+  // yoki belgini qayta qo'ygan bo'lsa hech narsa yozilmaydi)
+  const res = await setManualPayment(id, 'pending', actorOf(staff), { expected: 'paid', expectedMark: mark });
   if (res.ok && res.changed) return showCard(ctx, staff, id, revertedNote(staff.name, res.reopened, res.stillPaid));
   if (!res.ok && res.reason === 'online') await ctx.answer("Onlayn to'lovni Payme / Click o'zi boshqaradi — botdan bekor qilinmaydi", true);
   else if (res.ok || res.reason !== 'not_found') await ctx.answer("To'lov holati allaqachon o'zgargan", true);

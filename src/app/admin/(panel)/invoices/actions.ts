@@ -29,30 +29,44 @@ async function loadInvoice(id: number) {
   return inv;
 }
 
+/** Sahifa ko'rsatgan hisob-faktura holati qulflangan qatordagidan farq qiladi (orada boshqa xodim yozgan): tranzaksiya bekor qilinadi */
+class StaleInvoice extends Error {}
+
 /**
  * Hisob-faktura to'lovini yozadi. To'liq to'langanda (`full`) bank o'tkazmali buyurtmaning to'lov holati ham "to'langan" bo'ladi,
  * tarixga yoziladi va mijoz bilan xodimlarga xabar ketadi. Buyurtma shartli yangilanadi: tugma ikki marta bosilsa yoki
  * buyurtma allaqachon to'langan bo'lsa tarix va xabar takrorlanmaydi.
+ * Summa va holat sahifa ochilganda o'qilgan `inv` dan hisoblangan: qulflangan qator undan farq qilsa (shu orada boshqa xodim qisman
+ * to'lov kiritgan, "to'landi" qilgan yoki belgi bekor qilingan) hech narsa yozilmaydi va 'stale' qaytadi — aks holda ikki moliya xodimi
+ * bir vaqtda kiritgan qisman to'lovlardan biri ikkinchisining ustidan yozilib, jimgina yo'qolardi. Xodim yangilangan sahifadan qayta kiritadi.
  */
-async function applyPayment(inv: Awaited<ReturnType<typeof loadInvoice>>, data: Prisma.CorporateInvoiceUpdateInput, full: boolean, staffName: string) {
+async function applyPayment(inv: Awaited<ReturnType<typeof loadInvoice>>, data: Prisma.CorporateInvoiceUpdateInput, full: boolean, staffName: string): Promise<'ok' | 'stale'> {
   const actor: Actor = { name: staffName, via: 'invoice' };
-  const orderPaid = await prisma.$transaction(async (tx) => {
-    // Qatorlar orderFlow.setManualPayment bilan bir xil tartibda qulflanadi (avval buyurtma, keyin hisob-faktura): ikki xodim
-    // bir vaqtda shu buyurtmani "to'landi" qilsa, baza o'zaro qulflanish (deadlock) deb birini bekor qilmaydi
-    const updated = full ? await tx.order.updateMany({ where: { id: inv.orderId, paymentMethod: 'bank_transfer', paymentStatus: { not: 'paid' } }, data: { paymentStatus: 'paid' } }) : null;
-    // Hisob-fakturaning yozishdan oldingi holati qulflangan qatordan olinadi (sahifa ochilganda o'qilgan `inv` eskirgan bo'lishi
-    // mumkin: shu orada boshqa xodim qisman to'lov kiritgan yoki belgi bekor qilingan) — tarixga aynan shu holat yoziladi
-    await tx.$queryRaw`SELECT "id" FROM "CorporateInvoice" WHERE "id" = ${inv.id} FOR UPDATE`;
-    const was = await tx.corporateInvoice.findUniqueOrThrow({ where: { id: inv.id }, select: { status: true, paidAmount: true, paidAt: true } });
-    await tx.corporateInvoice.update({ where: { id: inv.id }, data });
-    if (updated?.count !== 1) return false;
-    // Buyurtma shu amal bilan "to'langan" bo'ldi: tarixga hisob-fakturaning avvalgi holati bilan yoziladi — to'lov belgisi keyin
-    // bekor qilinsa (buyurtma sahifasi yoki bot) hisob-faktura aynan shu holatga qaytadi
-    const before = was.status === 'issued' || was.status === 'partial' || was.status === 'overdue' ? [{ id: inv.id, status: was.status, paidAmount: was.paidAmount.toString(), paidAt: was.paidAt?.toISOString() ?? null }] : [];
-    await writePaymentEvent(tx, inv.orderId, inv.order.paymentStatus, 'paid', actor, before);
-    return true;
-  });
+  const orderPaid = await prisma
+    .$transaction(async (tx) => {
+      // Qatorlar orderFlow.setManualPayment bilan bir xil tartibda qulflanadi (avval buyurtma, keyin hisob-faktura): ikki xodim
+      // bir vaqtda shu buyurtmani "to'landi" qilsa, baza o'zaro qulflanish (deadlock) deb birini bekor qilmaydi
+      const updated = full ? await tx.order.updateMany({ where: { id: inv.orderId, paymentMethod: 'bank_transfer', paymentStatus: { not: 'paid' } }, data: { paymentStatus: 'paid' } }) : null;
+      // Hisob-fakturaning yozishdan oldingi holati qulflangan qatordan olinadi: sahifa ko'rsatgan holat bilan solinadi (farq bo'lsa —
+      // eskirgan sahifa, tranzaksiya bekor qilinadi) va tarixga aynan shu holat yoziladi
+      await tx.$queryRaw`SELECT "id" FROM "CorporateInvoice" WHERE "id" = ${inv.id} FOR UPDATE`;
+      const was = await tx.corporateInvoice.findUniqueOrThrow({ where: { id: inv.id }, select: { status: true, paidAmount: true, paidAt: true } });
+      if (was.status !== inv.status || toNumber(was.paidAmount) !== toNumber(inv.paidAmount)) throw new StaleInvoice();
+      await tx.corporateInvoice.update({ where: { id: inv.id }, data });
+      if (updated?.count !== 1) return false;
+      // Buyurtma shu amal bilan "to'langan" bo'ldi: tarixga hisob-fakturaning avvalgi holati bilan yoziladi — to'lov belgisi keyin
+      // bekor qilinsa (buyurtma sahifasi yoki bot) hisob-faktura aynan shu holatga qaytadi
+      const before = was.status === 'issued' || was.status === 'partial' || was.status === 'overdue' ? [{ id: inv.id, status: was.status, paidAmount: was.paidAmount.toString(), paidAt: was.paidAt?.toISOString() ?? null }] : [];
+      await writePaymentEvent(tx, inv.orderId, inv.order.paymentStatus, 'paid', actor, before);
+      return true;
+    })
+    .catch((e: unknown) => {
+      if (e instanceof StaleInvoice) return 'stale' as const;
+      throw e;
+    });
+  if (orderPaid === 'stale') return 'stale';
   if (orderPaid) await afterPaymentChange({ ...inv.order, paymentStatus: 'paid' }, inv.order.paymentStatus, actor, { event: false });
+  return 'ok';
 }
 
 /** Buyurtma sahifasidagi "Hisob-faktura yaratish" tugmasi (mavjud bo'lsa o'shanga o'tadi) */
@@ -77,7 +91,7 @@ export async function markPaid(fd: FormData) {
   const id = Number(fd.get('id'));
   const inv = await loadInvoice(id);
   if (inv.status === 'cancelled') redirect(`/admin/invoices/${id}?error=state`);
-  await applyPayment(inv, { paidAmount: inv.totalAmount, paidAt: new Date(), status: 'paid' }, true, user.name);
+  if ((await applyPayment(inv, { paidAmount: inv.totalAmount, paidAt: new Date(), status: 'paid' }, true, user.name)) === 'stale') redirect(`/admin/invoices/${id}?error=stale`);
   refresh(id, inv.orderId);
   redirect(`/admin/invoices/${id}?saved=1`);
 }
@@ -95,7 +109,7 @@ export async function registerPartial(fd: FormData) {
   if (amount > remaining) redirect(`/admin/invoices/${id}?error=over`);
   const paidAmount = Math.round((toNumber(inv.paidAmount) + amount) * 100) / 100;
   const paid = paidAmount >= total;
-  await applyPayment(inv, { paidAmount, status: paid ? 'paid' : 'partial', ...(paid ? { paidAt: new Date() } : {}) }, paid, user.name);
+  if ((await applyPayment(inv, { paidAmount, status: paid ? 'paid' : 'partial', ...(paid ? { paidAt: new Date() } : {}) }, paid, user.name)) === 'stale') redirect(`/admin/invoices/${id}?error=stale`);
   refresh(id, inv.orderId);
   redirect(`/admin/invoices/${id}?saved=1`);
 }

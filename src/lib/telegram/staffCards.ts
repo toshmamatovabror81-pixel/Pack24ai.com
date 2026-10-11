@@ -12,7 +12,8 @@ import { clip, esc, type InlineKeyboard } from './api';
  *   os_<id>_<status>  holatni o'zgartirish (ORDER_FLOW bo'yicha)
  *   oc_<id>           bekor qilishni so'rash;  ocy_<id> tasdiqlash;  or_<id> kartani yangilash (bekor qilmaslik ham shu)
  *   op_<id>           naqd / bank o'tkazmasi to'lovini "to'langan" deb belgilashni so'rash;  opy_<id> tasdiqlash
- *   ou_<id>           xato qo'yilgan "to'langan" belgisini bekor qilishni so'rash;  ouy_<id> tasdiqlash
+ *   ou_<id>           xato qo'yilgan "to'langan" belgisini bekor qilishni so'rash;  ouy_<id>_<mark> tasdiqlash (mark — so'ralgan paytdagi
+ *                     belgining tarix yozuvi, orderFlow.lastPaidMark: orada belgi bekor qilinib qayta qo'yilgan bo'lsa eski tasdiq ishlamaydi)
  * To'lov tugmalari (op_, ou_) faqat "finance" (moliya) ruxsati bor xodimga chiqadi va bot bosilganda ham shuni tekshiradi.
  */
 
@@ -105,5 +106,8 @@ export function staffOrderKeyboard(o: Pick<StaffOrder, 'id' | 'status' | 'paymen
 export const cancelConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: 'Ha, bekor qilinsin', callback_data: `ocy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];
 /** To'lovni tasdiqlash: bir bosishda xato qo'yilmasin — hisob-faktura ham shu bilan yopiladi va mijozga xabar ketadi */
 export const payConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: "Ha, to'landi", callback_data: `opy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];
-/** To'lov belgisini bekor qilishni tasdiqlash: mijozga tuzatish xabari ketadi */
-export const revertConfirmKeyboard = (id: number): InlineKeyboard => [[{ text: 'Ha, belgi bekor qilinsin', callback_data: `ouy_${id}` }, { text: "Yo'q", callback_data: `or_${id}` }]];
+/**
+ * To'lov belgisini bekor qilishni tasdiqlash: mijozga tuzatish xabari ketadi. `mark` — tasdiq so'ralgan paytdagi "to'langan" belgisi
+ * (orderFlow.lastPaidMark): «Ha» aynan shu belgini bekor qiladi, orada qayta qo'yilgan (haqiqiy) to'lovni emas
+ */
+export const revertConfirmKeyboard = (id: number, mark: number): InlineKeyboard => [[{ text: 'Ha, belgi bekor qilinsin', callback_data: `ouy_${id}_${mark}` }, { text: "Yo'q", callback_data: `or_${id}` }]];

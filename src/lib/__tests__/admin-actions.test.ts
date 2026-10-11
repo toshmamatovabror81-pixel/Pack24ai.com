@@ -419,6 +419,32 @@ describe('admin: buyurtma formasi (updateOrder) — to\'lov holati faqat moliya 
     expect(named('setManualPayment')).toEqual([['setManualPayment', 12, 'paid', by(user), { expected: 'pending' }]]);
   });
 
+  it('prevPaidMark: forma ko\'rgan "to\'langan" belgisi orderFlow\'ga expectedMark bo\'lib boradi (eskirgan belgi — "conflict"); yaroqsiz qiymat e\'tiborsiz qoladi', async () => {
+    s.user = MANAGER;
+    const undo = { id: '12', status: 'processing', prevStatus: 'processing', paymentStatus: 'pending', prevPaymentStatus: 'paid' };
+    expect(await run(updateOrder, { ...undo, prevPaidMark: '77' })).toBe('/admin/orders/12?saved=1');
+    expect(named('setManualPayment')).toEqual([['setManualPayment', 12, 'pending', by(MANAGER), { expected: 'paid', expectedMark: 77 }]]);
+    // 0 — tarixsiz (yangilanishdan oldingi) belgi: u ham tekshiriladi
+    s.calls.length = 0;
+    expect(await run(updateOrder, { ...undo, prevPaidMark: '0' })).toBe('/admin/orders/12?saved=1');
+    expect(named('setManualPayment')).toEqual([['setManualPayment', 12, 'pending', by(MANAGER), { expected: 'paid', expectedMark: 0 }]]);
+    // Forma ochiq turganda belgi bekor qilinib, haqiqiy to'lov bilan qayta qo'yilgan: holat yana "to'langan", lekin belgi boshqa — orderFlow "conflict"
+    s.calls.length = 0;
+    s.paymentResult = { ok: false, reason: 'conflict', order: { paymentStatus: 'paid' } };
+    expect(await run(updateOrder, { ...undo, prevPaidMark: '77' })).toBe('/admin/orders/12?error=conflict');
+    // Yaroqsiz qiymatlar: faqat holat tekshiriladi (avvalgidek)
+    s.paymentResult = { ok: true, changed: true, order: { paymentStatus: 'pending' } };
+    for (const bad of ['', 'abc', '-1', '1.5', '2147483648', '99999999999', '77x']) {
+      s.calls.length = 0;
+      expect(await run(updateOrder, { ...undo, prevPaidMark: bad }), bad).toBe('/admin/orders/12?saved=1');
+      expect(named('setManualPayment'), bad).toEqual([['setManualPayment', 12, 'pending', by(MANAGER), { expected: 'paid' }]]);
+    }
+    // prevPaymentStatus siz (qo'lda yasalgan so'rov): belgi bo'lsa faqat u tekshiriladi
+    s.calls.length = 0;
+    expect(await run(updateOrder, { id: '12', status: 'processing', prevStatus: 'processing', paymentStatus: 'pending', prevPaidMark: '77' })).toBe('/admin/orders/12?saved=1');
+    expect(named('setManualPayment')).toEqual([['setManualPayment', 12, 'pending', by(MANAGER), { expectedMark: 77 }]]);
+  });
+
   // Belgi bekor qilinganda hisob-faktura bilan nima bo'lgani manzilga chiqadi — buyurtma sahifasi shunga qarab xabar ko'rsatadi
   // (pages.test.ts). Qiymatlarni orderFlow.setManualPayment hisoblaydi (db/orderFlow.test.ts): `reopened` — qayta ochilganlar soni,
   // `stillPaid` — belgi bekor qilingandan keyin ham "to'langan" turgan hisob-fakturalar raqamlari
@@ -550,11 +576,11 @@ describe('admin: buyurtma formasi (updateOrder) — to\'lov holati faqat moliya 
         expect(named('setManualPayment')).toHaveLength(0);
       });
 
-      it('moliya ruxsati yo\'q xodim: avvalgidek faqat error=finance — belgi bekor qilinmagan, manzilda invoice ham yo\'q', async () => {
+      it('moliya ruxsati yo\'q xodim: belgi bekor qilinmagan, manzilda invoice yo\'q — holat ziddiyati bilan error=conflict&denied=1, aks holda error=finance', async () => {
         s.user = STAFF;
         // orderFlow javobi tayyor tursa ham unga yetib borilmaydi
         s.paymentResult = undone({ reopened: 1, stillPaid: ['INV-2026-0008'] });
-        expect(await run(updateOrder, stale)).toBe('/admin/orders/12?error=finance');
+        expect(await run(updateOrder, stale)).toBe('/admin/orders/12?error=conflict&denied=1');
         expect(named('setManualPayment')).toHaveLength(0);
         expect(named('changeOrderStatus')).toEqual([['changeOrderStatus', 12, 'processing', by(STAFF), { expected: 'new_' }]]);
         // Holat ziddiyatsiz saqlanganda ham, faqat to'lov o'zgartirilganda ham shunday
@@ -578,10 +604,10 @@ describe('admin: buyurtma formasi (updateOrder) — to\'lov holati faqat moliya 
     expect(await run(updateOrder, { id: '12', status: 'processing', prevStatus: 'processing', paymentStatus: 'pending', prevPaymentStatus: 'paid' })).toBe('/admin/orders/12?saved=1');
   });
 
-  it('ruxsat yo\'qligi ziddiyatdan ustun: holat eskirgan ("conflict") bo\'lsa ham manzilda error=finance', async () => {
+  it('ruxsat yo\'qligi ziddiyatni yutmaydi: holat eskirgan ("conflict") bo\'lsa manzilda error=conflict&denied=1 — sahifada ikkala ogohlantirish (holat ham saqlanmagan)', async () => {
     s.user = STAFF;
     s.statusResult = { ok: false, reason: 'conflict', order: { status: 'shipping' } };
-    expect(await run(updateOrder, { id: '12', status: 'processing', prevStatus: 'new_', paymentStatus: 'paid', prevPaymentStatus: 'pending' })).toBe('/admin/orders/12?error=finance');
+    expect(await run(updateOrder, { id: '12', status: 'processing', prevStatus: 'new_', paymentStatus: 'paid', prevPaymentStatus: 'pending' })).toBe('/admin/orders/12?error=conflict&denied=1');
     expect(named('changeOrderStatus')).toEqual([['changeOrderStatus', 12, 'processing', by(STAFF), { expected: 'new_' }]]);
     expect(named('setManualPayment')).toHaveLength(0);
     // Ruxsati bor xodimda xuddi shu so'rov: to'lov qo'llanadi, holat ziddiyati esa ogohlantirish bo'lib chiqadi
@@ -717,31 +743,47 @@ describe('admin: hisob-faktura amallari', () => {
     expect(s.revalidated).toEqual([]);
   });
 
-  // Surat (hisob-fakturaning yopilishdan oldingi holati) qulflangan qatordan olinadi: amal boshida o'qilgan holat shu orada eskirgan
-  // bo'lishi mumkin. Eskirgan surat bilan belgi bekor qilinsa hisob-faktura noto'g'ri holatga qaytib, orada kiritilgan to'lov yo'qolardi
-  it('markPaid: surat qulflangan qatordan olinadi — amal boshida o\'qilgan (eskirgan) holatdan emas', async () => {
+  // Sahifa ko'rsatgan holat (amal boshida o'qilgan) qulflangan qatordagidan farq qilsa — eskirgan sahifa: hech narsa yozilmaydi (error=stale).
+  // Aks holda sahifadagi eskirgan hisobdan chiqqan summa orada kiritilgan to'lovning ustidan yozilib, u jimgina yo'qolardi
+  it('markPaid: qulfni kutganda boshqa xodim qisman to\'lov kiritgan — eskirgan sahifa rad etiladi: hisob-faktura, tarix o\'zgarmaydi, xabar ketmaydi, tranzaksiya yakunlanmaydi', async () => {
     s.orders.set(7, order());
     s.invoices.set(3, invoice({ totalAmount: new Prisma.Decimal('1250000.00') }));
     // Amal hisob-fakturani "berilgan, 0" deb o'qidi; qulfni kutayotganda boshqa moliya xodimining 300 000 so'mlik qisman to'lovi yakunlandi
     s.onLock = () => { Object.assign(s.invoices.get(3)!, { status: 'partial', paidAmount: new Prisma.Decimal('300000.00') }); };
-    expect(await run(invoices.markPaid, { id: '3' })).toBe('/admin/invoices/3?saved=1');
-    expect(s.events).toEqual([paidEvent({ meta: { invoices: [{ id: 3, status: 'partial', paidAmount: '300000', paidAt: null }] } })]);
-    expect(s.invoices.get(3)!.status).toBe('paid');
-    expect(String(s.invoices.get(3)!.paidAmount)).toBe('1250000');
-    expect(s.orders.get(7)!.paymentStatus).toBe('paid');
-    expect(s.steps).toEqual(IN_ONE_TRANSACTION);
+    expect(await run(invoices.markPaid, { id: '3' })).toBe('/admin/invoices/3?error=stale');
+    expect(s.invoices.get(3)!.status).toBe('partial');
+    expect(String(s.invoices.get(3)!.paidAmount)).toBe('300000');
+    expect(s.db).not.toContain('corporateInvoice.update');
+    expect(s.events).toEqual([]);
+    expect(named('afterPaymentChange')).toHaveLength(0);
+    // Tranzaksiya xato bilan to'xtaydi (commit yo'q): haqiqiy baza buyurtma yozuvini ham qaytaradi (db/orderFlow.test.ts)
+    expect(s.steps).toEqual(['begin']);
+    expect(s.revalidated).toEqual([]);
+    // Holat o'sha-o'sha, faqat summa farq qilsa ham eskirgan
+    s.invoices.set(3, invoice({ status: 'partial', paidAmount: 40 }));
+    s.orders.set(7, order());
+    s.onLock = () => { Object.assign(s.invoices.get(3)!, { paidAmount: 50 }); };
+    expect(await run(invoices.markPaid, { id: '3' })).toBe('/admin/invoices/3?error=stale');
+    expect(s.events).toEqual([]);
   });
 
-  it('markPaid: qulflangan qator allaqachon "to\'langan" bo\'lsa surat yozilmaydi — eskirgan o\'qishdagi "berilgan" holat suratga tushmaydi', async () => {
+  it('markPaid: qulflangan qator allaqachon "to\'langan" (boshqa tranzaksiya yopgan) — eskirgan sahifa: tarix va xabar takrorlanmaydi', async () => {
     s.orders.set(7, order());
     s.invoices.set(3, invoice());
-    // Amal boshida "berilgan, 0" deb o'qilgan hisob-faktura qulf olinganda allaqachon to'liq to'langan (boshqa tranzaksiya yopgan)
+    // Amal boshida "berilgan, 0" deb o'qilgan hisob-faktura qulf olinganda allaqachon to'liq to'langan
     s.onLock = () => { Object.assign(s.invoices.get(3)!, { status: 'paid', paidAmount: 100, paidAt: new Date('2026-10-01T05:00:00.000Z') }); };
+    expect(await run(invoices.markPaid, { id: '3' })).toBe('/admin/invoices/3?error=stale');
+    expect(s.events).toEqual([]);
+    expect(named('afterPaymentChange')).toHaveLength(0);
+    expect(s.steps).toEqual(['begin']);
+  });
+
+  it('markPaid: qulflangan qator sahifadagi bilan bir xil bo\'lsa (faqat paidAt yoki boshqa ustun farq qilsa ham) odatdagidek yoziladi', async () => {
+    s.orders.set(7, order());
+    s.invoices.set(3, invoice({ status: 'partial', paidAmount: 40 }));
+    s.onLock = () => { Object.assign(s.invoices.get(3)!, { dueDate: new Date('2026-12-01T00:00:00.000Z') }); };
     expect(await run(invoices.markPaid, { id: '3' })).toBe('/admin/invoices/3?saved=1');
-    // Tarix yoziladi (buyurtma shu amal bilan "to'langan" bo'ldi), lekin suratsiz: belgi bekor qilinsa hisob-faktura "berilgan, 0" ga
-    // qaytarilmaydi — uni bu amal yopmagan
-    expect(s.events).toEqual([paidEvent()]);
-    expect(s.events[0]).not.toHaveProperty('meta');
+    expect(s.events).toEqual([paidEvent({ meta: { invoices: [{ id: 3, status: 'partial', paidAmount: '40', paidAt: null }] } })]);
     expect(s.steps).toEqual(IN_ONE_TRANSACTION);
   });
 
@@ -813,15 +855,28 @@ describe('admin: hisob-faktura amallari', () => {
     expect(s.events).toEqual([paidEvent({ meta: { invoices: [{ id: 3, status: 'partial', paidAmount: '400000.25', paidAt: null }] } })]);
   });
 
-  it('registerPartial: oxirgi to\'lovning surati ham qulflangan qatordan — qulfni kutganda yakunlangan qisman to\'lov suratda bor', async () => {
-    s.orders.set(7, order());
-    s.invoices.set(3, invoice({ status: 'partial', paidAmount: 40 }));
-    // Amal "qisman, 40" deb o'qidi; qulf olinganda qator "qisman, 50" (boshqa xodim 10 kiritgan). Bu yerda faqat surat tekshiriladi:
-    // belgi bekor qilinsa hisob-faktura eskirgan 40 ga emas, haqiqiy oxirgi holat — 50 ga qaytadi
-    s.onLock = () => { Object.assign(s.invoices.get(3)!, { paidAmount: 50 }); };
-    expect(await run(invoices.registerPartial, { id: '3', amount: '60' })).toBe('/admin/invoices/3?saved=1');
+  it('registerPartial: ikki moliya xodimi bir vaqtda qisman to\'lov kiritsa ikkinchisi rad etiladi (error=stale) — birinchisining summasi ustidan yozilmaydi; yangilangan sahifadan qo\'shiladi', async () => {
+    s.orders.set(7, order({ totalAmount: 1000000 }));
+    s.invoices.set(3, invoice({ totalAmount: 1000000 }));
+    // B amali hisob-fakturani "berilgan, 0" deb o'qidi; qulfni kutganda A ning 400 000 so'mi yakunlandi
+    s.onLock = () => { Object.assign(s.invoices.get(3)!, { status: 'partial', paidAmount: 400000 }); };
+    expect(await run(invoices.registerPartial, { id: '3', amount: '300000' })).toBe('/admin/invoices/3?error=stale');
+    expect(s.invoices.get(3)).toMatchObject({ status: 'partial', paidAmount: 400000 });
+    expect(s.db).not.toContain('corporateInvoice.update');
+    expect(s.steps).toEqual(['begin']);
+    expect(s.revalidated).toEqual([]);
+    // Sahifa yangilangach (400 000 ko'rinib turadi) 300 000 unga qo'shiladi
+    s.onLock = null;
+    s.steps.length = 0;
+    s.db.length = 0;
+    expect(await run(invoices.registerPartial, { id: '3', amount: '300000' })).toBe('/admin/invoices/3?saved=1');
+    expect(s.invoices.get(3)).toMatchObject({ status: 'partial', paidAmount: 700000 });
+    expect(s.orders.get(7)!.paymentStatus).toBe('pending');
+    expect(s.events).toEqual([]);
+    // Oxirgi to'lov (eskirmagan sahifadan): buyurtma "to'langan", surat — oxirgi to'lovdan oldingi holat
+    expect(await run(invoices.registerPartial, { id: '3', amount: '300000' })).toBe('/admin/invoices/3?saved=1');
     expect(s.orders.get(7)!.paymentStatus).toBe('paid');
-    expect(s.events).toEqual([paidEvent({ meta: { invoices: [{ id: 3, status: 'partial', paidAmount: '50', paidAt: null }] } })]);
+    expect(s.events).toEqual([paidEvent({ meta: { invoices: [{ id: 3, status: 'partial', paidAmount: '700000', paidAt: null }] } })]);
   });
 
   it('registerPartial: qoldiqdan ortiq summa qabul qilinmaydi', async () => {

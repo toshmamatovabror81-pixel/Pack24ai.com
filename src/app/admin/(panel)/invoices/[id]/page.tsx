@@ -14,6 +14,8 @@ const errors: Record<string, string> = {
   amount: "To'lov summasini kiriting",
   over: "To'lov summasi qoldiqdan oshmasligi kerak",
   state: "Bu holatdagi hisob-fakturani o'zgartirib bo'lmaydi",
+  // Sahifa ochilgandan keyin boshqa xodim yozgan (qisman to'lov, "to'landi" yoki belgi bekor qilingan): eskirgan hisobdan yozilmadi
+  stale: "Siz sahifani ochganingizdan keyin bu hisob-fakturani boshqa xodim o'zgartirgan, shuning uchun kiritganingiz saqlanmadi — hozirgi holatni tekshirib, qayta kiriting",
 };
 
 export default async function InvoiceDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {

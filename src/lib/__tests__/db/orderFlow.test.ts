@@ -37,7 +37,7 @@ vi.mock('next/cache', () => ({ revalidatePath: () => undefined }));
 vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Redirect(url); } }));
 vi.mock('@/lib/auth', () => ({ requireStaff: async () => ({ id: 0, name: 'Test Moliya', role: 'manager' }) }));
 
-const { afterPaymentChange, changeOrderStatus, setManualPayment, settleInvoicesOfPaidOrder } = await import('@/lib/orderFlow');
+const { afterPaymentChange, changeOrderStatus, lastPaidMark, setManualPayment, settleInvoicesOfPaidOrder } = await import('@/lib/orderFlow');
 const { customerDebt } = await import('@/lib/customerAccount');
 const { getDict } = await import('@/lib/i18n');
 const { markPaid, registerPartial, reopenInvoice } = await import('@/app/admin/(panel)/invoices/actions');
@@ -521,6 +521,42 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
       expect(outbox.customer.map((m) => m.to)).toEqual([c.telegramId]);
     });
 
+    it('expectedMark: tasdiq so\'ralgan belgi orada bekor qilinib, haqiqiy to\'lov bilan qayta qo\'yilgan bo\'lsa "conflict" — haqiqiy to\'lov bekor qilinmaydi; belgi o\'sha-o\'sha bo\'lsa o\'tadi; tarixsiz eski belgi — 0', async () => {
+      const phone = fx.phone();
+      const c = await fx.customer({ phone });
+      const o = await fx.order({ contactPhone: phone, paymentMethod: 'cash', totalAmount: 300000 });
+      const inv = await fx.invoice({ orderId: o.id, total: 300000, dueDate: soon() });
+      expect(await lastPaidMark(o.id)).toBe(0);
+      // A xato "to'landi" qo'ydi va botda bekor qilishni so'radi: tasdiq tugmasi shu belgiga bog'lanadi
+      await setManualPayment(o.id, 'paid', bot);
+      const mark1 = await lastPaidMark(o.id);
+      expect(mark1).toBeGreaterThan(0);
+      // B belgini bekor qildi; keyin mijoz haqiqatan to'ladi — B yana "to'landi" qo'ydi
+      expect(await setManualPayment(o.id, 'pending', admin, { expected: 'paid', expectedMark: mark1 })).toMatchObject(undone(1));
+      await setManualPayment(o.id, 'paid', admin);
+      const mark2 = await lastPaidMark(o.id);
+      expect(mark2).toBeGreaterThan(mark1);
+      clearSent();
+      // A ning chatda qolgan eski tasdig'i: holat yana "to'langan", lekin belgi boshqa — hech narsa yozilmaydi, mijozga "xato edi" ketmaydi
+      expect(await setManualPayment(o.id, 'pending', bot, { expected: 'paid', expectedMark: mark1 })).toMatchObject({ ok: false, reason: 'conflict', order: { id: o.id, paymentStatus: 'paid' } });
+      expect((await row(o.id)).paymentStatus).toBe('paid');
+      expect(await money(inv.id)).toMatchObject({ status: 'paid', paidAmount: 300000 });
+      expect((await payments(o.id)).map((e) => `${e.fromValue}>${e.toValue}`)).toEqual(['pending>paid', 'paid>pending', 'pending>paid']);
+      expect(outbox.customer).toEqual([]);
+      expect(outbox.staff).toEqual([]);
+      // Hozirgi belgiga so'ralgan tasdiq o'tadi
+      expect(await setManualPayment(o.id, 'pending', bot, { expected: 'paid', expectedMark: mark2 })).toMatchObject(undone(1));
+      expect(await invoiceRow(inv.id)).toEqual(reopenedAs(inv));
+      expect(outbox.customer.map((m) => m.to)).toEqual([c.telegramId]);
+      // Tarixsiz (yangilanishdan oldingi) belgi 0 bilan bekor qilinadi; undan keyin belgi qo'yilsa 0 eskiradi
+      const legacy = await fx.order({ paymentMethod: 'cash', paymentStatus: 'paid', totalAmount: 50000 });
+      expect(await lastPaidMark(legacy.id)).toBe(0);
+      expect(await setManualPayment(legacy.id, 'pending', bot, { expected: 'paid', expectedMark: 0 })).toMatchObject(undone(0));
+      await setManualPayment(legacy.id, 'paid', admin);
+      expect(await setManualPayment(legacy.id, 'pending', bot, { expected: 'paid', expectedMark: 0 })).toMatchObject({ ok: false, reason: 'conflict' });
+      expect((await row(legacy.id)).paymentStatus).toBe('paid');
+    });
+
     it('"to\'langan" bo\'lganda buyurtmaning ochiq hisob-fakturalari ham yopiladi; bekor qilinganiga tegilmaydi; pul qaytarilsa ("qaytarilgan") hisob-faktura o\'zgarmaydi va mijozga hech narsa aytilmaydi, keyin "to\'lanmagan"ga o\'tkazilsa avvalgi holatiga ochiladi va mijozga tuzatish boradi', async () => {
       const phone = fx.phone();
       const c = await fx.customer({ phone });
@@ -596,6 +632,61 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
       expect(await invoiceRow(open.id)).toEqual(open);
       expect(await events(o.id)).toEqual([]);
       expect(outbox.customer).toEqual([]);
+    });
+  });
+
+  // Hisob-faktura sahifasi: summa va holat sahifa ochilganda o'qilgan holatdan hisoblanadi. Qulflangan qator undan farq qilsa (orada boshqa
+  // xodim yozgan) hech narsa yozilmaydi — ikki moliya xodimi bir vaqtda kiritgan qisman to'lovlardan biri ikkinchisining ustidan yozilmaydi
+  describe('hisob-faktura sahifasi: eskirgan sahifadan yozilmaydi (error=stale)', () => {
+    /** `action` hisob-faktura qulfida kutib turganda boshqa xodimning yozuvi (`write`) yakunlanadi; qulf bo'shagach amal eskirgan holatni ko'radi */
+    const whileLocked = async (invoiceId: number, action: () => Promise<string>, write: (tx: Prisma.TransactionClient) => Promise<unknown>) => {
+      const held = await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "CorporateInvoice" WHERE id = ${invoiceId} FOR UPDATE`;
+          const result = action();
+          await waitForBlocked(tx, 1);
+          await write(tx);
+          return { result };
+        },
+        { timeout: 15_000 },
+      );
+      return held.result;
+    };
+
+    it('ikki moliya xodimi bir vaqtda qisman to\'lov kiritsa ikkinchisi rad etiladi — birinchisining summasi ustidan yozilmaydi; yangilangan sahifadan qo\'shiladi', async () => {
+      const o = await fx.order({ paymentMethod: 'bank_transfer', totalAmount: 1000000 });
+      const inv = await fx.invoice({ orderId: o.id, total: 1000000, dueDate: soon() });
+      const id = String(inv.id);
+      // B amali hisob-fakturani "berilgan, 0" deb o'qidi; qulfda kutganda A ning 400 000 so'mi yakunlandi
+      const second = await whileLocked(inv.id, () => run(registerPartial, { id, amount: '300000' }), (tx) => tx.corporateInvoice.update({ where: { id: inv.id }, data: { status: 'partial', paidAmount: 400000 } }));
+      expect(second).toBe(`/admin/invoices/${inv.id}?error=stale`);
+      expect(await money(inv.id)).toEqual({ status: 'partial', paidAmount: 400000, paidAt: null });
+      expect(await payments(o.id)).toEqual([]);
+      // Yangilangan sahifa 400 000 ni ko'rsatadi — 300 000 unga qo'shiladi
+      expect(await run(registerPartial, { id, amount: '300000' })).toBe(`/admin/invoices/${inv.id}?saved=1`);
+      expect(await money(inv.id)).toEqual({ status: 'partial', paidAmount: 700000, paidAt: null });
+      expect((await row(o.id)).paymentStatus).toBe('pending');
+    });
+
+    it('"To\'liq to\'landi" eskirgan sahifadan: orada qisman to\'lov kiritilgan bo\'lsa rad etiladi — buyurtma "to\'langan" bo\'lib qolmaydi (tranzaksiya qaytariladi), tarix va xabar yo\'q', async () => {
+      const phone = fx.phone();
+      const c = await fx.customer({ phone });
+      await fx.user({ role: 'manager', telegramId: fx.tg() });
+      const o = await fx.order({ contactPhone: phone, paymentMethod: 'bank_transfer', totalAmount: 1000000 });
+      const inv = await fx.invoice({ orderId: o.id, total: 1000000, dueDate: soon() });
+      const full = await whileLocked(inv.id, () => run(markPaid, { id: String(inv.id) }), (tx) => tx.corporateInvoice.update({ where: { id: inv.id }, data: { status: 'partial', paidAmount: 400000 } }));
+      expect(full).toBe(`/admin/invoices/${inv.id}?error=stale`);
+      // Buyurtma yozuvi hisob-faktura qulfidan OLDIN bo'lgan edi — tranzaksiya bilan birga qaytarilgan
+      expect((await row(o.id)).paymentStatus).toBe('pending');
+      expect(await money(inv.id)).toEqual({ status: 'partial', paidAmount: 400000, paidAt: null });
+      expect(await payments(o.id)).toEqual([]);
+      expect(outbox.customer).toEqual([]);
+      expect(outbox.staff).toEqual([]);
+      // Yangilangan sahifadan "To'liq to'landi": buyurtma to'lanadi, surat — "qisman, 400 000"
+      expect(await run(markPaid, { id: String(inv.id) })).toBe(`/admin/invoices/${inv.id}?saved=1`);
+      expect((await row(o.id)).paymentStatus).toBe('paid');
+      expect((await payments(o.id)).map((e) => [`${e.fromValue}>${e.toValue}`, e.meta])).toEqual([['pending>paid', { invoices: [{ id: inv.id, status: 'partial', paidAmount: '400000', paidAt: null }] }]]);
+      expect(outbox.customer.map((m) => m.to)).toEqual([c.telegramId]);
     });
   });
 
@@ -2005,9 +2096,9 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
       }
     });
 
-    // "To'liq to'landi" hisob-fakturani sahifa uchun o'qib bo'lgan, yozishga esa keyinroq yetib keladi. Surat o'sha eskirgan o'qishdan
-    // olinganda ("berilgan", 0) belgi bekor qilinsa orada kiritilgan qisman to'lov yo'qolardi
-    it('"To\'liq to\'landi" eskirgan sahifadan bosilgan, shu orada boshqa xodim qisman to\'lov kiritgan: suratga qulflangan qatordagi haqiqiy holat tushadi — belgi bekor qilinsa qisman to\'lov joyida qoladi', async () => {
+    // "To'liq to'landi" hisob-fakturani sahifa uchun o'qib bo'lgan, yozishga esa keyinroq yetib keladi. Qulflangan qator sahifadagidan
+    // farq qilsa (orada boshqa xodim qisman to'lov kiritgan) amal saqlamaydi — aks holda o'sha qisman to'lov ustiga yozilib yo'qolardi
+    it('"To\'liq to\'landi" eskirgan sahifadan bosilgan, shu orada boshqa xodim qisman to\'lov kiritgan: saqlanmaydi (error=stale), qisman to\'lov joyida qoladi; yangilangan sahifadan bosilganda surat — haqiqiy holat', async () => {
       const phone = fx.phone();
       const c = await fx.customer({ phone });
       const o = await fx.order({ contactPhone: phone, paymentMethod: 'bank_transfer', totalAmount: 900000 });
@@ -2029,8 +2120,15 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
       expect(held.part).toBe(saved(inv.id));
       expect(held.between).toMatchObject({ status: 'partial', paidAt: null });
       expect(Number(held.between.paidAmount)).toBe(250000);
-      expect(await held.full).toBe(saved(inv.id));
+      // Eskirgan sahifa: qulflangan qator "qisman, 250 000" — sahifa esa "berilgan, 0" deb bilardi; hech narsa yozilmaydi
+      expect(await held.full).toBe(`/admin/invoices/${inv.id}?error=stale`);
+      expect((await row(o.id)).paymentStatus).toBe('pending');
+      expect(await invoiceRow(inv.id)).toEqual(held.between);
+      expect(await payments(o.id)).toEqual([]);
+      expect(paymentMsgs(c.telegramId)).toEqual([]);
 
+      // Sahifa yangilangach bosilsa saqlanadi; suratga haqiqiy holat (qisman, 250 000) tushadi
+      expect(await run(markPaid, { id })).toBe(saved(inv.id));
       expect((await row(o.id)).paymentStatus).toBe('paid');
       expect(await money(inv.id)).toMatchObject({ status: 'paid', paidAmount: 900000 });
       expect(await payments(o.id)).toEqual([{ fromValue: 'pending', toValue: 'paid', actor: 'Test Moliya', via: 'invoice', meta: { invoices: [{ id: inv.id, status: 'partial', paidAmount: '250000', paidAt: null }] } }]);
@@ -2126,7 +2224,7 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
       expect(await invoiceRow(inv.id)).toEqual(settled);
     });
 
-    it('"To\'liq to\'landi" ikki marta bosilsa (ketma-ket ham, bir vaqtda ham) tarix yozuvi va xabar bitta, surat — to\'lovdan oldingi holat', async () => {
+    it('"To\'liq to\'landi" ikki marta bosilsa (ketma-ket ham, bir vaqtda ham) tarix yozuvi va xabar bitta, surat — to\'lovdan oldingi holat; bir vaqtdagi ikkinchi bosish eskirgan deb rad etiladi', async () => {
       const phone = fx.phone();
       const c = await fx.customer({ phone });
       for (const together of [false, true]) {
@@ -2146,7 +2244,8 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
             },
             { timeout: 15_000 },
           );
-          expect(await held.race).toEqual([saved(inv.id), saved(inv.id)]);
+          // Birinchisi yozadi; ikkinchisi qulfni olgach hisob-fakturani "to'langan" ko'radi — sahifadagi "qisman" eskirgan, saqlanmaydi
+          expect([...(await held.race)].sort()).toEqual([`/admin/invoices/${inv.id}?error=stale`, saved(inv.id)].sort());
         } else {
           expect(await run(markPaid, { id })).toBe(saved(inv.id));
           expect(await run(markPaid, { id })).toBe(saved(inv.id));
@@ -2177,8 +2276,12 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
         { timeout: 15_000 },
       );
       const [viaBot, url] = await held.race;
-      expect(url).toBe(saved(inv.id));
-      if (!viaBot.ok) expect(viaBot.reason).toBe('conflict');
+      // Bot yutsa hisob-faktura allaqachon yopilgan bo'ladi — sahifa amali eskirgan deb rad etiladi; sahifa yutsa botga "conflict"
+      if (viaBot.ok) expect(url).toBe(`/admin/invoices/${inv.id}?error=stale`);
+      else {
+        expect(viaBot.reason).toBe('conflict');
+        expect(url).toBe(saved(inv.id));
+      }
 
       expect((await row(o.id)).paymentStatus).toBe('paid');
       expect(Number((await invoiceRow(inv.id)).paidAmount)).toBe(450000);

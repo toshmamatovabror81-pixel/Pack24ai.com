@@ -153,14 +153,29 @@ async function reopenInvoicesOfUnpaidOrder(orderId: number, tx: Prisma.Transacti
 }
 
 /**
+ * Buyurtmadagi oxirgi "to'langan" belgisining tarix yozuvi (OrderEvent.id); tarixsiz (yangilanishdan oldingi) belgi — 0.
+ * Belgini bekor qilish tasdig'i (bot tugmasi ouy_<id>_<mark>, admin formasidagi prevPaidMark) aynan shu belgiga bog'lanadi —
+ * setManualPayment `expectedMark` bilan tekshiradi.
+ */
+export async function lastPaidMark(orderId: number, db: Prisma.TransactionClient | typeof prisma = prisma): Promise<number> {
+  const ev = await db.orderEvent.findFirst({ where: { orderId, kind: 'payment', toValue: 'paid' }, orderBy: { id: 'desc' }, select: { id: true } });
+  return ev?.id ?? 0;
+}
+
+/** Tasdiq so'ralgan belgi bilan hozirgi belgi bir xil emas (orada bekor qilinib, qayta qo'yilgan): tranzaksiya bekor qilinadi, natija "conflict" */
+class StaleMark extends Error {}
+
+/**
  * Qo'lda to'lov holati (faqat naqd va bank o'tkazmasi; onlayn to'lovni Payme/Click o'zi belgilaydi). Kim o'zgartira olishini
  * chaqiruvchi tekshiradi: admin panel ham, bot ham faqat "finance" (moliya) ruxsati bor xodimga yo'l beradi.
+ * `expected` — chaqiruvchi ko'rgan to'lov holati; `expectedMark` — chaqiruvchi ko'rgan "to'langan" belgisi (lastPaidMark): ikkisidan
+ * biri eskirgan bo'lsa hech narsa yozilmaydi va "conflict" qaytadi.
  * "To'langan" -> "to'lanmagan" — xato qo'yilgan belgini bekor qilish: shu belgi yopgan hisob-fakturalar qayta ochiladi va mijozga
  * tuzatish xabari boradi. "Qaytarilgan" orqali aylanib kelinganda ham ("to'langan" -> "qaytarilgan" -> "to'lanmagan") xuddi shunday:
  * o'sha oraliq qadamda hisob-faktura ham ochilmagan, mijozga ham hech narsa aytilmagan. Buyurtma, hisob-faktura va tarix yozuvi
  * bitta tranzaksiyada o'zgaradi.
  */
-export async function setManualPayment(orderId: number, next: Extract<PaymentStatus, 'pending' | 'paid' | 'refunded'>, actor: Actor, opts: { expected?: string } = {}): Promise<PaymentResult> {
+export async function setManualPayment(orderId: number, next: Extract<PaymentStatus, 'pending' | 'paid' | 'refunded'>, actor: Actor, opts: { expected?: string; expectedMark?: number } = {}): Promise<PaymentResult> {
   const order = await prisma.order.findFirst({ where: { id: orderId, deletedAt: null } });
   if (!order) return { ok: false, reason: 'not_found' };
   if (!isManualPayment(order.paymentMethod)) return { ok: false, reason: 'online', order };
@@ -168,14 +183,23 @@ export async function setManualPayment(orderId: number, next: Extract<PaymentSta
   if (opts.expected != null && order.paymentStatus !== opts.expected) return { ok: false, reason: 'conflict', order };
   // Bitta tranzaksiya: buyurtma "to'langan" bo'lib hisob-fakturasi ochiq qolgan (yoki aksincha) oraliq holat bazaga tushmaydi;
   // tarix yozuvi ham shu yerda — belgi bekor qilinganda qaysi hisob-fakturalar qaytarilishi aynan shu yozuvdan olinadi
-  const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.order.updateMany({ where: { id: orderId, paymentStatus: order.paymentStatus }, data: { paymentStatus: next } });
-    if (updated.count !== 1) return null;
-    const settled = next === 'paid' ? await settleInvoicesOfPaidOrder(orderId, tx) : [];
-    const undo = next === 'pending' && (order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') ? await reopenInvoicesOfUnpaidOrder(orderId, tx) : null;
-    await writePaymentEvent(tx, orderId, order.paymentStatus, next, actor, settled, undo?.reopened);
-    return { undo };
-  });
+  const result = await prisma
+    .$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({ where: { id: orderId, paymentStatus: order.paymentStatus }, data: { paymentStatus: next } });
+      if (updated.count !== 1) return null;
+      // Buyurtma qatori qulflangan: amal qilinayotgan "to'langan" belgisi chaqiruvchi ko'rgan belgi ekani shu yerda tekshiriladi. Holat
+      // nomi ("to'langan") buning uchun yetmaydi: tasdiq tugmasi chatda (yoki forma ochiq) qolib, orada belgi bekor qilinib, haqiqiy
+      // to'lov bilan QAYTA qo'yilgan bo'lsa holat yana "to'langan" — eski tasdiq o'sha haqiqiy to'lovni bekor qilib yuborardi
+      if (opts.expectedMark != null && (await lastPaidMark(orderId, tx)) !== opts.expectedMark) throw new StaleMark();
+      const settled = next === 'paid' ? await settleInvoicesOfPaidOrder(orderId, tx) : [];
+      const undo = next === 'pending' && (order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') ? await reopenInvoicesOfUnpaidOrder(orderId, tx) : null;
+      await writePaymentEvent(tx, orderId, order.paymentStatus, next, actor, settled, undo?.reopened);
+      return { undo };
+    })
+    .catch((e: unknown) => {
+      if (e instanceof StaleMark) return null;
+      throw e;
+    });
   if (!result) return { ok: false, reason: 'conflict', order: (await prisma.order.findUnique({ where: { id: orderId } })) ?? order };
   const fresh = { ...order, paymentStatus: next };
   // Xodimlarga faqat ularga e'lon qilingan to'lovning tuzatishi boradi (bot yoki admin formasidan qo'yilgan belgi e'lon qilinmaydi)

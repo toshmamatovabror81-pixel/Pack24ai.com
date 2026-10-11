@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { requireStaff } from '@/lib/auth';
 import { can } from '@/lib/auth/permissions';
 import { displayPhone, formatDate, formatPrice, toNumber } from '@/lib/format';
+import { lastPaidMark } from '@/lib/orderFlow';
 import { isManualPayment } from '@/lib/orderStatus';
 import { botToken } from '@/lib/telegram/bots';
 import { orderRecipients } from '@/lib/telegram/customers';
@@ -30,7 +31,7 @@ function eventText(e: Pick<OrderEvent, 'kind' | 'fromValue' | 'toValue' | 'meta'
   return `${e.kind === 'payment' ? "To'lov" : 'Holat'}: ${e.fromValue ? `${name(e.fromValue)} → ` : ''}${name(e.toValue)}${invoice}`;
 }
 
-export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; invoice?: string }> }) {
+export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; invoice?: string; denied?: string }> }) {
   const user = await requireStaff('orders');
   const id = Number((await params).id);
   if (!Number.isSafeInteger(id)) notFound();
@@ -48,6 +49,9 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
   const canPay = can(user.role, 'finance');
   // O'chirilgan buyurtmani orderFlow o'zgartirmaydi (not_found) — saqlab bo'lmaydigan forma o'rniga faqat ko'rish uchun chiqadi
   const deleted = !!order.deletedAt;
+  // Forma ko'rgan "to'langan" belgisi (prevPaidMark): «To'lanmagan» saqlanganda aynan shu belgi bekor qilinadi — forma ochiq turganda belgi
+  // bekor qilinib, haqiqiy to'lov bilan qayta qo'yilgan bo'lsa updateOrder/orderFlow uni emas, ziddiyat ogohlantirishini qaytaradi
+  const paidMark = canPay && manualPayment && !deleted && order.paymentStatus === 'paid' ? await lastPaidMark(order.id) : null;
   // Mijoz botidan xabar oladigan chatlar bormi (ma'lumot uchun; aniqlab bo'lmasa sahifa to'xtamaydi). Mijoz boti tokeni
   // kiritilmagan bo'lsa hech kimga xabar ketmaydi — eski tizimdan qolgan telegramUserId "ulangan" deb ko'rsatilmasin.
   const customerBot = !!botToken('customer');
@@ -63,7 +67,8 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
       <Notice show={undone && sp.invoice === 'reopened'}>Shu to'lov belgisi yopgan hisob-faktura qayta ochildi.</Notice>
       <Notice show={undone && sp.invoice === 'paid'} tone="warn">Buyurtma «to'lanmagan» deb belgilandi, lekin hisob-fakturasi to'langan holida qoldi (avtomatik ochilmadi: yangilanishdan oldingi belgi yoki alohida to'lov). Hisob-faktura sahifasida tekshiring — to'lov haqiqatan kelmagan bo'lsa u yerda «Qayta ochish» tugmasini bosing.</Notice>
       <Notice show={deleted} tone="warn">Bu buyurtma o'chirilgan — faqat ko'rish uchun: holati va to'lovini o'zgartirib bo'lmaydi.</Notice>
-      <Notice show={sp.error === 'finance'} tone="warn">To'lov holatini faqat moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi — to'lov o'zgarishi saqlanmadi.</Notice>
+      {/* denied=1 — holat ziddiyati (error=conflict) bilan birga kelgan ruxsatsiz to'lov o'zgarishi: ikkala ogohlantirish ham chiqadi */}
+      <Notice show={sp.error === 'finance' || sp.denied === '1'} tone="warn">To'lov holatini faqat moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi — to'lov o'zgarishi saqlanmadi.</Notice>
       <Notice show={sp.error === 'conflict'} tone="warn">Siz sahifani ochganingizdan keyin buyurtmani boshqa xodim yoki bot o'zgartirgan, shuning uchun o'zgarishingiz to'liq saqlanmadi — hozirgi holatni tekshirib, kerak bo'lsa qayta saqlang.</Notice>
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="space-y-4">
@@ -117,6 +122,7 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
               <input type="hidden" name="id" value={order.id} />
               <input type="hidden" name="prevStatus" value={order.status} />
               {canPay && <input type="hidden" name="prevPaymentStatus" value={order.paymentStatus} />}
+              {paidMark != null && <input type="hidden" name="prevPaidMark" value={paidMark} />}
               <p className="flex items-center justify-between text-sm">Holat {orderStatusBadge(order.status)}</p>
               <select name="status" defaultValue={order.status} className="input">
                 {Object.entries(orderStatusNames).filter(([k]) => k !== 'draft').map(([k, v]) => <option key={k} value={k}>{v}</option>)}

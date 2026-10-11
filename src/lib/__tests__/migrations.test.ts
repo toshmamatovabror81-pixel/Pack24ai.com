@@ -15,13 +15,18 @@ describe('migratsiya nomlari', () => {
     expect(names.filter((n) => /^\d{2,}_/.test(n))).toEqual([]);
   });
 
-  it('"9_..." dan keyingi migratsiyalar nom tartibida ham ulardan keyin turadi (9a_, 9b_, ...)', () => {
+  /**
+   * Qo'llanish tartibi (nom tartibi) = yaratilish tartibi. Yangi migratsiya FAQAT shu ro'yxat OXIRIGA qo'shiladi (keyingisi 9b_...),
+   * o'rtasiga emas: nomi oldingilaridan keyin turmasa (masalan 9a_boshqa — "9a_p..." dan oldin, 9_zzz — "9a_" dan oldin, 9A_x — "9_" dan
+   * oldin) tartiblangan ro'yxat bunga teng chiqmaydi va test o'sha nomni ko'rsatadi. Faqat shakl tekshiruvi (9[a-z]_) buni o'tkazib yuborardi.
+   */
+  const APPLIED = ['0_init', '1_site_v2', '2_b2b', '3_recycling', '4_recycling_accepted', '5_remove_recycling', '6_bots_orders', '7_ai', '8_outbox', '9_payme_amount_bigint', '9a_payment_undo'];
+
+  it('papkalar aynan ro\'yxatdagilar va nom tartibi yaratilish tartibi bilan bir xil (yangi nom ro\'yxat oxiriga qo\'shiladi va oldingilaridan keyin turishi shart)', () => {
     // sort() — UTF-16 birliklari bo'yicha; ASCII nomlarda bu Prisma ishlatadigan bayt tartibi bilan bir xil
-    const sorted = [...names].sort();
-    const lastNine = sorted.findLastIndex((n) => n.startsWith('9_'));
-    expect(lastNine).toBeGreaterThan(-1);
-    expect(sorted.slice(lastNine + 1).every((n) => /^9[a-z]_/.test(n))).toBe(true);
-    expect(sorted).toContain('9a_payment_undo');
-    expect(sorted.indexOf('9a_payment_undo')).toBeGreaterThan(sorted.indexOf('9_payme_amount_bigint'));
+    expect([...names].sort()).toEqual(APPLIED);
+    // Ro'yxatning o'zi ham qat'iy o'sib boradi: o'rtasiga nom qo'shib "tuzatilgan" ro'yxat ham o'tmaydi
+    for (let i = 1; i < APPLIED.length; i++) expect(APPLIED[i] > APPLIED[i - 1], `${APPLIED[i - 1]} < ${APPLIED[i]}`).toBe(true);
+    expect(APPLIED.at(-1)).toBe('9a_payment_undo');
   });
 });

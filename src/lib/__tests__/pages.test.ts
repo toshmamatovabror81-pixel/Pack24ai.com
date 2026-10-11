@@ -33,6 +33,9 @@ const s = vi.hoisted(() => ({
   ops: null as Record<string, unknown> | null,
   admins: [] as string[] | null,
   queue: { pending: 0, stuck: 0, failed24h: 0 },
+  // Buyurtma sahifasi formasiga yoziladigan "to'langan" belgisi (orderFlow.lastPaidMark) va u qaysi buyurtmalar uchun so'ralgani
+  paidMark: 0,
+  marks: [] as number[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -61,6 +64,7 @@ vi.mock('@/lib/db', () => ({
     botOutbox: { count: async ({ where }: { where: { failedAt?: unknown; createdAt?: unknown } }) => (where.failedAt ? s.queue.failed24h : where.createdAt ? s.queue.stuck : s.queue.pending) },
   },
 }));
+vi.mock('@/lib/orderFlow', () => ({ lastPaidMark: async (orderId: number) => { s.marks.push(orderId); return s.paidMark; } }));
 vi.mock('@/lib/settings', async () => {
   const actual = await vi.importActual<typeof import('@/lib/settings')>('@/lib/settings');
   return { getSettings: async () => ({ ...actual.defaultSettings, ...s.settings }) };
@@ -145,6 +149,8 @@ beforeEach(() => {
   s.ops = null;
   s.admins = [];
   s.queue = { pending: 0, stuck: 0, failed24h: 0 };
+  s.paidMark = 77;
+  s.marks = [];
   tokens('', '');
   for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID', 'TELEGRAM_WEBHOOK_SECRET', 'ANTHROPIC_API_KEY']) vi.stubEnv(key, '');
 });
@@ -278,7 +284,7 @@ describe('admin: buyurtma sahifasi', () => {
     it('saved=1 ham, error=conflict ham bo\'lmasa yoki invoice qiymati boshqa bo\'lsa bu xabarlar chiqmaydi', async () => {
       const others: Record<string, string>[] = [
         {}, { saved: '1' }, { error: 'conflict' }, { invoice: 'reopened' }, { invoice: 'paid' }, { saved: '0', invoice: 'paid' }, { saved: '1', invoice: 'other' },
-        { error: 'conflict', invoice: 'other' }, { error: 'finance', invoice: 'reopened' }, { error: 'finance', invoice: 'paid' }, { error: 'other', invoice: 'paid' },
+        { error: 'conflict', invoice: 'other' }, { error: 'finance', invoice: 'reopened' }, { error: 'finance', invoice: 'paid' }, { error: 'other', invoice: 'paid' }, { error: 'conflict', denied: '1' },
       ];
       for (const sp of others) {
         const { text } = await page(sp);
@@ -357,6 +363,7 @@ describe('admin: buyurtma sahifasi', () => {
   describe('to\'lov holati maydoni', () => {
     const NO_FINANCE = "To'lov holatini moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi.";
     const DENIED = "To'lov holatini faqat moliya ruxsati bor xodim (menejer yoki administrator) o'zgartiradi — to'lov o'zgarishi saqlanmadi.";
+    const CONFLICT = "Siz sahifani ochganingizdan keyin buyurtmani boshqa xodim yoki bot o'zgartirgan, shuning uchun o'zgarishingiz to'liq saqlanmadi — hozirgi holatni tekshirib, kerak bo'lsa qayta saqlang.";
     const UNDO_HINT = "Belgi xato qo'yilgan bo'lsa «To'lanmagan»ni tanlang: shu belgi yopgan hisob-faktura qayta ochiladi va mijozga tuzatish xabari boradi.";
     /** Mijozga xabar bormaydigan holatdagi yordam: xabar haqidagi va'dasiz */
     const UNDO_HINT_NO_MESSAGE = "Belgi xato qo'yilgan bo'lsa «To'lanmagan»ni tanlang: shu belgi yopgan hisob-faktura qayta ochiladi.";
@@ -410,6 +417,42 @@ describe('admin: buyurtma sahifasi', () => {
       expect(text).not.toContain("o'zgarishingiz to'liq saqlanmadi");
       // Boshqa natijalarda bu ogohlantirish yo'q
       for (const sp of [{}, { saved: '1' }, { error: 'conflict' }] as Record<string, string>[]) expect((await page(sp)).text, JSON.stringify(sp)).not.toContain(DENIED);
+      // Holat ziddiyati bilan birga (error=conflict&denied=1): ikkala ogohlantirish — holat o'zgarishi ham saqlanmagan, xodim buni bilishi kerak
+      const both = await page({ error: 'conflict', denied: '1' });
+      expect(notices(both.html)).toEqual([{ tone: 'warn', text: DENIED }, { tone: 'warn', text: CONFLICT }]);
+      expect(both.text).not.toContain('Saqlandi');
+    });
+
+    it('prevPaidMark: forma ko\'rgan "to\'langan" belgisi (lastPaidMark) faqat to\'langan, qo\'lda to\'lanadigan buyurtmada va faqat to\'lov tanlovi chiqadigan xodimga; boshqa holatda so\'ralmaydi ham', async () => {
+      for (const role of ['admin', 'manager'] as const) {
+        s.role = role;
+        for (const paymentMethod of ['cash', 'bank_transfer']) {
+          s.marks = [];
+          s.order = order({ paymentMethod, paymentStatus: 'paid' });
+          const { html } = await page();
+          expect(html, `${role} ${paymentMethod}`).toContain('name="prevPaymentStatus" value="paid"');
+          expect(html, `${role} ${paymentMethod}`).toContain('name="prevPaidMark" value="77"');
+          expect(s.marks, `${role} ${paymentMethod}`).toEqual([12]);
+        }
+        // Tarixsiz eski belgi: 0 ham yoziladi (amal uni "belgi berilmagan" deb emas, "eski belgi" deb tekshiradi)
+        s.paidMark = 0;
+        s.order = order({ paymentStatus: 'paid' });
+        expect((await page()).html).toContain('name="prevPaidMark" value="0"');
+        s.paidMark = 77;
+        // To'lanmagan / qaytarilgan / onlayn / o'chirilgan buyurtmada maydon yo'q va belgi so'ralmaydi
+        for (const over of [{ paymentStatus: 'pending' }, { paymentStatus: 'refunded' }, { paymentStatus: 'paid', paymentMethod: 'payme' }, { paymentStatus: 'paid', paymentMethod: 'click' }, { paymentStatus: 'paid', deletedAt: new Date() }]) {
+          s.marks = [];
+          s.order = order(over);
+          expect((await page()).html, JSON.stringify(over)).not.toContain('prevPaidMark');
+          expect(s.marks, JSON.stringify(over)).toEqual([]);
+        }
+      }
+      // Ruxsatsiz xodim: to'lov tanlovi yo'q — belgi ham yo'q
+      s.role = 'staff';
+      s.marks = [];
+      s.order = order({ paymentStatus: 'paid' });
+      expect((await page()).html).not.toContain('prevPaidMark');
+      expect(s.marks).toEqual([]);
     });
 
     it('"Belgi xato qo\'yilgan bo\'lsa…" yordami faqat to\'langan buyurtmada va faqat tanlov chiqadigan xodimga', async () => {
@@ -669,6 +712,8 @@ describe('admin: hisob-faktura sahifasi — «Qayta ochish» va belgini bekor qi
     // Masalan: tugma ikki marta bosilgan yoki shu orada buyurtma "to'langan" qilingan — hech narsa o'zgarmagan
     s.invoice = invoice(PAID, { paymentStatus: 'paid' });
     expect(notices((await view({ error: 'state' })).html)).toEqual([{ tone: 'warn', text: "Bu holatdagi hisob-fakturani o'zgartirib bo'lmaydi" }]);
+    // Eskirgan sahifadan kiritilgan to'lov (actions.applyPayment 'stale'): nima bo'lgani va nima qilish aytiladi
+    expect(notices((await view({ error: 'stale' })).html)).toEqual([{ tone: 'warn', text: "Siz sahifani ochganingizdan keyin bu hisob-fakturani boshqa xodim o'zgartirgan, shuning uchun kiritganingiz saqlanmadi — hozirgi holatni tekshirib, qayta kiriting" }]);
     expect(notices((await view()).html)).toEqual([]);
   });
 });
