@@ -19,7 +19,7 @@ import {
 } from './customerViews';
 
 /**
- * Mijoz boti (@Pack24AI_bot). Mijoz o'z telefonini Telegram kontakti orqali ulaydi va buyurtmalarini (ro'yxatga olingan sana,
+ * Mijoz boti (@Pack24SI_bot). Mijoz o'z telefonini Telegram kontakti orqali ulaydi va buyurtmalarini (ro'yxatga olingan sana,
  * holat, ishlab chiqarish bosqichi, to'lov), balansini (to'lanishi kerak bo'lgan summa), rekvizitlar va aloqa ma'lumotlarini ko'radi.
  * Holat o'zgarganda xabarni orderNotify yuboradi; undagi "Batafsil" tugmasi (`o_<id>`) shu yerda ochiladi.
  * Xavfsizlik:

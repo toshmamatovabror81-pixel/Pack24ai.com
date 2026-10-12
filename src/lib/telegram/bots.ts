@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * Ikkita bot: mijoz (@Pack24AI_bot) va boshqaruv (@pack24AUP_bot — xodimlar uchun).
+ * Ikkita bot: mijoz (@Pack24SI_bot) va boshqaruv (@pack24AUP_bot — xodimlar uchun).
  * Tokenlar faqat serverdagi .env da. Webhook manzili: /api/telegram/<kind>.
  * `commands` — Telegram'dagi "/" menyusi (Sozlamalar > "Webhook'larni o'rnatish" bosilganda yangilanadi); har bir buyruqni
  * bots/customer.ts va bots/staff.ts ushlaydi.

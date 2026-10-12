@@ -94,7 +94,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="Asosiy telefon"><input name="phone" defaultValue={displayPhone(s.phone)} className="input" /></Field>
           <Field label="Qo'shimcha telefon"><input name="phone2" defaultValue={s.phone2 ? displayPhone(s.phone2) : ''} className="input" /></Field>
           <Field label="Email"><input name="email" type="email" defaultValue={s.email} className="input" /></Field>
-          <Field label="Telegram bot (mijozlar uchun)" hint="Saytdagi Telegram tugmasi shu botga olib boradi"><input name="telegramBot" defaultValue={s.telegramBot} placeholder="Pack24AI_bot" className="input" /></Field>
+          <Field label="Telegram bot (mijozlar uchun)" hint="Saytdagi Telegram tugmasi shu botga olib boradi"><input name="telegramBot" defaultValue={s.telegramBot} placeholder="Pack24SI_bot" className="input" /></Field>
           <Field label="Telegram kanal"><input name="telegramChannel" defaultValue={s.telegramChannel} className="input" /></Field>
           <Field label="Instagram"><input name="instagram" defaultValue={s.instagram} className="input" /></Field>
           <I18nFields name="address" label="Manzil" value={s.address} />

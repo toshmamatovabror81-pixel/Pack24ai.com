@@ -160,7 +160,7 @@ afterEach(() => {
 
 describe('buyurtma sahifasi (sayt): "Telegram\'da kuzatish" tugmasi', () => {
   const page = (lang = 'uz') => render(OrderPage({ params: Promise.resolve({ lang, token: TOKEN }) }));
-  const LINK = `https://t.me/Pack24AI_bot?start=${TOKEN}`;
+  const LINK = `https://t.me/Pack24SI_bot?start=${TOKEN}`;
 
   it('mijoz boti tokeni kiritilmagan bo\'lsa tugma chiqmaydi (bot /start ga javob bermaydi)', async () => {
     const { html, text } = await page();
@@ -182,7 +182,7 @@ describe('buyurtma sahifasi (sayt): "Telegram\'da kuzatish" tugmasi', () => {
 
   it('token bor, lekin sozlamadagi bot nomi bo\'sh yoki yaroqsiz bo\'lsa tugma chiqmaydi', async () => {
     tokens('111:customer', '');
-    for (const telegramBot of ['', 'bot', 'pack24 bot', 'Pack24AI_bot?x=1']) {
+    for (const telegramBot of ['', 'bot', 'pack24 bot', 'Pack24SI_bot?x=1']) {
       s.settings = { telegramBot };
       expect((await page()).html).not.toContain('?start=');
     }

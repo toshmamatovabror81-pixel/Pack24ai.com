@@ -80,7 +80,7 @@ Admin > Sozlamalar sahifasida qaysi ulanish ishlayotgani ko'rinadi.
 
 Ikkala bot ham admin panel bilan bitta bazada ishlaydi — alohida dastur yoki server kerak emas.
 
-**Mijoz boti** (@Pack24AI_bot). Mijoz o'z buyurtmalarini (ro'yxatga olingan sana, hozirgi holat va ishlab chiqarish
+**Mijoz boti** (@Pack24SI_bot). Mijoz o'z buyurtmalarini (ro'yxatga olingan sana, hozirgi holat va ishlab chiqarish
 bosqichi, summa, to'lov), balansini, sotuvchi rekvizitlari va aloqa ma'lumotlarini ko'radi. "Balans" — oldindan
 to'langan hamyon emas, mijozning qarzi: ochiq hisob-fakturalar, ularning muddati o'tgan qismi, shartnomadagi nasiya
 limiti va to'lanmagan buyurtmalar. Buyurtma holati o'zgarsa, to'lov qabul qilinsa, hisob-faktura berilsa yoki
@@ -95,7 +95,7 @@ Mijoz ikki yo'l bilan ulanadi:
   (token yo'q paytda bot javob bermaydi).
 
 Saytdagi Telegram tugmalari Admin > Sozlamalar > Aloqa > "Telegram bot (mijozlar uchun)" maydonidagi botga olib
-boradi — u yerda mijoz botining nomi (`Pack24AI_bot`, @ belgisisiz) turishi kerak.
+boradi — u yerda mijoz botining nomi (`Pack24SI_bot`, @ belgisisiz) turishi kerak.
 
 **Boshqaruv boti** (@pack24AUP_bot) — xodimlar uchun. Yangi buyurtma va to'lov xabarlari tugmalari bilan keladi
 (qabul qilish, jo'natildi, yetkazildi, bekor qilish), buyurtma holati botning o'zidan o'zgartiriladi, buyurtmalarni
@@ -163,7 +163,7 @@ ssh -t -i ~/.ssh/KALIT root@<server IP> /opt/pack24/deploy/bots-setup.sh
 
 Qo'lda: BotFather'dan olingan tokenlarni `/opt/pack24/.env` ga yozing (`nano /opt/pack24/.env`):
 
-- `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24AI_bot)
+- `CUSTOMER_BOT_TOKEN` — mijoz boti (@Pack24SI_bot)
 - `STAFF_BOT_TOKEN` — boshqaruv boti (@pack24AUP_bot), xodimlar uchun (eski nomi `SUPERVISOR_BOT_TOKEN` ham qabul qilinadi)
 - `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_OPS_SECRET` — o'rnatish skripti o'zi yaratgan, o'zgartirmang
 

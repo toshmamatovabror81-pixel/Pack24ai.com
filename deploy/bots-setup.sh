@@ -45,7 +45,7 @@ if [ -z "$(current STAFF_BOT_TOKEN)" ] && [ -n "$(current SUPERVISOR_BOT_TOKEN)"
 fi
 
 echo "== Telegram botlar tokenlari (BotFather > /mybots > bot > API Token)"
-ask_token CUSTOMER_BOT_TOKEN "1/2 Mijoz boti (@Pack24AI_bot): buyurtmalar, balans, xabarnomalar"
+ask_token CUSTOMER_BOT_TOKEN "1/2 Mijoz boti (@Pack24SI_bot): buyurtmalar, balans, xabarnomalar"
 ask_token STAFF_BOT_TOKEN    "2/2 Boshqaruv boti (@pack24AUP_bot): xodimlar uchun"
 chmod 600 .env
 
@@ -77,9 +77,10 @@ const base = "http://127.0.0.1:3000/api/telegram/setup";
     console.log(`  ${b.title.padEnd(16)} ${b.username ? "@" + b.username : "-"}`.padEnd(42) + st);
   }
   if (!j.ok) process.exit(1);
+  if (!(s.bots || []).some((x) => x.configured)) { console.log("  Hech bir bot tokeni kiritilmagan - botlar ULANMADI. Skriptni qayta ishga tushirib, tokenlarni kiriting."); process.exit(1); }
 })().catch((e) => { console.log("XATO:", e.message); process.exit(1); });
 ' && {
   echo "== TAYYOR: botlar saytga ulandi. Admin > Sozlamalar > Telegram botlar bo'limida ham ko'rinadi."
   echo "   Xodimlar: Admin > Xodimlar sahifasi orqali ulanadi (botda telefonini ulashadi yoki «Telegram kodi»ni yozadi)."
   echo "   Mijozlar: botni saytdagi tugmalardan ochib, telefon raqamini ulashadi."
-} || echo "== Webhook o'rnatishda xato. Admin > Sozlamalar > Telegram botlar bo'limida qayta urinib ko'ring."
+} || echo "== Botlar ulanmadi (yuqoridagi sababga qarang). Token kiritilgan bo'lsa: Admin > Sozlamalar > Telegram botlar bo'limida qayta urinib ko'ring."

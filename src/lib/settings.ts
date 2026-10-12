@@ -19,7 +19,7 @@ export type SiteSettings = {
   address: I18nText;
   workHours: I18nText;
   mapEmbedUrl: string;
-  telegramBot: string; // mijoz boti: Pack24AI_bot
+  telegramBot: string; // mijoz boti: Pack24SI_bot
   telegramChannel: string; // pack24uz
   instagram: string;
   deliveryFee: number; // Toshkent ichida kuryer narxi, so'm
@@ -48,7 +48,7 @@ export const defaultSettings: SiteSettings = {
   address: { uz: "Toshkent, Oybek ko'chasi 14", ru: 'Ташкент, ул. Айбека 14', en: '14 Oybek street, Tashkent' },
   workHours: { uz: 'Du-Sh, 9:00-18:00', ru: 'Пн-Сб, 9:00-18:00', en: 'Mon-Sat, 9:00-18:00' },
   mapEmbedUrl: '',
-  telegramBot: 'Pack24AI_bot',
+  telegramBot: 'Pack24SI_bot',
   telegramChannel: 'pack24uz',
   instagram: '',
   deliveryFee: 30000,
