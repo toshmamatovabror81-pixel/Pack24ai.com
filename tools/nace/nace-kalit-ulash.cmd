@@ -2,11 +2,18 @@
 @echo off
 chcp 65001 >nul
 title Pack24 - nace.ai kalit
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Expression ([IO.File]::ReadAllText('%~f0', [Text.Encoding]::UTF8))"
+set "PACK24_SELF=%~f0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Expression ([IO.File]::ReadAllText($env:PACK24_SELF, [Text.Encoding]::UTF8))"
+if errorlevel 2 (
+  echo.
+  echo Xatolik yuz berdi. Oynani yopish uchun istalgan tugmani bosing.
+  pause >nul
+)
 exit /b %errorlevel%
 #>
 # ---- PowerShell qismi ----
 $ErrorActionPreference = 'Stop'
+trap { try { [System.Windows.Forms.MessageBox]::Show("Kutilmagan xato: $($_.Exception.Message)", 'Pack24 - nace.ai kalit') | Out-Null } catch {}; exit 2 }
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

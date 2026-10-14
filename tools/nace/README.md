@@ -11,7 +11,7 @@ Natija pack24.uz skilini yozish uchun xomashyo bo'ladi.
 |---|---|
 | `nace-kalit-ulash.cmd` | Windows: API kalitni **faqat kompyuterda** saqlaydi (`%USERPROFILE%\.nace\config.toml` + `NACE_API_KEY`). Ikki marta bosiladi, kalit yashirin maydonga qo'yiladi. Chatga kalit yozilmaydi. |
 | `saralash.mjs` | Node 18+ skripti (tashqi kutubxona kerak emas). Papkalardagi fayllarni va internet havolalarini nace.ai ga beradi, natijani papkaga yozadi. |
-| `manbalar.txt` | Internetdagi inglizcha va ruscha qadoqlash manbalari (har qatorda URL va nom). Skript ularni yuklamasdan, to'g'ridan-to'g'ri havola orqali nace.ai ga beradi. |
+| `manbalar.txt` | Internetdagi inglizcha va ruscha qadoqlash manbalari: har qatorda `URL | nom | fayl.pdf` (nom va fayl nomi ixtiyoriy; kengaytmasiz havola uchun fayl nomi turini bildiradi, bo'lmasa skript Content-Type orqali aniqlaydi). Skript ularni yuklamasdan, to'g'ridan-to'g'ri havola orqali nace.ai ga beradi. |
 
 ## Qadamlar (egasi uchun)
 
@@ -31,7 +31,17 @@ node tools/nace/saralash.mjs --papka "E:\Qadoqlash" --manbalar tools/nace/manbal
 Parametrlar: `--papka` (bir nechta bo'lishi mumkin), `--manbalar <fayl>`, `--chiqish <papka>` (odatda `./nace-natija`),
 `--sinov`, `--limit N`, `--parallel N` (1-8, odatda 2), `--rejim low|medium|high` (parse sifati, `low` eng arzon),
 `--parse yoq` (faqat toifalash), `--drex yoq` yoki `--drex <model>` (odatda `drex-latest`, qabul qilinmasa `drex-v1.0`),
-`--qayta` (tugaganlarni ham qaytadan), `--base-url` (sinov serveri uchun).
+`--qayta [hammasi|toifa|matn|drex]` (tugagan fayllarning shu bosqichlarini qaytadan; yuklash takrorlanmaydi),
+`--kutish N` (bitta ish uchun kutish, daqiqa; odatda 10), `--base-url` (sinov serveri uchun).
+
+Windows'da yo'llarni `"E:/Qadoqlash"` yoki `"E:\Qadoqlash"` deb yozing; oxirida `\` bilan (`"E:\Qadoqlash\"`) yozmang.
+
+Qayta ishga tushirish qoidalari: tugagan va o'zgarmagan fayl o'tkazib yuboriladi; hajmi yoki sanasi o'zgargan fayl
+qaytadan ishlanadi; o'chirilgan fayl hisobotda «o'chirilgan» deb belgilanadi; yarim qolgan ish (masalan internet uzilib
+qolsa) keyingi safar davom ettiriladi (`kutilmoqda`); doimiy xato (format, buzuq fayl) faqat `--qayta` bilan qayta uriniladi.
+
+Chiqish kodlari: 0 hammasi tayyor; 1 ba'zi fayllar xato; 2 parametr xatosi; 3 kalit topilmadi;
+4 kalit noto'g'ri yoki kredit tugadi; 5 nace.ai vaqtincha javob bermayapti (keyinroq qayta ishga tushiring).
 
 Kalit: `NACE_API_KEY` muhit o'zgaruvchisi, bo'lmasa `~/.nace/config.toml` dagi `api_key`.
 
@@ -39,14 +49,14 @@ Kalit: `NACE_API_KEY` muhit o'zgaruvchisi, bo'lmasa `~/.nace/config.toml` dagi `
 
 - `saralash-natija.md` — toifalar bo'yicha jadval (fayl, ishonch, Drex bo'limi, foydalilik, til, sahifa), Drex bo'limlari bo'yicha ro'yxat, xatolar.
 - `index.json` — har bir fayl uchun to'liq yozuv (toifa, muqobil toifalar va sabab, Drex javoblari, sahifa soni, birliklar).
-- `matn/<fayl>.md` — hujjat matni (Markdown, jadvallar HTML). Internet manbalari `matn/internet/<sayt>/` ichida.
+- `matn/<papka>/<fayl>.<kengaytma>.md` — hujjat matni (Markdown, jadvallar HTML; `Narx.pdf.md` va `Narx.xlsx.md` alohida). Internet manbalari `matn/internet/<sayt>/` ichida. Juda katta hujjat to'liq olinmasa `kesilgan` belgisi qo'yiladi.
 - `qollab-quvvatlanmagan.md` — nace.ai o'qimaydigan fayllar (CorelDRAW `.cdr`, `.ai`, `.eps`, bo'sh yoki juda katta). Nomlari skil uchun baribir foydali.
 - `holat.json` — jarayon holati; skript qayta ishga tushsa tugagan fayllar o'tkazib yuboriladi.
 - `log.txt` — jurnal (kalit hech qachon yozilmaydi).
 
 ## Toifalar
 
-narx_taklif, texnik_spets, maket, shartnoma, hisob_hujjat, sertifikat, prezentatsiya, ishlab_chiqarish, yozishma.
+narx_taklif, texnik_spets, maket, shartnoma, hisob_hujjat, sertifikat, prezentatsiya, ishlab_chiqarish, yozishma, bilim_maqola.
 Drex bo'limlari: katalog, narxlar, materiallar, ishlab_chiqarish, mijozlar, boshqa; til: uz/ru/en.
 
 ## Xarajat
