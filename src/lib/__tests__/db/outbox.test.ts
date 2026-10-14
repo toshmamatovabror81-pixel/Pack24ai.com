@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import type { Prisma } from '@prisma/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DB_TESTS, prisma, waitForBlocked } from './helpers';
+import { cancelBlockedByUs, DB_TESTS, prisma, waitForBlocked } from './helpers';
 import type { InlineKeyboard } from '@/lib/telegram/api';
 
 /**
@@ -696,7 +696,7 @@ describe.skipIf(!DB_TESTS)('xabarnomalar navbati (haqiqiy baza)', { timeout: 30_
           const sent = notifyCustomer('777', 'Holati: Yetkazildi', KB, STATUS);
           await waitForBlocked(tx, 1);
           // Kutayotgan so'rovni bazaning o'zi bekor qiladi — notify uchun bu oddiy baza xatosi
-          await tx.$queryRaw`SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))`;
+          await cancelBlockedByUs(tx);
           return { result: await sent };
         },
         { timeout: 15_000 },

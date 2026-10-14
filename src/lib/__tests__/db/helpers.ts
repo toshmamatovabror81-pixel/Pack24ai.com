@@ -1,5 +1,5 @@
 import { randomBytes, randomInt } from 'node:crypto';
-import type { InvoiceStatus, Prisma } from '@prisma/client';
+import { Prisma, type InvoiceStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { SiteSettings } from '@/lib/settings';
 import type { InlineKeyboard } from '@/lib/telegram/api';
@@ -74,25 +74,81 @@ export const settingsMock = () => ({ getSettings: async () => TEST_SETTINGS });
 // ─── Poyga testlari ──────────────────────────────────────────────────────────
 
 /**
+ * Bizning tranzaksiyamiz ushlab turgan qulfni kutayotgan ulanishlar: to'g'ridan-to'g'ri (bizni kutyapti) va navbat orqali
+ * (bizni kutayotganni kutyapti, va hokazo). Faqat shu zanjir: boshqa test fayllari parallel ishlab o'z qulflarini ushlab
+ * turadi — ularning kutishlari bu yerga kirmaydi.
+ * Ro'yxat pg_locks'dan olinadi (kutayotgan ulanishning berilmagan qulf yozuvi bor), pg_stat_activity'dan EMAS: tranzaksiya
+ * ichida pg_stat_activity birinchi o'qilgan holatida muzlab qoladi (Postgres hujjati: "Viewing Statistics"), shuning uchun
+ * havza (pool) keyin ochgan yangi ulanish unda ko'rinmas va kutayotganlar soni hech qachon yetmas edi — CI'da beqaror test.
+ */
+const WAITING_ON_US = Prisma.sql`
+  WITH RECURSIVE waiting(pid) AS (
+    SELECT l.pid FROM pg_locks l WHERE NOT l.granted AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))
+    UNION
+    SELECT l.pid FROM pg_locks l JOIN waiting w ON NOT l.granted AND w.pid = ANY(pg_blocking_pids(l.pid))
+  )`;
+
+/** Hozir bizning qulfimizni (to'g'ridan-to'g'ri yoki navbat orqali) kutayotgan ulanishlar soni */
+export async function blockedCount(tx: Prisma.TransactionClient): Promise<number> {
+  const [{ n }] = await tx.$queryRaw<{ n: number }[]>`${WAITING_ON_US} SELECT count(*)::int AS n FROM waiting`;
+  return n;
+}
+
+/**
  * `tx` tranzaksiyasi ushlab turgan qulfni aynan `count` ta so'rov kutayotganini bazaning o'zidan ko'rguncha kutadi
  * (to'g'ridan-to'g'ri yoki navbat orqali). Shundan keyin tranzaksiya yakunlansa, kutayotganlar birga davom etadi —
  * "ikkalasi ham eski holatni o'qib bo'lgan" vaziyat tasodifga qolmay, har safar bir xil takrorlanadi.
+ * Muddat tugasa xatoga shu bazadagi boshqa ulanishlarning holati qo'shiladi — CI'da sababini ko'rish uchun.
  */
 export async function waitForBlocked(tx: Prisma.TransactionClient, count: number, timeoutMs = 8000): Promise<void> {
   const until = Date.now() + timeoutMs;
   for (;;) {
-    const [{ n }] = await tx.$queryRaw<{ n: number }[]>`
-      WITH RECURSIVE waiting(pid) AS (
-        SELECT pid FROM pg_stat_activity WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))
-        UNION
-        SELECT a.pid FROM pg_stat_activity a JOIN waiting w ON w.pid = ANY(pg_blocking_pids(a.pid))
-      )
-      SELECT count(*)::int AS n FROM waiting`;
+    const n = await blockedCount(tx);
     if (n === count) return;
     // Ushlab turgan tranzaksiya + kutayotganlar: havzada (pool) shuncha ulanish bo'lmasa kutayotganlar soni hech qachon yetmaydi
-    if (Date.now() > until) throw new Error(`Qulfni ${count} ta so'rov kutishi kerak edi, hozir ${n} ta (bu testga kamida ${count + 1} ta ulanish kerak — DATABASE_URL da connection_limit kichik emasmi?)`);
+    if (Date.now() > until) {
+      throw new Error(
+        `Qulfni ${count} ta so'rov kutishi kerak edi, hozir ${n} ta (bu testga kamida ${count + 1} ta ulanish kerak — DATABASE_URL da connection_limit kichik emasmi?)${await activitySnapshot(tx)}`,
+      );
+    }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
+}
+
+/** Shu bazadagi boshqa ulanishlar nima qilayotgani: holati, nimani kutayotgani, kimni kutayotgani va so'rovining boshi */
+async function activitySnapshot(tx: Prisma.TransactionClient): Promise<string> {
+  try {
+    // Tranzaksiya ichida muzlab qolgan ko'rinish emas, hozirgi holat
+    await tx.$queryRaw`SELECT pg_stat_clear_snapshot()`;
+    const rows = await tx.$queryRaw<{ pid: number; me: number; state: string | null; wait: string | null; blocked_by: string | null; query: string | null }[]>`
+      SELECT pid, pg_backend_pid() AS me, state, wait_event_type || ':' || wait_event AS wait,
+             array_to_string(pg_blocking_pids(pid), ',') AS blocked_by, left(query, 120) AS query
+      FROM pg_stat_activity
+      WHERE datname = current_database() AND pid <> pg_backend_pid() AND backend_type = 'client backend'
+      ORDER BY pid`;
+    const lines = rows.map((r) => `  ${r.pid} ${r.state ?? '-'} ${r.wait ?? 'ishlayapti'} kutyapti:[${r.blocked_by || '-'}] ${(r.query ?? '').replace(/\s+/g, ' ')}`);
+    return `\nBazadagi boshqa ulanishlar (biz: ${rows[0]?.me ?? '?'}):\n${lines.join('\n') || '  (yo\'q)'}`;
+  } catch (e) {
+    return `\n(ulanishlar ro'yxatini olib bo'lmadi: ${e instanceof Error ? e.message : String(e)})`;
+  }
+}
+
+/**
+ * Kutayotganlar qaysi jadval qatorida navbatda turibdi (bazaning o'zidan): `direct` — bizni to'g'ridan-to'g'ri kutyapti,
+ * aks holda bizni kutayotgan boshqa so'rovning qulfini. Qator qulfini kutayotgan ulanish o'sha qatorning "tuple" qulfini
+ * ushlab turadi — shu yozuvlar olinadi, faqat bizning zanjirimizdagilar (parallel test fayllarining qulflari emas).
+ */
+export async function blockedRows(tx: Prisma.TransactionClient): Promise<{ table: string; direct: boolean }[]> {
+  return tx.$queryRaw<{ table: string; direct: boolean }[]>`${WAITING_ON_US}
+    SELECT c.relname AS "table", pg_backend_pid() = ANY(pg_blocking_pids(l.pid)) AS direct
+    FROM pg_locks l JOIN pg_class c ON c.oid = l.relation
+    WHERE l.locktype = 'tuple' AND l.granted AND l.pid IN (SELECT pid FROM waiting)
+    ORDER BY c.relname`;
+}
+
+/** Bizning qulfimizni to'g'ridan-to'g'ri kutayotgan so'rovlarni bazaning o'zi bekor qiladi (ular uchun bu oddiy baza xatosi) */
+export async function cancelBlockedByUs(tx: Prisma.TransactionClient): Promise<void> {
+  await tx.$queryRaw`SELECT pg_cancel_backend(pid) FROM (SELECT DISTINCT l.pid FROM pg_locks l WHERE NOT l.granted AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))) w`;
 }
 
 // ─── Test ma'lumotlari ───────────────────────────────────────────────────────

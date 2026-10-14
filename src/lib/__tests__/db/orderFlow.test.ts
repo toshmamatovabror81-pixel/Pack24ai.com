@@ -2,7 +2,7 @@ import { Prisma, type CorporateInvoice, type PaymentStatus } from '@prisma/clien
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { displayPhone } from '@/lib/format';
 import type { Actor, InvoiceSnapshot } from '@/lib/orderFlow';
-import { clearOutbox, DB_TESTS, fixture, outbox, prisma, TEST_SETTINGS, waitForBlocked, type Fixture } from './helpers';
+import { blockedCount, blockedRows, clearOutbox, DB_TESTS, fixture, outbox, prisma, TEST_SETTINGS, waitForBlocked, type Fixture } from './helpers';
 
 /**
  * Har bir xabarning navbat mavzusi (notifyCustomer / notifyStaff ning to'rtinchi dalili) — helpers'dagi soxta yuboruvchi uni saqlamaydi.
@@ -2542,13 +2542,10 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
             await waitForBlocked(tx, 1);
             const reopen = run(reopenInvoice, { id: String(stuck.id) });
             await waitForBlocked(tx, 2);
-            // Kim qaysi jadval qatorida navbatda turibdi (bazaning o'zidan, shu baza bo'yicha): "to'landi" — hisob-faktura qatorida
-            // (bizning qulfimizni kutyapti, to'g'ridan-to'g'ri), «Qayta ochish» — buyurtma qatorida ("to'landi"ning qulfini, bizni faqat u orqali)
-            const waiting = await tx.$queryRaw<{ table: string; direct: boolean }[]>`
-              SELECT c.relname AS "table", pg_backend_pid() = ANY(pg_blocking_pids(l.pid)) AS direct
-              FROM pg_locks l JOIN pg_class c ON c.oid = l.relation
-              WHERE l.locktype = 'tuple' AND l.granted AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
-              ORDER BY c.relname`;
+            // Kim qaysi jadval qatorida navbatda turibdi (bazaning o'zidan, faqat bizni kutayotganlar — parallel ishlayotgan boshqa test
+            // fayllarining qulflari emas): "to'landi" — hisob-faktura qatorida (bizning qulfimizni kutyapti, to'g'ridan-to'g'ri),
+            // «Qayta ochish» — buyurtma qatorida ("to'landi"ning qulfini, bizni faqat u orqali)
+            const waiting = await blockedRows(tx);
             // Tashqaridan qaralganda hali hech narsa o'zgarmagan (bu tranzaksiya faqat qulf ushlab turibdi — o'zi ham shuni ko'radi)
             const seen = {
               order: (await tx.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus,
@@ -2666,13 +2663,13 @@ describe.skipIf(!DB_TESTS)('orderFlow (haqiqiy baza)', { timeout: 20_000 }, () =
             new Promise<string>((resolve) => { timer = setTimeout(() => resolve('kutib qoldi'), 4000); }),
           ]);
           clearTimeout(timer);
-          return { reopen, written, blocked: await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM pg_stat_activity WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))` };
+          return { reopen, written, blocked: await blockedCount(tx) };
         },
         { timeout: 15_000 },
       );
       expect(held.written).toBe('yozildi');
       // Qayta ochish hali ham kutib turgan edi (tarix yozuvi uni chetlab o'tdi, navbatiga turmadi)
-      expect(held.blocked).toEqual([{ n: 1 }]);
+      expect(held.blocked).toBe(1);
       expect(await held.reopen).toBe(saved(inv.id));
       expect((await history(o.id)).map((e) => [e.kind, `${e.fromValue}>${e.toValue}`, e.via])).toEqual([['payment', 'processing>failed', 'click'], ['invoice', 'paid>issued', 'invoice']]);
     });
