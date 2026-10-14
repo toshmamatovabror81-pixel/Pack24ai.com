@@ -1,0 +1,136 @@
+# Internetdagi qadoqlash manbalari — nace.ai (Drex) saralash uchun
+# Har qatorda: URL | nom. '#' bilan boshlangan qatorlar izoh. Yig'ilgan va tekshirilgan: 2026-10-14.
+# Jami 115 ta manba. Ishga tushirish: node tools/nace/saralash.mjs --manbalar tools/nace/manbalar.txt --chiqish <papka>
+
+# == Gofrokarton asoslari (EN) (14) ==
+https://en.wikipedia.org/wiki/Corrugated_fiberboard | Corrugated fiberboard (Wikipedia)
+https://www.fefco.org/lca/dscription-of-production-system/corrugated-board-production | Corrugated board production (FEFCO European Database for Corrugated Board LCA)
+https://www.dssmith.com/contentassets/84c1a31eae1c4cb183d8419e872b0745/cepi-containerboard-list-of-grades_en.pdf | Cepi ContainerBoard List of Grades, 5th Edition (September 2015)
+https://research.gatech.edu/sites/default/files/rbi/pdfs/Predicting%20Box%20Compression%20Strength_3.pdf | Predicting Box Compression Strength (R. Popil, Georgia Tech/IPST)
+https://bioresources.cnr.ncsu.edu/BioRes_07/BioRes_07_2_2553_Popil_Overview_Edge_Compression_Buckling_1006.pdf | Overview of Recent Studies at IPST on Corrugated Board Edge Compression Strength: Testing Methods and Effects 
+https://research.gatech.edu/sites/default/files/2021-06/effects-of-moisture-content-on-box-compression-strength.pdf | Effects of Moisture Content on Box Compression Strength: FBA BCT Loss Factors (R. E. Popil)
+https://sparrow.up.poznan.pl/tomasz.garbowski/files/pack_rev_2023_03.pdf | Safety Factors in the Design of Corrugated Board Packaging (Garbowski, Packaging Review 3/2023)
+https://sparrow.up.poznan.pl/tomasz.garbowski/files/pack_rev_2023_04.pdf | Evaluating Safety Factors in Corrugated Packaging for Extreme Environmental Conditions (Garbowski, Packaging R
+https://ippta.co/wp-content/uploads/2024/12/114-117.pdf | Understanding the McKee Formula for Corrugated Box Compression Test (IPPTA Journal Vol. 36 E3, 2024, pp. 114-1
+https://crownpack.com/wp-content/uploads/2023/11/Crown-Packaging-Mullen-vs-ECT-Whitepaper.pdf | Mullen Test vs. Edge Crush Test Boxes: A Comprehensive Comparison (Crown Packaging whitepaper)
+https://www.eng.uc.edu/~beaucag/WoodPapers/August%20Papers/Paper%20Making%20Book/Corrogated%20Board%2073620_32.pdf | Chapter 32: Corrugated Containers (pulp and paper handbook chapter, pp. 671-677)
+https://www.gwp.co.uk/guides/corrugated-board-grades-explained | Corrugated board grades explained: types of cardboard (GWP Group guide)
+https://pkgsolutions.co.uk/boxcomp/bcHelp/Compression.html | More About Compression (Boxcomp help, PKG Solutions)
+https://www.iopp.org/files/Fibrebox_Association_Glossary.pdf | Fibre Box Handbook - Glossary (Fibre Box Association, hosted by IoPP)
+
+# == FEFCO kodi va quti uslublari (EN) (12) ==
+https://www.kindermann-wellpappen.de/downloads/2022-04-21_FEFCO%20Code_WEB_unprotected.pdf | FEFCO Code - Design Style Library for Corrugated Board Products, 12th Edition (2022)
+https://kitepackaging.co.uk/mcp/box-style-guide | FEFCO Box Style Guide / Kite Packaging
+https://www.iopp.org/files/Fibrebox_Association_Box-Styles_Basics.pdf | Box Styles Basics (Fibre Box Association, 2014)
+https://law.resource.org/pub/in/bis/S02/is.6481.1971.pdf | IS 6481 (1971) Guide for Principal Uses and Styles of Fibreboard Containers
+https://en.wikipedia.org/wiki/Corrugated_box_design | Corrugated box design - Wikipedia
+https://multimedia.3m.com/mws/media/296992O/cgs160-pkg-spec.pdf | 3M CGS 160 (RD-160.2): Corrugated Material and Component Construction
+https://www.douglas-machine.com/standards-definitions | Douglas Machine - Corrugated Case Standards and Definitions
+https://labelprint24.com/en/magazine/ecma-code-a-code-says-more-than-a-thousand-words-789 | ECMA Code - A code says more than a thousand words (Labelprint24)
+https://packdroid.com/guides/ecma-code | ECMA Codes Explained: Carton Styles by Group (Packdroid)
+https://madegooddesigns.com/packaging-dielines | Packaging Dielines Explained With Templates (Made Good Designs)
+https://www.pack.ly/en/blog/post/dieline-tuck-end-box | Dieline: tuck end box (Packly blog)
+https://www.packsize.com/blog/7-variants-on-the-regular-slotted-container-box | 7 Variants on the Regular Slotted Container Box You Might Need (Packsize)
+
+# == Karton, qog'oz va boshqa materiallar (EN) (14) ==
+https://www.holmen.com/globalassets/board-and-paper/products/general-technical-information.pdf | Holmen Board and Paper - General Technical Information
+https://www.iggesund.com/globalassets/iggesund/services/knowledge/iam/graphics-handbook/gh---full-copy---en/0_graphics_handbook_en.pdf | Graphics Handbook - Paperboard the Iggesund Way
+https://www.metsagroup.com/contentassets/84b88cf26a0d4050b2d797215e2e64ec/metsaboard-classic-fbb-en-iso.pdf | MetsaBoard Classic FBB - Product Sheet (GC2)
+https://en.wikipedia.org/wiki/Paperboard | Paperboard – Wikipedia
+https://www.billerud.com/globalassets/billerud/packaging-materials/sack-paper/sack-handbook-251218.pdf | Billerud – Handbook for Sack Kraft Papers and Paper Sacks
+https://www.eurosac.org/fileadmin/pdf/eurosac_publications/2023_01_Industry_Guidelines_HQ_paper_bags.pdf | CEPI Eurokraft / EUROSAC – Industry Guidelines: High-quality Paper Carrier Bags (2023)
+https://en.wikipedia.org/wiki/Paper_bag | Paper bag – Wikipedia
+https://www.cepi.org/wp-content/uploads/2020/05/Food-Contact-Guidelines_2019.pdf | CEPI – Food Contact Guidelines for the Compliance of Paper & Board Materials and Articles (2019)
+https://fsc.org/sites/default/files/2021-12/Trademark%20Quick%20Guide%20V2-1%20EN.pdf | FSC Trademark Quick Guide for Certificate Holders V2-1 (2021)
+https://meyers.com/meyers-blog/folding-carton-coatings-finishes-a-complete-guide-for-packaging-brands | Folding Carton Coatings & Finishes: A Complete Guide for Packaging Brands (Meyers)
+https://en.wikipedia.org/wiki/Stretch_wrap | Stretch wrap - Wikipedia
+https://racklify.com/encyclopedia/adhesive-packaging-tape-a-beginners-guide-to-types-and-uses | Adhesive Packaging Tape: Types & Uses (Racklify Encyclopedia)
+https://goshippo.com/blog/what-is-a-poly-mailer | Poly mailer sizes, mil thickness, and carrier rules (Shippo)
+https://prod.sealedair.com/content/dam/protective-materials/bubble/Bubble%20Wrap%20Brochure.pdf | Sealed Air - Bubble Wrap Brand Barrier Bubble Cushioning Brochure (2018)
+
+# == Bosma va maket tayyorlash (EN) (12) ==
+https://onepaperworks.com/wp-content/uploads/2024/07/paperworks-lithographic-print-specification-guide-r3.pdf | PaperWorks Folding Carton Graphic Specification Guide - Lithographic (July 2024)
+https://www.glbc.com/print-and-graphics/print-types/flexographic-printing-guidelines | Great Little Box Company - Corrugated Boxes (Flexo Guidelines)
+https://www.detpak.com/globalassets/detpak/images/lifestyle/design-your-own/custom-print/detpak_artwork_guidelines.pdf | Detpak Artwork Guidelines (flexo print on paper packaging)
+https://opmgroup.co.uk/wp-content/uploads/2019/09/OPM_Group_Artwork_Guide_2019.pdf | OPM (Labels & Packaging) Group - Artwork Submission Guidelines & Print Specifications 2019
+https://multimedia.3m.com/mws/media/2598619O/crd-158-printing-and-location-requirements-for-itf-14.pdf | 3M RD158 - Printing and Location Requirements for ITF-14 Bar Code Symbols
+https://gs1india.org/media/global-user-manual1.pdf | GS1 Global User Manual, Release 18.0 (2017)
+https://gs1ca.org/gs1ca-components/documents/GS1-Symbol-Placement-Guidelines-20150821.pdf | GS1 Canada - Symbology Placement Guidelines (GS1 General Specifications v15 Section 6, August 2015)
+https://en.wikipedia.org/wiki/Flexography | Flexography - Wikipedia
+https://blog.catalpha.com/corrugate-package-printing-litho-laminate-vs.-digital-printing | Catalpha - Corrugate Package Printing: Litho Laminate vs Digital Printing [Video] Which Is Best For You?
+https://pakfactory.com/artwork-guide-digital-print-corrugated-boxes | PakFactory - Artwork Guide for Digital Print Corrugated Boxes
+https://ecoenclose.com/blog/pantone-vs-cmyk-for-custom-branded-packaging | EcoEnclose - Pantone vs. CMYK for Custom Branded Packaging
+https://en.wikipedia.org/wiki/Die_cutting_(web) | Die cutting (web) - Wikipedia
+
+# == Narxlash, sifat, sinov standartlari (EN) (13) ==
+https://www.corrugatednews.com/guides/corrugated-box-pricing-guide | Complete Guide to Corrugated Box Pricing in 2026 (CorrugatedNews)
+https://www.corrugatedboxsuppliers.com/resources/corrugated-box-costs | Corrugated Box Costs: What Drives Pricing for Corrugated Packaging (CorrugatedBoxSuppliers.com)
+https://refinepackaging.com/blog/how-much-do-custom-boxes-cost | How Much Do Custom Boxes Cost? Pricing, MOQs, and Lead Times Explained (Refine Packaging)
+https://printshop.paperlust.co/blog/packaging-quote-checklist-australia | How to Get a Packaging Quote: An Australian Checklist (Paperlust)
+https://www.dinfo.unifi.it/upload/sub/laboratori/labmaq/labme/ISTA_2017_Guidelines.pdf | Guidelines for Selecting and Using ISTA Test Procedures and Projects, Version 2017 (International Safe Transit
+https://ista.org/docs/3Aoverview.pdf | ISTA 3A 2018 Overview: Packaged-Products for Parcel Delivery System Shipment 70 kg (150 lb) or Less
+https://www.steris-ast.com/resources/techtips/a-guide-to-determining-the-most-appropriate-distribution-simulation-for-a-medical-or-pharmaceutical-device | A Guide to Determining the Most Appropriate Distribution Simulation for a Medical or Pharmaceutical Device (ST
+https://www.fefco.org/sites/default/files/documents/import_anglais.pdf | FEFCO Testing Methods for Corrugated Board and Boxes
+https://fefco.org/download/file/fid/2395 | FEFCO Standards Committee: World Standards - Comparison of Testing Methods FEFCO / EN / ISO / TAPPI
+https://www.corrugatednews.com/blog/warp-washboarding-defects | Warp, Washboarding, and Other Corrugated Defects: Causes and Solutions
+https://www.fefco.org/sites/default/files/2018-10-02_FEFCO%20Recommendation%20N110%20Warp%20Factor%281%29.pdf | FEFCO Recommendation No. 110: Determination of the Warp Factor of Corrugated Board Articles
+https://www.fibrebox.org/assets/2025/07/B155_TR2-3_Storage_and_Handling_2018_Edition.pdf | PMMI B155-TR2.3-2018: Storage and Handling of Corrugated Packaging Materials
+https://digitalcommons.calpoly.edu/cgi/viewcontent.cgi?article=1113&context=it_fac | Investigation of Compression Strength of Bliss Style Corrugated Fiberboard Boxes (de la Fuente, Kisch, Singh, 
+
+# == GOST standartlari (RU) (14) ==
+https://meganorm.ru/Data2/1/4293834/4293834193.htm | ГОСТ Р 52901-2007 Картон гофрированный для упаковки продукции. Технические условия
+https://meganorm.ru/Data2/1/4294849/4294849337.htm | ГОСТ 7376-89 Картон гофрированный. Общие технические условия
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/18/gost_9142-2014_mezhgosudarstvennyy_standart_yashchiki_iz.html | ГОСТ 9142-2014 Ящики из гофрированного картона. Общие технические условия (sections 1-7 only)
+https://meganorm.ru/Data2/1/4294821/4294821082.htm | ГОСТ 9142-90 Ящики из гофрированного картона. Общие технические условия
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/21/gost_13511-2006_mezhgosudarstvennyy_standart_yashchiki_iz.html | ГОСТ 13511-2006 Ящики из гофрированного картона для пищевых продуктов, спичек, табачных изделий и моющих средс
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/3/gost_7933-89_gosudarstvennyy_standart_soyuza_ssr_karton_dlya.html | ГОСТ 7933-89 Картон для потребительской тары. Общие технические условия
+https://meganorm.ru/Data/548/54891.pdf | ГОСТ 32096-2013 Картон тароупаковочный для пищевой продукции. Общие технические условия
+https://files.stroyinf.ru/Data/236/23628.pdf | ГОСТ 12303-80 Пачки из картона, бумаги и комбинированных материалов. Общие технические условия
+https://meganorm.ru/Data/635/63536.pdf | ГОСТ 33781-2016 Упаковка потребительская из картона, бумаги и комбинированных материалов. Общие технические ус
+https://meganorm.ru/Data2/1/4293841/4293841891.htm | ГОСТ 12301-2006 Коробки из картона, бумаги и комбинированных материалов. Общие технические условия
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/11/gost_9078-84_mezhgosudarstvennyy_standart_poddony_ploskie.html | ГОСТ 9078-84 Поддоны плоские. Общие технические условия
+https://files.stroyinf.ru/Data2/1/4294849/4294849303.htm | ГОСТ 8273-75 Бумага оберточная. Технические условия
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/5/gost_2228-81_bumaga_meshochnaya_tekhnicheskie_usloviya_utv.html | ГОСТ 2228-81 Бумага мешочная. Технические условия
+https://meganorm.ru/mega_doc/norm/gost_gosudarstvennyj-standart/15/gost_1341-2018_mezhgosudarstvennyy_standart_pergament.html | ГОСТ 1341-2018 Пергамент растительный. Технические условия
+
+# == Gofrokarton markalari va qutilar (RU) (11) ==
+https://meganorm.ru/Data2/1/4294852/4294852452.htm | ГОСТ 21140-88 Тара. Система размеров
+https://antech.ru/assets/doc/ANTECH_FEFCO_2022-755554a132cb0a03a9a708617d643b7b.pdf | Справочник FEFCO (Антек, 2022) — каталог конструкций гофроящиков
+https://elar.usfeu.ru/bitstream/123456789/14237/1/Vurasco_25.pdf | Вураско А.В., Сиваков В.П. Гофроагрегаты и гофротара (учебное пособие, УГЛТУ, 2025)
+https://gofro.org/poryadok-vybora-marki-gofrirovannogo-materiala-dlya-4-h-klapannogo-gofroyaschika | Порядок выбора марки гофрированного материала для 4-х клапанного гофроящика — ГОФРО.ОРГ
+https://gofro.org/k-voprosu-o-pravilnom-raschyote-kompozitsii-gofrokartona | К вопросу о правильном расчёте композиции гофрокартона — ГОФРО.ОРГ
+https://arzpuck.ru/arz123.html | Функции гофрокартона — АРЗ Плюс (технический справочник)
+https://www.korobok.ru/katalog_fefco/stati/gofrirovannyj_karton_vidy_i_primenenie | Гофрированный картон — основные виды и применение (Контур-ПАК)
+https://www.korobok.ru/katalog_fefco/stati/hranenie_gofrotari_na_sklade | Хранение гофротары на складе — условия правильного хранения и штабелирования (Контур-ПАК / korobok.ru)
+https://kartonpak.ru/articles/lainer | «Лайнер», «флютинг». Гофро-ликбез — КартонПак
+https://compuart.ru/article/18622 | Производство коробок из картона и гофрокартона — КомпьюАрт №1-2008
+
+# == Karton, paketlar, materiallar (RU) (14) ==
+https://compuart.ru/article/25478 | Картон для упаковки — КомпьюАрт №2-2021 (Н. Дубина)
+https://ref.unipack.ru/125 | Упаковка в крафт-мешки. Характеристика мешочной бумаги и бумажных мешков (справочник Unipack.ru)
+https://ruize.ru/blog/syryo-dlya-proizvodstva-bumazhnyh-paketov | Сырьё для бумажных пакетов — крафт-бумага: виды, плотность, расход, поставщики
+https://boxshop.kz/kraft-pakety-vidy-plotnost-kak-vybrat | Крафт-пакеты: виды, размеры, плотность и как выбрать [2026]
+https://vologda.ronbel.ru/blog/poleznoe/kak-vybrat-strejch-plenku-dlya-upakovki | Как выбрать стрейч-плёнку для упаковки — виды, толщина, советы и решения
+https://www.fleimina.ru/inform/polimernaya_upakovka/vozdushno-puzyrkovaya-plenka | Воздушно-пузырчатая (пузырьковая) пленка: характеристики, виды, применение, производство
+https://axelpack.ru/kakie-byvayut-vidy-skotcha | Виды скотча (клейких лент): применение, отличия, особенности
+https://www.utupack.ru/other/gofrolikbez/chto-takoe-sejf-pakety-zaschita-otpravlenij-na-novom-urovne | Что такое сейф-пакеты: защита отправлений на новом уровне (виды, размеры, применение)
+https://www.cuptrade.ru/blog/plotnost-kartona-dlya-odnorazovyix-stakanov | Плотность картона для одноразовых стаканов: как выбрать г/м² для горячих напитков и брендирования
+https://mosrst.ru/wp-content/uploads/2020/02/tr-ts-005-2011.pdf | ТР ТС 005/2011 Технический регламент Таможенного союза «О безопасности упаковки» (с изменениями на 06.09.2024)
+https://books.ifmo.ru/file/pdf/1848.pdf | Упаковочные материалы в пищевых отраслях (учебно-методическое пособие, Университет ИТМО, 2015)
+https://estetis.ru/blog/laminaciya-bumagi | Ламинация бумаги и картона: виды, технология и применение
+
+# == Bosma, narxlash, bozor (RU) (14) ==
+https://www.publish.ru/articles/202609_20015519 | Печать по гофрокартону: доступно о сложном (Publish, 2026)
+https://www.sostav.ru/blogs/294149/112865 | Преимущества и недостатки флексопечати для бизнеса (Sostav.ru)
+https://nissa-centre.ru/articles/tsifra-v-gofropechati-schitaem-ekonomiku.html | Цифра в гофропечати: считаем экономику (НИССА Центрум / Курсив, 2023)
+https://lokarton.ru/clientarea/tech-requirements | Технические требования к макетам — ЛенОблКартон
+https://www.antech.ru/wiki/stati/pechat-na-gofrokartone | Печать на гофрокартоне — методы, плюсы и минусы (Антэк wiki)
+https://ronbel.ru/blog/zakazat-kupit/minimalnyj-tirazh-korobok-na-zakaz-skolko-nuzhno-dlya-biznesa-i-kak-ne-pereplatit | Минимальный тираж коробок на заказ — как не переплатить (Ronbel)
+https://sunprint.ru/blog/post/upakovka-dlya-malogo-tirazha | Упаковка для малого тиража: коробки из микрогофры от 10 штук (Sunprint)
+https://gofro-karton.com/blog/rasschitat_ploshchad_korobki | Как рассчитать площадь картонной коробки (gofro-karton.com)
+https://nuz.uz/2026/09/15/bumazhnaya-otrasl-uzbekistana-v-2017-2025-gg | Бумажная отрасль Узбекистана в 2017–2025 гг. (nuz.uz)
+https://www.kommersant.ru/doc/7801257 | Рынок гофрированной упаковки: прогноз роста / Упаковщикам не хватает товаров (Коммерсантъ, 18.06.2025)
+https://dcenter.hse.ru/data/2021/02/23/1393504243/%D0%A0%D1%8B%D0%BD%D0%BE%D0%BA_%D1%82%D0%B0%D1%80%D0%BD%D0%BE%D0%B3%D0%BE_%D0%BA%D0%B0%D1%80%D1%82%D0%BE%D0%BD%D0%B0-2020.pdf | Рынок тарного картона-2020 (НИУ ВШЭ, Центр развития, А.В. Волкова)
+https://lex.uz/docs/3263615 | ПКМ РУз №476 от 07.07.2017 «Об утверждении Общего технического регламента о безопасности упаковки, контактирую
+https://gov.uz/ru/standart/activity_page/texnik-reglamentlar | Технические регламенты Республики Узбекистан — Агентство «Узстандарт» (gov.uz)
+https://www.ifcg.ru/kb/tnved/notes/code/4819 | Товарная позиция 4819 — Пояснения к ТН ВЭД ЕАЭС (IFCG)
