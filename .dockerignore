@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+uploads
+data
+.env*
+!.env.example
+*.md
+!README.md
+coverage
+docs

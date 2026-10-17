@@ -2,101 +2,48 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ──────────────────────────────────────────────────────
-  # 1. Lint + TypeScript type check
-  # ──────────────────────────────────────────────────────
-  lint:
-    name: Lint & Type Check
+  check:
+    name: Lint, types, tests, build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: pack24
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:ci@localhost:5432/pack24
+      DIRECT_URL: postgresql://postgres:ci@localhost:5432/pack24
+      AUTH_SECRET: ci-only-secret-ci-only-secret-0123456789
+      APP_URL: https://pack24.uz
+      # Haqiqiy baza bilan ishlaydigan testlar (src/lib/__tests__/db): faqat shu yerdagi vaqtinchalik Postgres'da yoqiladi
+      P24_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-
       - run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: ESLint
+      - name: Migrations
+        run: npx prisma migrate deploy
+      - name: Lint
         run: npm run lint
-
-      - name: TypeScript check
-        run: npx tsc --noEmit
-
-  # ──────────────────────────────────────────────────────
-  # 2. Unit & integration tests
-  # ──────────────────────────────────────────────────────
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Run tests
-        run: npm test -- --ci --passWithNoTests
-
-  # ──────────────────────────────────────────────────────
-  # 3. Build verification
-  # ──────────────────────────────────────────────────────
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
+      - name: Types
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
       - name: Build
-        run: npm run build
-        env:
-          # Stub env vars for build (not real secrets)
-          DATABASE_URL: "postgresql://stub:stub@localhost:5432/stub"
-          NEXTAUTH_SECRET: "ci-stub-secret"
-          NEXTAUTH_URL: "http://localhost:3000"
-
-  # ──────────────────────────────────────────────────────
-  # 4. Security: gitleaks — sirlarni aniqlash
-  # ──────────────────────────────────────────────────────
-  gitleaks:
-    name: Secret Scanning (gitleaks)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx next build

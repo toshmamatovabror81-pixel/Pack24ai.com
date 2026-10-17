@@ -1,0 +1,126 @@
+import { SiteImage as Image } from '@/components/site/SiteImage';
+import { TrackedLink } from '@/components/site/TrackedLink';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { CheckCircle2, FileText, Send } from 'lucide-react';
+import { prisma } from '@/lib/db';
+import { resolveLocale } from '@/lib/locale';
+import { formatDate, formatPrice, toNumber } from '@/lib/format';
+import { pickText } from '@/lib/i18n/config';
+import { paymentUrl } from '@/lib/orders';
+import { workOrderPercent } from '@/lib/orderStage';
+import { statusKey } from '@/lib/orderStatus';
+import { getSettings } from '@/lib/settings';
+import { botToken } from '@/lib/telegram/bots';
+
+export const dynamic = 'force-dynamic';
+export const metadata = { robots: { index: false, follow: false } };
+
+type Props = { params: Promise<{ lang: string; token: string }> };
+
+export default async function OrderPage({ params }: Props) {
+  const { locale, t } = await resolveLocale(params);
+  const { token } = await params;
+  if (!/^[A-Za-z0-9_-]{20,40}$/.test(token)) notFound();
+  const order = await prisma.order.findUnique({
+    where: { accessToken: token },
+    include: { items: { include: { product: { select: { name: true, nameI18n: true, image: true } } } } },
+  });
+  if (!order || order.deletedAt) notFound();
+  // B2B: hisob-faktura havolasi va ishlab chiqarish holati (bo'lsa)
+  const [invoice, workOrders, settings] = await Promise.all([
+    prisma.corporateInvoice.findFirst({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'desc' }, select: { invoiceNo: true } }),
+    prisma.workOrder.findMany({ where: { orderId: order.id, status: { not: 'cancelled' } }, orderBy: { createdAt: 'asc' } }),
+    getSettings(),
+  ]);
+  const pay = order.paymentStatus !== 'paid' && order.status !== 'cancelled' ? paymentUrl(order, locale) : null;
+  // Mijoz botidagi /start <token>: shu buyurtma chatga ulanadi va holat o'zgarsa xabar keladi (telegram/customers.ts bindOrderByToken).
+  // Tugma faqat mijoz boti haqiqatan ishlaydigan bo'lsa chiqadi: token hali kiritilmagan bo'lsa (deploy/bots-setup.sh) /start ga hech kim
+  // javob bermaydi va buyurtma ulanmaydi. Sahifa force-dynamic — token kiritilishi bilan tugma o'zi paydo bo'ladi.
+  const telegram = botToken('customer') && /^[A-Za-z0-9_]{5,32}$/.test(settings.telegramBot) ? `https://t.me/${settings.telegramBot}?start=${token}` : null;
+  const sum = (v: Parameters<typeof formatPrice>[0]) => formatPrice(v, t.common.sum);
+  return (
+    <div className="container-site max-w-3xl py-10">
+      <div className="card p-6">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-1 h-7 w-7 shrink-0 text-emerald-600" />
+          <div>
+            <h1 className="h1">{t.order.title} #{order.id}</h1>
+            <p className="mt-1 text-slate-600">{t.order.thanks}</p>
+            <p className="mt-1 text-sm text-slate-500">{formatDate(order.createdAt, locale, true)}</p>
+          </div>
+        </div>
+        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg bg-slate-50 p-4">
+            <dt className="text-sm text-slate-500">{t.order.status}</dt>
+            <dd className="font-semibold">{t.order.statuses[statusKey(order.status)]}</dd>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-4">
+            <dt className="text-sm text-slate-500">{t.order.payment}</dt>
+            <dd className="font-semibold">{t.order.paymentStatuses[order.paymentStatus]}</dd>
+          </div>
+        </dl>
+        {(pay || invoice || telegram) && (
+          <div className="mt-6 flex flex-wrap gap-3">
+            {pay && <a href={pay} className="btn-accent w-full sm:w-auto">{t.order.pay}: {sum(order.totalAmount)}</a>}
+            {invoice && (
+              <Link href={`/${locale}/orders/${token}/invoice`} className="btn-ghost w-full sm:w-auto">
+                <FileText className="h-4 w-4" />
+                {t.order.invoice} {invoice.invoiceNo}
+              </Link>
+            )}
+            {telegram && (
+              <TrackedLink event="telegram_click" href={telegram} target="_blank" rel="noopener" className="btn-ghost w-full sm:w-auto">
+                <Send className="h-4 w-4" />
+                {t.order.trackTelegram}
+              </TrackedLink>
+            )}
+          </div>
+        )}
+        {workOrders.length > 0 && (
+          <>
+            <h2 className="mt-8 font-semibold">{t.order.production}</h2>
+            <ul className="mt-3 space-y-3">
+              {workOrders.map((wo) => {
+                const pct = workOrderPercent(wo);
+                return (
+                  <li key={wo.id} className="rounded-lg bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{wo.productName} × {wo.quantity}</span>
+                      <span className="text-slate-500">{t.order.deadline}: {formatDate(wo.deadline, locale)}</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-slate-500">
+                      <span>{t.order.stages[wo.currentStage]}</span>
+                      <span>{pct}%</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+        <h2 className="mt-8 font-semibold">{t.order.items}</h2>
+        <ul className="mt-3 divide-y divide-slate-200">
+          {order.items.map((it) => (
+            <li key={it.id} className="flex items-center gap-3 py-3">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-slate-50">
+                <Image src={it.product.image || '/images/no-image.svg'} alt="" fill sizes="56px" className="object-contain" />
+              </div>
+              <span className="flex-1 text-sm">{pickText(it.product.nameI18n, locale, it.product.name)} × {it.quantity}</span>
+              <span className="text-sm font-medium">{sum(toNumber(it.price) * it.quantity)}</span>
+            </li>
+          ))}
+        </ul>
+        <dl className="mt-4 space-y-1 border-t border-slate-200 pt-4 text-sm">
+          {order.subtotal && <div className="flex justify-between"><dt>{t.cart.subtotal}</dt><dd>{sum(order.subtotal)}</dd></div>}
+          {toNumber(order.discountAmount) > 0 && <div className="flex justify-between text-emerald-700"><dt>{t.cart.discount}</dt><dd>−{sum(order.discountAmount)}</dd></div>}
+          <div className="flex justify-between"><dt>{t.cart.delivery}</dt><dd>{sum(order.deliveryFee)}</dd></div>
+          <div className="flex justify-between text-lg font-bold"><dt>{t.cart.total}</dt><dd>{sum(order.totalAmount)}</dd></div>
+        </dl>
+      </div>
+    </div>
+  );
+}

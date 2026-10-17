@@ -58,8 +58,9 @@ prisma/*.db-journal
 test-*.js
 test-*.ts
 
-# vercel
-.vercel
+# Serverda yuklangan rasmlar va Docker ma'lumotlari
+/uploads
+/data
 
 # typescript
 *.tsbuildinfo
@@ -70,3 +71,8 @@ tsc-*.txt
 tsc-check.txt
 
 /src/generated/prisma
+
+# Serverga xos compose sozlamasi (server-setup.sh yaratadi)
+docker-compose.override.yml
+# deploy.sh: oxirgi zaxira qaysi migratsiyalar ro'yxati bilan olingani
+.deploy-migrations
