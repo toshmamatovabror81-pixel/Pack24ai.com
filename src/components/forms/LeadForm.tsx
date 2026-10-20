@@ -1,11 +1,18 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { submitLead, type LeadState } from '@/lib/leads';
 import { track } from '../site/track';
+import { LEAD_PREFILL_EVENT, type LeadPrefill } from './leadPrefill';
 
 export type LeadField = { name: string; label: string; type?: 'text' | 'tel' | 'textarea' | 'number' | 'select'; required?: boolean; options?: { value: string; label: string }[]; defaultValue?: string };
+
+type FieldEl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+function fieldOf(form: HTMLFormElement, name: string): FieldEl | null {
+  const el = form.elements.namedItem(name);
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? el : null;
+}
 
 export function LeadForm({
   type,
@@ -22,9 +29,61 @@ export function LeadForm({
 }) {
   const [state, action, pending] = useActionState<LeadState, FormData>(submitLead, null);
   const [current, setCurrent] = useState(type);
+  const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) track('lead_submit', { type: current });
   }, [state, current]);
+  // Tashqi to'ldirish (quti kalkulyatori): maydonlar boshqarilmaydi, shuning uchun qiymat DOM ga yoziladi.
+  // Oxirgi to'ldirish saqlanadi: React 19 action tugagach formani defaultValue ga qaytaradi — xatoda qayta yozamiz
+  const prefilled = useRef<Record<string, string> | null>(null);
+  const lastSummary = useRef<Record<string, string>>({});
+  const typeValues = types?.map((t) => t.value).join('|') ?? '';
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      const detail = (e as CustomEvent<LeadPrefill>).detail;
+      const form = formRef.current;
+      if (!form || !detail) return;
+      if (detail.type && typeValues.split('|').includes(detail.type)) setCurrent(detail.type);
+      const applied: Record<string, string> = { ...prefilled.current };
+      for (const [name, value] of Object.entries(detail.fields ?? {})) {
+        const el = fieldOf(form, name);
+        if (!el) continue;
+        if (el instanceof HTMLTextAreaElement) {
+          // Izoh maydonidagi foydalanuvchi matni o'chmasin — xulosa oxiriga qo'shiladi; avvalgi xulosa almashtiriladi
+          let own = el.value.trim();
+          const last = lastSummary.current[name];
+          if (last && own.endsWith(last)) own = own.slice(0, -last.length).trim();
+          el.value = own ? `${own}\n\n${value}` : value;
+          lastSummary.current[name] = value;
+        } else el.value = value;
+        applied[name] = el.value;
+      }
+      prefilled.current = applied;
+      // Birinchi bo'sh majburiy maydonga fokus (aylantirishni chaqiruvchi qiladi)
+      const empty = Array.from(form.querySelectorAll<HTMLInputElement>('input[required]')).find((i) => !i.value);
+      empty?.focus({ preventScroll: true });
+    };
+    window.addEventListener(LEAD_PREFILL_EVENT, onPrefill);
+    return () => window.removeEventListener(LEAD_PREFILL_EVENT, onPrefill);
+  }, [typeValues]);
+  // Xato bilan qaytsa (masalan, telefon noto'g'ri) — to'ldirilgan maydonlarni tiklaymiz
+  useEffect(() => {
+    const form = formRef.current;
+    if (!state?.error || !form || !prefilled.current) return;
+    for (const [name, value] of Object.entries(prefilled.current)) {
+      const el = fieldOf(form, name);
+      if (el) el.value = value;
+    }
+  }, [state]);
+  // Yuborish paytidagi qiymatlar eslab qolinadi: foydalanuvchi tahrirlari ham tiklanadi
+  const rememberPrefilled = () => {
+    const form = formRef.current;
+    if (!form || !prefilled.current) return;
+    for (const name of Object.keys(prefilled.current)) {
+      const el = fieldOf(form, name);
+      if (el) prefilled.current[name] = el.value;
+    }
+  };
   if (state?.ok)
     return (
       <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-5 text-emerald-800">
@@ -33,7 +92,7 @@ export function LeadForm({
       </div>
     );
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} action={action} onSubmit={rememberPrefilled} className="space-y-4">
       <input type="hidden" name="type" value={current} />
       {productId && <input type="hidden" name="productId" value={productId} />}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />

@@ -6,6 +6,7 @@ import { str, type SearchParams } from '@/lib/params';
 import { idFromParam } from '@/lib/slug';
 import { contactFields, leadLabels } from '@/lib/leadLabels';
 import { LeadForm } from '@/components/forms/LeadForm';
+import { BoxCalculator } from '@/components/site/BoxCalculator';
 
 type Props = { params: Promise<{ lang: string }>; searchParams: SearchParams };
 
@@ -23,7 +24,9 @@ export default async function WholesalePage({ params, searchParams }: Props) {
     <div className="container-site max-w-3xl py-10">
       <h1 className="h1">{t.forms.wholesaleTitle}</h1>
       <p className="mt-3 text-slate-600">{t.forms.wholesaleText}</p>
-      <div className="card mt-6 p-6">
+      <BoxCalculator labels={t.calc} locale={locale} />
+      {/* Kalkulyatordagi "Ariza qoldirish" shu yerga aylantiradi */}
+      <div id="lead-form" className="card mt-6 scroll-mt-32 p-6">
         <LeadForm
           type="wholesale"
           types={[
