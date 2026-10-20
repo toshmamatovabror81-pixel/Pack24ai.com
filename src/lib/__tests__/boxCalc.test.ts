@@ -113,8 +113,8 @@ describe('boxCalc: skil misoli 400 × 300 × 300, 6 qator (mustahkamlik.md 4.3, 
 
 describe('boxCalc: og\'irlik bo\'yicha minimal marka (GWP)', () => {
   it('jadval chegaralari', () => {
-    expect(minEctByWeight(3, 5)).toBe(2.2);
-    expect(minEctByWeight(3, 12)).toBe(3.0);
+    expect(minEctByWeight(3, 5)).toBe(3.0);
+    expect(minEctByWeight(3, 12)).toBe(3.8);
     expect(minEctByWeight(3, 17)).toBe(3.8);
     expect(minEctByWeight(3, 25)).toBe(5.4);
     expect(minEctByWeight(3, 35)).toBe(7.0);
@@ -123,13 +123,14 @@ describe('boxCalc: og\'irlik bo\'yicha minimal marka (GWP)', () => {
     expect(minEctByWeight(5, 40)).toBe(10.0);
   });
 
-  it('n = 1: yuk 0, lekin marka og\'irlikdan (12 kg → Т-22, 5 kg → Т-21)', () => {
+  it('n = 1: yuk 0, lekin marka og\'irlikdan (12 kg → Т-23, 5 kg → Т-22; 1-sinf tara ECT ≥ 3,0 — Т-21 hech qachon emas)', () => {
     const r = ok({ ...base, tiers: 1 });
     expect(r.loadN).toBe(0);
     expect(r.requiredEct).toBe(0);
-    expect(r.construction).toMatchObject({ layers: 3, grade: 'Т-22' });
+    expect(r.construction).toMatchObject({ layers: 3, grade: 'Т-23' });
     expect(r.notes).toContain('noStacking');
-    expect(ok({ ...base, weightKg: 5, tiers: 1 }).construction?.grade).toBe('Т-21');
+    expect(ok({ ...base, weightKg: 5, tiers: 1 }).construction?.grade).toBe('Т-22');
+    expect(ok({ ...base, weightKg: 0.5, tiers: 1 }).construction?.grade).toBe('Т-22');
   });
 
   it('30 kg, taxtsiz — eng kuchli 3 qatlam (Т-27), eng yengili emas', () => {
@@ -233,6 +234,24 @@ describe('boxCalc: tekshiruv', () => {
     expect(parseNum('')).toBeNaN();
     expect(parseNum('   ')).toBeNaN();
     expect(parseNum('12a')).toBeNaN();
+  });
+
+  it('parseNum: butun maydonda minglik ajratgich ("10,000", "10.000", "10 000") o\'qiladi, kasr maydonida vergul — kasr', () => {
+    expect(parseNum('10,000', { integer: true })).toBe(10000);
+    expect(parseNum('10.000', { integer: true })).toBe(10000);
+    expect(parseNum('10 000', { integer: true })).toBe(10000);
+    expect(parseNum('1,000,000', { integer: true })).toBe(1000000);
+    // Guruhlanmagan vergul butun maydonda ham kasr bo'lib qoladi → "butun son kiriting" xatosi
+    expect(parseNum('12,5', { integer: true })).toBe(12.5);
+    expect(parseNum('1,5', { integer: true })).toBe(1.5);
+    expect(parseNum('10,000')).toBe(10);
+    expect(parseNum('1,250')).toBe(1.25);
+  });
+
+  it('ingliz sahifasidagi "10,000" tiraj 10 emas, 10 000 deb hisoblanadi', () => {
+    const r = ok({ ...base, quantity: parseNum('10,000', { integer: true }) });
+    expect(r.input.quantity).toBe(10000);
+    expect(r.netAreaM2).toBeCloseTo(0.681 * 10000, -1);
   });
 });
 

@@ -75,14 +75,17 @@ export function LeadForm({
       if (el) el.value = value;
     }
   }, [state]);
-  // Yuborish paytidagi qiymatlar eslab qolinadi: foydalanuvchi tahrirlari ham tiklanadi
+  // Yuborish paytida BARCHA oddiy maydonlar eslab qolinadi: React 19 action xato bilan qaytganda ham formani
+  // tozalaydi — mijozning ismi, telefoni va izohi ham tiklanishi kerak, faqat kalkulyator maydonlari emas
   const rememberPrefilled = () => {
     const form = formRef.current;
-    if (!form || !prefilled.current) return;
-    for (const name of Object.keys(prefilled.current)) {
-      const el = fieldOf(form, name);
-      if (el) prefilled.current[name] = el.value;
+    if (!form) return;
+    const snap: Record<string, string> = {};
+    for (const el of Array.from(form.elements)) {
+      const plain = el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLInputElement && !['hidden', 'radio', 'checkbox'].includes(el.type));
+      if (plain && el.name) snap[el.name] = el.value;
     }
+    prefilled.current = snap;
   };
   if (state?.ok)
     return (
@@ -114,7 +117,7 @@ export function LeadForm({
           <label key={f.name} className={f.type === 'textarea' ? 'block sm:col-span-2' : 'block'}>
             <span className="label">{f.label}{f.required && ' *'}</span>
             {f.type === 'textarea' ? (
-              <textarea name={f.name} rows={4} required={f.required} defaultValue={f.defaultValue} className="input" />
+              <textarea name={f.name} rows={4} maxLength={3000} required={f.required} defaultValue={f.defaultValue} className="input" />
             ) : f.type === 'select' ? (
               <select name={f.name} defaultValue={f.defaultValue} className="input">
                 {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

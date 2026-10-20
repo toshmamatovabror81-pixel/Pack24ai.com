@@ -241,7 +241,7 @@ const en: Dict = {
     },
     notes: {
       swapped: 'Width was larger than length — L and W were swapped (L is always the longer side).',
-      noStacking: 'Boxes are not stacked — the grade is chosen by box weight (GWP table).',
+      noStacking: 'Boxes are not stacked — the grade is chosen by box weight (approximate minimum).',
       heavy: 'Boxes heavier than 35 kg need 5-layer board.',
       humid: 'GOST humidity factor 1.86 applied.',
       mckeeShort: 'The box is low (height under 1/7 of perimeter) — the estimate is less accurate.',

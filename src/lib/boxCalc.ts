@@ -105,8 +105,9 @@ const ALLOWANCE: Record<3 | 5, { length: number; width: number }> = {
   5: { length: 34, width: 16 },
 };
 
-// Qalinlik, mm — hisob uchun ehtiyotkor (pastki) qiymat: B ≈ 3, C 3,5–4 → 3,5, BE 4,4–4,6 → 4,4, BC 6–7 → 6
-// (materiallar.md 2-jadval). Yupqaroq qalinlik kerakli ECT ni oshiradi — marka past tanlanmaydi
+// Qalinlik, mm (SKILL.md 6.1: B ≈ 3, C 3,5–4, EB ≈ 4–4,5, BC 6–7): B, C, BC uchun diapazonning pastki chegarasi,
+// BE uchun odatiy 4,4 (4,0 olinsa GOST markasi o'zgarmaydi, ayrim holatda shu markada BE o'rniga BC chiqadi).
+// Yupqaroq qalinlik kerakli ECT ni oshiradi — marka past tanlanmaydi
 const THICKNESS: Record<Flute, number> = { B: 3, C: 3.5, BE: 4.4, BC: 6 };
 
 // GOST R 52901-2007 ECT minimumlari, kN/m (gofrokarton-va-gost.md 3-jadval)
@@ -152,15 +153,16 @@ const round = (v: number, digits: number) => {
 const ceil2 = (v: number) => Math.ceil(Number((v * 100).toFixed(6))) / 100;
 
 /**
- * Og'irlik bo'yicha minimal marka (GWP tezkor jadvali, SKILL.md 6.2 — taxminiy): taxt yuki kichik bo'lsa ham
- * og'ir quti ko'tarish va zarbaga (burst) bardosh berishi kerak. Juftlikdan yuqorisi olinadi (Т-24/25 → Т-25).
+ * Og'irlik bo'yicha minimal marka — taxminiy chegara: taxt yuki kichik bo'lsa ham og'ir quti ko'tarish va zarbaga
+ * (burst) bardosh berishi kerak. Asos: SKILL.md 6.2 GWP og'irlik jadvali (unda marka yo'q, grammaj → marka
+ * moslashuvi bizning taxminimiz) va 6.1 yuk sinflari (1-sinf tara, 20 kg gacha: ECT ≥ 3,0 — shuning uchun eng
+ * yengil quti ham Т-22 dan past emas). Juftlikdan yuqorisi olinadi (Т-24/25 → Т-25).
  */
 const WEIGHT_FLOOR: Record<3 | 5, [number, number][]> = {
   // [kg gacha, minimal ECT kN/m]
   3: [
-    [6, 2.2], // 125K/T → Т-21
-    [12, 3.0], // 150K/T → Т-22
-    [17, 3.8], // 200K/T → Т-23
+    [6, 3.0], // 125K/T → Т-22 (1-sinf minimumi)
+    [17, 3.8], // 150K/T, 200K/T → Т-23
     [25, 5.4], // 200K/300T → Т-24/25
     [MAX_3LAYER_KG, 7.0], // 300K/T → Т-26/27
   ],
@@ -177,10 +179,16 @@ export function minEctByWeight(layers: 3 | 5, weightKg: number): number {
   return WEIGHT_FLOOR[layers].find(([kg]) => weightKg <= kg)?.[1] ?? Infinity;
 }
 
-/** Forma qatori → son: vergulli kasr ("12,5") va bo'shliqlar qabul qilinadi, bo'sh qator NaN */
-export function parseNum(v: string): number {
+/**
+ * Forma qatori → son: vergulli kasr ("12,5") va chetki bo'shliqlar qabul qilinadi, bo'sh qator NaN.
+ * Butun maydon (integer) uchun minglik ajratgichli yozuv ham o'qiladi: "10,000", "10.000", "10 000" → 10 000
+ * (ingliz sahifasida raqamlar vergul bilan guruhlanadi — "10,000" ni 10 deb o'qish tirajni 1000 marta kamaytirardi).
+ */
+export function parseNum(v: string, opts: { integer?: boolean } = {}): number {
   const s = v.trim();
-  return s === '' ? Number.NaN : Number(s.replace(',', '.'));
+  if (s === '') return Number.NaN;
+  if (opts.integer && /^\d{1,3}(?:[\s.,]\d{3})+$/.test(s)) return Number(s.replace(/[\s.,]/g, ''));
+  return Number(s.replace(',', '.'));
 }
 
 /** Kirishni tekshiradi; xato bo'lsa ro'yxat qaytaradi (istisno otmaydi) */

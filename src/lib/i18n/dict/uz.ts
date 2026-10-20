@@ -239,7 +239,7 @@ const uz = {
     },
     notes: {
       swapped: "Kenglik uzunlikdan katta edi — L va W almashtirildi (L doim katta tomon).",
-      noStacking: "Quti ustiga quti qo'yilmaydi — marka quti og'irligi bo'yicha (GWP jadvali) tanlandi.",
+      noStacking: "Quti ustiga quti qo'yilmaydi — marka quti og'irligi bo'yicha (taxminiy chegara) tanlandi.",
       heavy: "35 kg dan og'ir quti uchun faqat 5 qatlamli karton tavsiya qilinadi.",
       humid: "Nam ombor uchun GOST koeffitsiyenti 1,86 qo'llandi.",
       mckeeShort: "Quti past (balandlik perimetrning 1/7 qismidan kam) — hisob aniqligi pastroq.",
