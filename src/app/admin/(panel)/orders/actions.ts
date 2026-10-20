@@ -1,0 +1,73 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import type { OrderStatus } from '@prisma/client';
+import { requireStaff } from '@/lib/auth';
+import { can } from '@/lib/auth/permissions';
+import { changeOrderStatus, setManualPayment, type Actor } from '@/lib/orderFlow';
+
+const PAYMENTS = ['pending', 'paid', 'refunded'] as const;
+
+/**
+ * Buyurtma sahifasidagi forma. Vaqt belgilari, ombordan chiqim, tarix va mijozga Telegram xabari orderFlow ichida —
+ * boshqaruv boti ham aynan shu funksiyalarni chaqiradi, shuning uchun natija bir xil.
+ */
+export async function updateOrder(fd: FormData) {
+  const user = await requireStaff('orders');
+  const id = Number(fd.get('id'));
+  if (!Number.isSafeInteger(id)) redirect('/admin/orders');
+  const actor: Actor = { name: user.name, via: 'admin' };
+  // Forma ochiq turganda holatni bot yoki boshqa xodim o'zgartirgan bo'lishi mumkin: faqat shu xodim o'zi o'zgartirgan maydon
+  // qo'llanadi, aks holda eski qiymat qaytib yozilib, mijozga noto'g'ri xabar ketardi (prev* maydonlari bo'lmasa — har doim qo'llanadi)
+  const touched = (name: string, prev: string) => fd.get(prev) === null || fd.get(name) !== fd.get(prev);
+  // Xodim o'zgartirgan maydon ham eskirgan bo'lishi mumkin: u "Yangi" deb ko'rgan buyurtmani bot allaqachon "Yo'lda" qilgan bo'lsa,
+  // "Tayyorlanmoqda" ni saqlash buyurtmani orqaga qaytarib, mijozga teskari xabar yuborardi. Shuning uchun forma ko'rsatgan qiymat
+  // (prev*) orderFlow'ga "kutilgan qiymat" bo'lib beriladi: bazadagi qiymat undan farq qilsa yozilmaydi ("conflict") va xodim
+  // ogohlantiriladi (yangilangan sahifada istalgan holatni qayta tanlay oladi). Tekshiruv orderFlow ichida, shartli yozuv bilan birga.
+  const seen = (prev: string) => {
+    const v = fd.get(prev);
+    return typeof v === 'string' ? { expected: v } : null;
+  };
+  let conflict = false;
+  let delivered = false;
+  let denied = false;
+  // "to'lanmagan"ga qaytarilganda hisob-faktura bilan nima bo'lgani ("Saqlandi" yoniga): qayta ochildi yoki to'langan holida qoldi
+  let invoice = '';
+
+  if (touched('status', 'prevStatus')) {
+    // Admin formasi istalgan holatni qo'ya oladi (tuzatish uchun), shuning uchun enforceFlow yo'q
+    const next = String(fd.get('status')) as OrderStatus;
+    const base = seen('prevStatus');
+    const res = base ? await changeOrderStatus(id, next, actor, base) : await changeOrderStatus(id, next, actor);
+    if (!res.ok && res.reason === 'not_found') redirect('/admin/orders');
+    if (!res.ok && res.reason === 'conflict') conflict = true;
+    delivered = res.ok && res.changed && res.order.status === 'delivered';
+  }
+
+  // Onlayn to'lov holatini Payme/Click o'zi o'zgartiradi; qo'lda faqat naqd va bank o'tkazmasi (setManualPayment o'zi tekshiradi)
+  // To'lov holati hisob-fakturani ham yopadi/ochadi — uni faqat "finance" (moliya) ruxsati bor xodim o'zgartiradi. Ruxsatsiz
+  // xodimning formasida bu maydon yo'q; qo'lda yasalgan so'rov kelsa to'lov o'zgarishi qo'llanmaydi (holat o'zgarishi saqlanadi)
+  const payment = PAYMENTS.find((p) => p === fd.get('paymentStatus'));
+  if (payment && touched('paymentStatus', 'prevPaymentStatus') && !can(user.role, 'finance')) denied = true;
+  else if (payment && touched('paymentStatus', 'prevPaymentStatus')) {
+    // Forma ko'rgan "to'langan" belgisi (prevPaidMark — orderFlow.lastPaidMark, faqat to'langan buyurtma formasida): forma ochiq
+    // turganda belgi bekor qilinib, haqiqiy to'lov bilan qayta qo'yilgan bo'lsa, eskirgan forma o'sha to'lovni bekor qilmaydi (conflict)
+    const rawMark = fd.get('prevPaidMark');
+    const mark = typeof rawMark === 'string' && /^\d{1,10}$/.test(rawMark) && Number(rawMark) <= 2147483647 ? { expectedMark: Number(rawMark) } : null;
+    const base = seen('prevPaymentStatus');
+    const opts = base || mark ? { ...base, ...mark } : null;
+    const res = opts ? await setManualPayment(id, payment, actor, opts) : await setManualPayment(id, payment, actor);
+    if (!res.ok && res.reason === 'not_found') redirect('/admin/orders');
+    if (!res.ok && res.reason === 'conflict') conflict = true;
+    if (res.ok && res.changed) invoice = res.reopened ? '&invoice=reopened' : res.stillPaid?.length ? '&invoice=paid' : '';
+  }
+
+  if (delivered) revalidatePath('/admin/inventory');
+  revalidatePath(`/admin/orders/${id}`);
+  // Holat ziddiyatga uchragan so'rovda ham to'lov belgisi bekor qilingan bo'lishi mumkin — hisob-faktura natijasi o'shanda ham sahifaga chiqadi.
+  // Ruxsatsiz to'lov o'zgarishi (denied) ziddiyatni yutib yubormaydi: ikkalasi ham bo'lsa sahifada ikkala ogohlantirish chiqadi (denied=1),
+  // aks holda xodim holat o'zgarishi saqlanmaganini bilmay qolardi
+  const outcome = conflict ? `error=conflict${denied ? '&denied=1' : ''}` : denied ? 'error=finance' : 'saved=1';
+  redirect(`/admin/orders/${id}?${outcome}${invoice}`);
+}

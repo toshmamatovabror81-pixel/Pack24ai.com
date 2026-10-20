@@ -1,0 +1,19 @@
+# Caddy: HTTPS sertifikatini (Let's Encrypt) o'zi oladi va yangilaydi.
+# DOMAIN .env dan keladi (standart: pack24.uz)
+
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	# Kesh sarlavhalarini Next'ning o'zi beradi (/_next/static va /uploads immutable)
+	reverse_proxy web:3000
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+	}
+}

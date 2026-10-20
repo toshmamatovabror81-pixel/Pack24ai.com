@@ -1,189 +1,101 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import {
-    ADMIN_AUTH_COOKIE,
-    ADMIN_AUTH_HEADER,
-    validateAdminToken,
-} from '@/lib/adminAuthShared';
+import { NextResponse, type NextRequest } from 'next/server';
+import { defaultLocale, isLocale } from './lib/i18n/config';
+import { SESSION_COOKIE, STAFF_ROLES, verifySession } from './lib/auth/session';
+import { UTM_COOKIE, UTM_KEYS } from './lib/utm';
 
-const ADMIN_LOGIN_PATH = '/admin/login';
-const ADMIN_PATHS = ['/admin'];
-const PUBLIC_ADMIN_PATHS = ['/admin/login'];
-// Login API ni himoyadan istisno qilamiz — token hali yo'q bo'lganda ham ishlashi kerak
-const PUBLIC_ADMIN_API_PATHS = ['/api/admin/login', '/api/admin/logout'];
+/** Eski saytdagi manzillar -> yangi manzillar (Google'dagi havolalar buzilmasin) */
+const LEGACY: Record<string, string> = {
+  '/category': '/catalog',
+  '/active-vacancies': '/vacancies',
+  '/special-offers': '/catalog',
+  '/discounts': '/catalog',
+  '/mockup-request': '/wholesale',
+  '/configurator': '/wholesale',
+  '/corporate': '/wholesale',
+  '/pricing': '/wholesale',
+  '/news': '/blog',
+  '/my-orders': '/profile',
+  // Makulatura yo'nalishi va haydovchi kabineti olib tashlangan: eski havolalar bosh sahifaga
+  '/eco-dashboard': '/',
+  '/prts': '/',
+  '/recycling': '/',
+  '/driver': '/',
+  '/referral': '/',
+  '/carbon-market': '/',
+  '/marketplace': '/catalog',
+  '/tools': '/wholesale',
+  '/terminal': '/',
+  '/wishlist': '/catalog',
+  '/mobile': '/',
+};
 
-const DEFAULT_ALLOWED_ORIGINS = [
-    'https://pack24.uz',
-    'https://www.pack24.uz',
-    'https://pack24.ru',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-];
-
-function getAllowedOrigins(): string[] {
-    const fromEnv = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-    const merged = [...(fromEnv ?? DEFAULT_ALLOWED_ORIGINS)];
-    if (appUrl && !merged.includes(appUrl)) {
-        merged.push(appUrl);
+function legacyTarget(pathname: string): string {
+  for (const [from, to] of Object.entries(LEGACY)) {
+    if (pathname === from || pathname.startsWith(`${from}/`)) {
+      // /category/slug -> /catalog/slug; boshqalari faqat bo'lim sahifasiga
+      if (from === '/category') return `/catalog${pathname.slice(from.length)}`;
+      return to;
     }
-    return merged;
+  }
+  return pathname;
 }
 
-function requiresAdminApiAuth(pathname: string, method: string): boolean {
-    if (
-        pathname.startsWith('/api/admin') ||
-        pathname.startsWith('/api/warehouse') ||
-        pathname.startsWith('/api/production') ||
-        pathname.startsWith('/api/marketing')
-    ) {
-        return true;
-    }
-
-    if (pathname === '/api/scrape' && method === 'POST') {
-        return true;
-    }
-
-    if (pathname.startsWith('/api/products/bulk-')) {
-        return true;
-    }
-
-    if (pathname === '/api/products' && method === 'POST') {
-        return true;
-    }
-
-    if (/^\/api\/products\/\d+$/.test(pathname) && ['PUT', 'DELETE'].includes(method)) {
-        return true;
-    }
-
-    return false;
+async function adminGuard(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (pathname === '/admin/login') return NextResponse.next();
+  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value).catch(() => null);
+  if (!session || !STAFF_ROLES.includes(session.role)) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/admin/login';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+  return NextResponse.next();
 }
 
-async function isValidAdminToken(token: string): Promise<boolean> {
-    const secret = process.env.ADMIN_SECRET;
-    if (!secret) return false;
-    const validation = await validateAdminToken(token, secret);
-    return validation.valid;
+function withAttribution(req: NextRequest, res: NextResponse) {
+  const params = req.nextUrl.searchParams;
+  if (!UTM_KEYS.some((k) => params.get(k))) return res;
+  const data: Record<string, string> = {};
+  for (const k of UTM_KEYS) {
+    const v = params.get(k);
+    if (v) data[k] = v.slice(0, 200);
+  }
+  const ref = req.headers.get('referer');
+  if (ref) data.referrer = ref.slice(0, 500);
+  data.landing = `${req.nextUrl.pathname}${req.nextUrl.search}`.slice(0, 500);
+  res.cookies.set(UTM_COOKIE, JSON.stringify(data), { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax' });
+  return res;
 }
 
-async function hasValidAdminAuth(request: NextRequest): Promise<boolean> {
-    const adminToken = request.cookies.get(ADMIN_AUTH_COOKIE)?.value;
-    const authHeader = request.headers.get(ADMIN_AUTH_HEADER);
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-    const cookieValid = adminToken && (await isValidAdminToken(adminToken));
-    const headerValid = authHeader && (await isValidAdminToken(authHeader));
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return adminGuard(req);
 
-    return Boolean(cookieValid || headerValid);
-}
-
-function applyCorsHeaders(request: NextRequest, response: NextResponse): NextResponse {
-    const origin = request.headers.get('origin');
-    const allowedOrigins = getAllowedOrigins();
-
-    if (origin && allowedOrigins.includes(origin)) {
-        response.headers.set('Access-Control-Allow-Origin', origin);
-        response.headers.set('Vary', 'Origin');
+  const first = pathname.split('/')[1];
+  if (isLocale(first)) {
+    // Olib tashlangan bo'lim: mijozlarga yuborilgan eski havolalar (/uz/recycling/<token>) 404 emas, bosh sahifaga
+    const rest = pathname.slice(first.length + 1);
+    if (rest === '/recycling' || rest.startsWith('/recycling/')) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/${first}`;
+      url.search = '';
+      return withAttribution(req, NextResponse.redirect(url, 308));
     }
+    return withAttribution(req, NextResponse.next());
+  }
 
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-token');
-
-    return response;
-}
-
-export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-    const { method } = request;
-
-    // ── CORS preflight (API) ──────────────────────────────────────────────
-    if (pathname.startsWith('/api/') && method === 'OPTIONS') {
-        return applyCorsHeaders(request, new NextResponse(null, { status: 204 }));
-    }
-
-    // ── CSRF himoyasi (state-changing so'rovlar uchun) ─────────────────────
-    // POST/PUT/PATCH/DELETE so'rovlarida Origin yoki Referer tekshirish
-    const CSRF_EXEMPT_PATHS = [
-        '/api/telegram/',       // Telegram webhook (server-to-server)
-        '/api/bot/',            // Bot webhook (trailing slash — aniq prefix)
-        '/api/payment/click',   // Click callback
-        '/api/payment/payme',   // Payme callback
-        '/api/push/',           // Push notification callbacks
-    ];
-
-    if (
-        pathname.startsWith('/api/') &&
-        ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) &&
-        !CSRF_EXEMPT_PATHS.some(p => pathname.startsWith(p))
-    ) {
-        const origin = request.headers.get('origin');
-        const referer = request.headers.get('referer');
-        const allowedOrigins = getAllowedOrigins();
-
-        // Origin yoki Referer headerdan biri to'g'ri bo'lishi kerak
-        const originValid = origin && allowedOrigins.includes(origin);
-        const refererValid = referer && allowedOrigins.some(o => referer.startsWith(o));
-
-        // Bearer token bilan kelgan API so'rovlari (mobile/driver) — CSRF exempt
-        const hasAuthToken = request.headers.get('authorization')?.startsWith('Bearer ');
-
-        // Admin token — CSRF exempt FAQAT HMAC validatsiyadan o'tgandan keyin
-        const rawAdminToken = request.headers.get(ADMIN_AUTH_HEADER) ||
-                              request.cookies.get(ADMIN_AUTH_COOKIE)?.value;
-        const hasValidatedAdminToken = rawAdminToken
-            ? await isValidAdminToken(rawAdminToken)
-            : false;
-
-        if (!originValid && !refererValid && !hasAuthToken && !hasValidatedAdminToken) {
-            const denied = NextResponse.json(
-                { error: 'CSRF: Origin tekshiruvidan o\'tmadi' },
-                { status: 403 }
-            );
-            return applyCorsHeaders(request, denied);
-        }
-    }
-
-    const isAdminPath = ADMIN_PATHS.some((path) => pathname.startsWith(path));
-    const isPublicAdminPath = PUBLIC_ADMIN_PATHS.some((path) =>
-        pathname.startsWith(path)
-    );
-
-    // ── Admin sahifalari himoyasi ─────────────────────────────────────────
-    if (isAdminPath && !isPublicAdminPath) {
-        const adminToken = request.cookies.get(ADMIN_AUTH_COOKIE)?.value;
-
-        if (!adminToken || !(await isValidAdminToken(adminToken))) {
-            const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
-            loginUrl.searchParams.set('from', pathname);
-            return NextResponse.redirect(loginUrl);
-        }
-    }
-
-    // ── Admin API'lari himoyasi ───────────────────────────────────────────
-    const isPublicAdminApi = PUBLIC_ADMIN_API_PATHS.some((path) =>
-        pathname.startsWith(path)
-    );
-
-    if (requiresAdminApiAuth(pathname, method) && !isPublicAdminApi) {
-        if (!(await hasValidAdminAuth(request))) {
-            const denied = NextResponse.json(
-                { error: "Ruxsat yo'q. Tizimga kirishingiz kerak." },
-                { status: 401 }
-            );
-            return pathname.startsWith('/api/')
-                ? applyCorsHeaders(request, denied)
-                : denied;
-        }
-    }
-
-    const response = NextResponse.next();
-    return pathname.startsWith('/api/')
-        ? applyCorsHeaders(request, response)
-        : response;
+  // Tilsiz manzil: til prefiksini qo'shib yo'naltirish
+  const url = req.nextUrl.clone();
+  const target = legacyTarget(pathname);
+  url.pathname = `/${defaultLocale}${target === '/' ? '' : target}`;
+  return withAttribution(req, NextResponse.redirect(url, 308));
 }
 
 export const config = {
-    matcher: [
-        '/admin/:path*',
-        '/api/:path*',
-    ],
+  matcher: [
+    // API, Next ichki fayllari, statik fayllar va SEO fayllaridan tashqari hammasi
+    '/((?!api|_next|images|uploads|og|favicon.ico|icon|robots.txt|sitemap.xml|feed.xml|.*\\.(?:png|jpg|jpeg|svg|webp|avif|ico|txt|xml|js|css)$).*)',
+  ],
 };

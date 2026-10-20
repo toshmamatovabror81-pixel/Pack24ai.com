@@ -1,117 +1,54 @@
-/**
- * @jest-environment node
- *
- * Markaziy rateLimit helper uchun unit testlar.
- * `next/server` Node Web API'larga muhtoj (Request/Response global), shu sabab
- * `jest-environment-node` ishlatamiz (default `jsdom` o'rniga).
- */
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import { rateLimit, extractClientIp, setRateLimitStore, type RateLimitStore } from '../rateLimit';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-function makeReq(headers: Record<string, string> = {}): Request {
-    return new Request('http://localhost/test', {
-        method: 'POST',
-        headers,
-    });
-}
+/**
+ * IP bo'yicha cheklov (parol tanlash, spam, promokod terish). Mijoz IP manzili X-Forwarded-For ning OXIRGI elementidan olinadi:
+ * uni proksi (nginx/Caddy) o'zi yozadi. Birinchi elementni mijoz o'zi yuborishi mumkin — nginx `$proxy_add_x_forwarded_for`
+ * uni saqlab, oxiriga haqiqiy manzilni qo'shadi; birinchisi olinsa har so'rovda boshqa manzil yozib cheklov chetlab o'tilardi.
+ */
+const h = vi.hoisted(() => ({ headers: new Map<string, string>() }));
+vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({ headers: async () => ({ get: (k: string) => h.headers.get(k.toLowerCase()) ?? null }) }));
+
+const { clientIp, rateLimit } = await import('@/lib/rateLimit');
+const set = (o: Record<string, string>) => { h.headers.clear(); for (const [k, v] of Object.entries(o)) h.headers.set(k.toLowerCase(), v); };
+
+beforeEach(() => h.headers.clear());
+
+describe('clientIp', () => {
+  it('X-Forwarded-For ning oxirgi (proksi yozgan) elementi olinadi, mijoz yozgan birinchisi emas', async () => {
+    set({ 'x-forwarded-for': '10.9.1.1, 84.54.70.12' });
+    expect(await clientIp()).toBe('84.54.70.12');
+    set({ 'x-forwarded-for': '10.9.1.1,10.9.2.2 , 84.54.70.12 ' });
+    expect(await clientIp()).toBe('84.54.70.12');
+    // Caddy sarlavhani butunlay almashtiradi: bitta element
+    set({ 'x-forwarded-for': '84.54.70.12' });
+    expect(await clientIp()).toBe('84.54.70.12');
+  });
+
+  it('X-Real-IP faqat zaxira (Caddy mijoz yuborgan X-Real-IP ni o\'zgartirmaydi — u birinchi o\'rinda ishlatilmaydi)', async () => {
+    set({ 'x-forwarded-for': '84.54.70.12', 'x-real-ip': '10.9.1.1' });
+    expect(await clientIp()).toBe('84.54.70.12');
+    set({ 'x-real-ip': '84.54.70.13' });
+    expect(await clientIp()).toBe('84.54.70.13');
+    set({});
+    expect(await clientIp()).toBe('unknown');
+    // Bo'sh yoki faqat vergul: ma'nosiz qiymat o'rniga zaxira
+    set({ 'x-forwarded-for': ' , ', 'x-real-ip': '84.54.70.14' });
+    expect(await clientIp()).toBe('84.54.70.14');
+  });
+});
 
 describe('rateLimit', () => {
-    beforeEach(() => {
-        // Har test boshida toza in-memory store
-        const fresh = new (class implements RateLimitStore {
-            private map = new Map<string, { count: number; resetAt: number }>();
-            async incr(key: string, windowMs: number, now: number) {
-                const existing = this.map.get(key);
-                if (!existing || existing.resetAt <= now) {
-                    const next = { count: 1, resetAt: now + windowMs };
-                    this.map.set(key, next);
-                    return next;
-                }
-                existing.count += 1;
-                return existing;
-            }
-        })();
-        setRateLimitStore(fresh);
-    });
-
-    describe('extractClientIp', () => {
-        it('cf-connecting-ip dan oladi', () => {
-            const req = makeReq({ 'cf-connecting-ip': '1.2.3.4' });
-            expect(extractClientIp(req)).toBe('1.2.3.4');
-        });
-
-        it('x-forwarded-for birinchi qiymatini oladi', () => {
-            const req = makeReq({ 'x-forwarded-for': '10.0.0.1, 10.0.0.2' });
-            expect(extractClientIp(req)).toBe('10.0.0.1');
-        });
-
-        it('x-real-ip fallback', () => {
-            const req = makeReq({ 'x-real-ip': '192.168.1.1' });
-            expect(extractClientIp(req)).toBe('192.168.1.1');
-        });
-
-        it('hech qanday header bo\'lmasa unknown', () => {
-            const req = makeReq();
-            expect(extractClientIp(req)).toBe('unknown');
-        });
-    });
-
-    describe('rateLimit', () => {
-        it('birinchi so\'rov ruxsat etiladi', async () => {
-            const req = makeReq({ 'cf-connecting-ip': '1.1.1.1' });
-            const res = await rateLimit(req, { bucket: 'test', limit: 3, windowMs: 60_000 });
-            expect(res.ok).toBe(true);
-            if (res.ok) {
-                expect(res.remaining).toBe(2);
-            }
-        });
-
-        it('limit ichida — ruxsat', async () => {
-            const req = makeReq({ 'cf-connecting-ip': '2.2.2.2' });
-            const a = await rateLimit(req, { bucket: 'test', limit: 3, windowMs: 60_000 });
-            const b = await rateLimit(req, { bucket: 'test', limit: 3, windowMs: 60_000 });
-            const c = await rateLimit(req, { bucket: 'test', limit: 3, windowMs: 60_000 });
-            expect(a.ok && b.ok && c.ok).toBe(true);
-        });
-
-        it('limit oshganda — 429 qaytaradi', async () => {
-            const req = makeReq({ 'cf-connecting-ip': '3.3.3.3' });
-            await rateLimit(req, { bucket: 'test', limit: 2, windowMs: 60_000 });
-            await rateLimit(req, { bucket: 'test', limit: 2, windowMs: 60_000 });
-            const blocked = await rateLimit(req, { bucket: 'test', limit: 2, windowMs: 60_000 });
-            expect(blocked.ok).toBe(false);
-            if (!blocked.ok) {
-                expect(blocked.response.status).toBe(429);
-                expect(blocked.retryAfterSec).toBeGreaterThan(0);
-                expect(blocked.response.headers.get('Retry-After')).toBeTruthy();
-            }
-        });
-
-        it('turli IP — alohida hisoblanadi', async () => {
-            const a = makeReq({ 'cf-connecting-ip': '4.4.4.4' });
-            const b = makeReq({ 'cf-connecting-ip': '5.5.5.5' });
-            await rateLimit(a, { bucket: 'test', limit: 1, windowMs: 60_000 });
-            const limitedA = await rateLimit(a, { bucket: 'test', limit: 1, windowMs: 60_000 });
-            const allowedB = await rateLimit(b, { bucket: 'test', limit: 1, windowMs: 60_000 });
-            expect(limitedA.ok).toBe(false);
-            expect(allowedB.ok).toBe(true);
-        });
-
-        it('turli bucket — alohida hisoblanadi', async () => {
-            const req = makeReq({ 'cf-connecting-ip': '6.6.6.6' });
-            await rateLimit(req, { bucket: 'login', limit: 1, windowMs: 60_000 });
-            const blocked = await rateLimit(req, { bucket: 'login', limit: 1, windowMs: 60_000 });
-            const allowedOther = await rateLimit(req, { bucket: 'otp', limit: 1, windowMs: 60_000 });
-            expect(blocked.ok).toBe(false);
-            expect(allowedOther.ok).toBe(true);
-        });
-
-        it('userKey ishlatilsa IP ga qaramaydi', async () => {
-            const reqA = makeReq({ 'cf-connecting-ip': '7.7.7.7' });
-            const reqB = makeReq({ 'cf-connecting-ip': '8.8.8.8' });
-            await rateLimit(reqA, { bucket: 'profile', limit: 1, windowMs: 60_000, userKey: 'u42' });
-            const blocked = await rateLimit(reqB, { bucket: 'profile', limit: 1, windowMs: 60_000, userKey: 'u42' });
-            expect(blocked.ok).toBe(false);
-        });
-    });
+  it('birinchi element har so\'rovda o\'zgartirilsa ham cheklov bitta manzilga tegishli bo\'lib qoladi', async () => {
+    const scope = `t-${Math.random()}`;
+    for (let i = 1; i <= 3; i += 1) {
+      set({ 'x-forwarded-for': `10.9.${i}.${i}, 84.54.70.12` });
+      expect(await rateLimit(scope, 3, 60_000)).toBe(true);
+    }
+    set({ 'x-forwarded-for': '10.9.9.9, 84.54.70.12' });
+    expect(await rateLimit(scope, 3, 60_000)).toBe(false);
+    // Boshqa haqiqiy manzil — o'z hisobi
+    set({ 'x-forwarded-for': '10.9.9.9, 84.54.70.99' });
+    expect(await rateLimit(scope, 3, 60_000)).toBe(true);
+  });
 });

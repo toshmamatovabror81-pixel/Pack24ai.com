@@ -1,0 +1,10 @@
+# Serverda boshqa sayt (nginx/apache) 80 va 443 portlarni egallagan bo'lsa ishlatiladigan rejim.
+# server-setup.sh buni docker-compose.override.yml sifatida nusxalaydi (docker compose uni o'zi o'qiydi):
+#   - Caddy ishga tushmaydi (HTTPS ni mavjud nginx beradi, qarang: deploy/nginx-pack24.conf)
+#   - sayt faqat shu serverning o'zida 127.0.0.1:WEB_PORT da tinglaydi (WEB_PORT .env da, standart 3010)
+services:
+  web:
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3010}:3000'
+  caddy:
+    profiles: ['caddy']
